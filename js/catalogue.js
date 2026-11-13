@@ -439,7 +439,7 @@ const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handbal
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "pilates"]];
 function listeRenfo() {
   const C = $("choicesCS"); C.innerHTML = ficheRenfo();
-  const F = sportsFrequents(GROUPES_RENFO.flatMap(g => g[2].split(" "))), ajout = k => bouton(C, CATS[k].titre, L(RENFOS[k][0], RENFOS[k][1]), CATS[k].couleur, () => vueMode(k)); tesSports(C, F, ajout);
+  const F = sportsFrequents(GROUPES_RENFO.flatMap(g => g[2].split(" "))), ajout = k => bouton(C, CATS[k].titre, k === "boxe" ? L("Parcours jusqu’au combat, technique, renfo, force, puissance, cardio, récup", "Plan up to your fight, technique, strength, power, cardio, recovery") : L(RENFOS[k][0], RENFOS[k][1]), CATS[k].couleur, () => vueMode(k)); tesSports(C, F, ajout);
   GROUPES_RENFO.forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(ajout); });
   C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L("Sans sport précis", "No specific sport")}</h2>`);
   bouton(C, "Renfo du corps", "Haut du corps, bas du corps ou tout le corps", CATS.renfo.couleur, () => vueZones());
@@ -449,7 +449,7 @@ function renduRenfo(grp) {
   const R = ROUTINES[SEANCE(grp)], F = RENFOS[grp], niv = lireNiv(), C = $("choicesM");
   C.innerHTML = `<div class="etude ech-fiche" style="--accent:${R.couleur}"><b>${L("Les qualités à développer", "Qualities to build")} : ${L(F[0], F[1])}</b><p>${L(F[2], F[3])}</p></div>
     <h2 class="sec">${L("Ton niveau", "Your level")}</h2><div class="stepper niv-choix">${NIV_RENFO.map(n => `<button class="toggle" data-n="${n[0]}" aria-pressed="${n[0] === niv}">${L(n[1], n[2])}</button>`).join("")}</div>
-    <p class="niv-txt">${L(...NIV_RENFO.find(n => n[0] === niv).slice(9))}</p><h2 class="sec">${L("Ta séance", "Your session")}</h2>`;
+    <p class="niv-txt">${L(...NIV_RENFO.find(n => n[0] === niv).slice(9))}</p><h2 class="sec">${L("Ton renfo", "Your strength session")}</h2>`;
   C.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { stocker("niveauRenfo", b.dataset.n); renduRenfo(grp); });
   [[0, "Poids du corps", "Bodyweight", "Sans matériel, partout", "No equipment, anywhere"], [1, "Avec matériel", "With equipment", "Kettlebell, haltères, barre Z, banc, poulie, élastique…", "Kettlebell, dumbbells, EZ bar, bench, cable, band…"]].forEach(([m, fr, en, dFr, dEn]) => { const s = seanceRenfo(grp, m, niv);
     bouton(C, `${L(fr, en)} · ${s.total} min`, `${L(dFr, dEn)} · ${L("4 blocs", "4 blocks")}`, R.couleur, () => { ROUTINES.renfo = seanceRenfo(grp, m, lireNiv()); CONSEILLES.renfo = ROUTINES.renfo.exercices; ouvrirRoutine("renfo"); }); });
@@ -461,6 +461,7 @@ function renduRenfo(grp) {
   C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L("Personnaliser", "Customise")}</h2>`);
   [["", "Poids du corps"], ["Mat", "Avec matériel"]].forEach(([s, t]) => { const k = SEANCE(grp) + s;
     bouton(C, `${L("Version libre", "Free version")} · ${T(t).toLowerCase()}`, L(`${ROUTINES[k].exercices.length} exercices à modifier, durées et repos réglables, à enregistrer`, `${ROUTINES[k].exercices.length} exercises to edit, adjustable work and rest, to save`), R.couleur, () => ouvrirRoutine(k)); });
+  if (CATS[grp]) C.insertAdjacentHTML("beforeend", `<div class="etude ech-fiche" style="--accent:#94A3B8"><b>${L("Bientôt pour ce sport", "Coming soon for this sport")}</b><p>${L("Parcours sur plusieurs semaines jusqu’à ton objectif, technique, puissance, récupération, tests et fiches savoir, sur le modèle de la boxe.", "A multi-week plan up to your goal, technique, power, recovery, tests and knowledge cards, following the boxing model.")}</p></div>`);
 }
 
 /* ============ TABATA ============

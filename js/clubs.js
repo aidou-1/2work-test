@@ -214,7 +214,7 @@ function ongSeances(Z, cb) {
 function feuillePublier() {
   let type = "cat", choix = null, fam = null; const fav = lireFav ? lireFav() : [];
   // « Parcourir » : le catalogue rangé comme dans l'appli, famille par famille
-  const FAM = [["ech", "🔥", "Échauffements par sport", "Warm-ups by sport", r => modeDe(r) === "echauffement"], ["sport", "💪", "Renfo par sport", "Strength by sport", r => modeDe(r) === "seance" && r.grp && !["haut", "bas", "complet"].includes(r.grp)],
+  const FAM = [["ech", "🔥", "Échauffements par sport", "Warm-ups by sport", r => modeDe(r) === "echauffement"], ["sport", "💪", "Sports", "Sports", r => modeDe(r) === "seance" && r.grp && !["haut", "bas", "complet"].includes(r.grp)],
     ["corps", "🧍", "Renfo du corps", "Body strength", r => modeDe(r) === "seance" && ["haut", "bas", "complet"].includes(r.grp)], ["salle", "🏋️", "Salle de musculation", "Gym", r => modeDe(r) === "salle"], ["tabata", "⏱️", "Tabata", "Tabata", r => modeDe(r) === "tabata"],
     ["etir", "🧘", "Étirements", "Stretching", r => r.cat === "etir"], ["souffle", "🌬️", "Respiration", "Breathing", r => r.cat === "coherence"], ["rep", "🩹", "Retour après blessure", "Back after injury", r => r.blessure]];
   const famDe = r => FAM.find(f => f[4](r));

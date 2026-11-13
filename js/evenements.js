@@ -56,8 +56,8 @@ function vue(nom, etat, titre, sous, avant) {
   });
 }
 const vueCats = () => vue("choicesC", "cats", "Échauffements", L("Méthode RAMP en 4 phases, adaptée à chaque sport. Choisis le tien.", "4-phase RAMP method, tailored to each sport. Pick yours."), listeSports);
-const vuePlan = () => vue("choicesP", "plan", "Entraînement", "Crée et enregistre ta séance, suis un objectif en salle, renforce-toi pour ton sport ou lance un Tabata.");
-const vueSCats = () => vue("choicesCS", "scats", "Renfo par sport", L("Séances en 4 blocs, 3 niveaux, prévention des blessures propre à chaque sport.", "4-block sessions, 3 levels, injury prevention specific to each sport."), listeRenfo);
+const vuePlan = () => vue("choicesP", "plan", "Entraînement", "Crée et enregistre ta séance, suis un objectif en salle, prépare-toi pour ton sport ou lance un Tabata.");
+const vueSCats = () => vue("choicesCS", "scats", L("Sports", "Sports"), L("Choisis ton sport : renfo, cardio et outils construits pour lui.", "Pick your sport: strength, cardio and tools built for it."), listeRenfo);
 function sousListe(conteneur, cat, etat, titre, sous) {
   const btns = [...$(conteneur).children].filter(b => b.dataset.cat === cat);
   if (btns.length === 1) return btns[0].click();
@@ -68,7 +68,7 @@ const vueZones = () => vue("choicesZ", "zones", "Renfo du corps", "Choisis ta zo
 let grpCourant = "";
 function vueMode(grp) {
   grpCourant = grp;
-  vue("choicesM", "smode", ROUTINES[SEANCE(grp)].titre, L("Séance en 4 blocs construite pour ton sport. Choisis ton niveau.", "4-block session built for your sport. Choose your level."), () => renduRenfo(grp));
+  vue("choicesM", "smode", CATS[grp] ? CATS[grp].titre : ROUTINES[SEANCE(grp)].titre, CATS[grp] ? L("Renfo, cardio et outils construits pour ton sport.", "Strength, cardio and tools built for your sport.") : L("Séance en 4 blocs. Choisis ton niveau.", "4-block session. Choose your level."), () => renduRenfo(grp));
 }
 const vueK = (cat, titre, sous) => sousListe("choicesK", cat, "kcat", titre, sous);
 

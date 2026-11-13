@@ -261,7 +261,7 @@ function bxSeance(code, o = {}) {
     ${S.cardio ? `<small>📍 ${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>🏃 ${alluresVma()}</small>` : ""}` : `<small>🧰 ${x.mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + x.mat.map(k => L(...BX_MAT.find(m => m[0] === k).slice(1))).join(", ") : L("Version au poids du corps (coche ton matériel dans Boxe pour l’utiliser)", "Bodyweight version (tick your equipment in Boxing to use it)")}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
   return { type: "seance", cat: "boxe", bx: code, fixe: true, couleur: S.c, plan: s.plan, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
 }
-let bxOnglet = "parcours";
+let bxOnglet = "parcours", bxRetour = null;
 function lancerBx(code, f) {
   const k = "bx_" + code; ROUTINES[k] = { ...bxSeance(code, { f }), retour: () => ouvrirBoxe(bxOnglet) }; CONSEILLES[k] = ROUTINES[k].exercices; ouvrirRoutine(k);
 }
@@ -306,13 +306,13 @@ function bxSemaine(P = bxPref(), decal = 0) {
 const ONGLETS_BX = [["parcours", "Mon parcours", "My plan"], ["technique", "Technique", "Technique"], ["force", "Force", "Strength"], ["puissance", "Puissance", "Power"], ["cardio", "Cardio", "Cardio"],
   ["recup", "Récup", "Recovery"], ["combat", "Combat", "Fight"], ["tests", "Tests", "Tests"], ["savoir", "Savoir", "Knowledge"]];
 const JOURS_BX = [["Lun", "Mon"], ["Mar", "Tue"], ["Mer", "Wed"], ["Jeu", "Thu"], ["Ven", "Fri"], ["Sam", "Sat"], ["Dim", "Sun"]];
-function ouvrirBoxe(onglet = bxOnglet) {
-  bxOnglet = onglet; const P = bxPref();
+function ouvrirBoxe(onglet = bxOnglet, rv) {
+  bxOnglet = onglet; if (rv) bxRetour = rv; const P = bxPref();
   outil(L("Boxe", "Boxing"), L("Ta préparation complète de boxeur : choisis une séance à la carte ou suis ton parcours.", "Your complete boxing preparation: pick any session or follow your plan."),
     `<div class="chips bx-onglets">${ONGLETS_BX.map(([k, f, e]) => `<button class="toggle" data-bxo="${k}" aria-pressed="${k === onglet}">${L(f, e)}</button>`).join("")}</div>
      ${["savoir", "tests"].includes(onglet) ? "" : `<div class="carnet bx-regl"><span class="champ-titre">${L("Durée de la séance", "Session length")}</span>${chips("bxd", [[20, "20 min", "20 min"], [35, "35 min", "35 min"], [50, "50 min", "50 min"]], P.dur)}
        <span class="champ-titre">${L("Ton matériel aujourd’hui", "Your equipment today")}</span><div class="chips">${BX_MAT.map(([k, f, e]) => `<button class="toggle" data-bxm="${k}" aria-pressed="${P.mat.includes(k)}">${L(f, e)}</button>`).join("")}</div>
-       <p class="sh-aide">${L("Rien de coché = version au poids du corps. Les séances choisissent l’exercice adapté à ce que tu as.", "Nothing ticked = bodyweight version. Sessions pick the exercise that fits what you have.")}</p></div>`}<div id="bxC"></div>`, vuePlan);
+       <p class="sh-aide">${L("Rien de coché = version au poids du corps. Les séances choisissent l’exercice adapté à ce que tu as.", "Nothing ticked = bodyweight version. Sessions pick the exercise that fits what you have.")}</p></div>`}<div id="bxC"></div>`, () => (bxRetour || vueSCats)());
   $("oCorps").querySelectorAll("[data-bxo]").forEach(b => b.onclick = () => { const y = scrollY; ouvrirBoxe(b.dataset.bxo); scrollTo(0, Math.min(y, 120)); });
   brancherChips("bxd", v => { bxGarder({ ...bxPref(), dur: +v }); rendu(); });
   $("oCorps").querySelectorAll("[data-bxm]").forEach(b => b.onclick = () => { const p = bxPref(), k = b.dataset.bxm; p.mat = p.mat.includes(k) ? p.mat.filter(x => x !== k) : [...p.mat, k]; b.setAttribute("aria-pressed", p.mat.includes(k)); bxGarder(p); rendu(); });
@@ -329,6 +329,11 @@ function ouvrirBoxe(onglet = bxOnglet) {
           <p class="prog-avert">${L("L’appli guide, mais ne corrige pas ton geste : fais-le vérifier par ton coach. Sparring uniquement encadré, avec protège-dents, bandages et casque.", "The app guides you but cannot correct your technique: have your coach check it. Sparring only when supervised, with gum shield, wraps and headguard.")}</p>`);
         C().querySelectorAll("[data-bxex]").forEach(li => li.onclick = () => ficheExercice(li.dataset.bxex)); },
       force: () => { titre(L("Séances de force", "Strength sessions")); ["forceA", "forceB", "gainage"].forEach(c => carte(c));
+        titre(L("Renfo boxe · circuit en 4 blocs", "Boxing strength · 4-block circuit")); const nv = lireNiv();
+        C().insertAdjacentHTML("beforeend", `<div class="stepper niv-choix">${NIV_RENFO.map(n => `<button class="toggle" data-bxr="${n[0]}" aria-pressed="${n[0] === nv}">${L(n[1], n[2])}</button>`).join("")}</div><p class="niv-txt">${L(...NIV_RENFO.find(n => n[0] === nv).slice(9))}</p>`);
+        C().querySelectorAll("[data-bxr]").forEach(b => b.onclick = () => { stocker("niveauRenfo", b.dataset.bxr); rendu(); });
+        [[0, "Poids du corps", "Bodyweight", "Sans matériel, partout", "No equipment, anywhere"], [1, "Avec matériel", "With equipment", "Kettlebell, haltères, élastique, sac…", "Kettlebell, dumbbells, band, bag…"]].forEach(([m, f, e, df, de]) => { const s = seanceRenfo("boxe", m, nv);
+          bouton(C(), `${L(f, e)} · ${s.total} min`, L(df, de) + " · " + L("échauffement, circuit, prévention, retour au calme", "warm-up, circuit, prevention, cool-down"), "#C8283C", () => { ROUTINES.renfo = { ...seanceRenfo("boxe", m, lireNiv()), retour: () => ouvrirBoxe("force") }; CONSEILLES.renfo = ROUTINES.renfo.exercices; ouvrirRoutine("renfo"); }); });
         C().insertAdjacentHTML("beforeend", ficheBx(1)); titre(L("Personnaliser", "Customise"));
         [["renfoBoxe", "au poids du corps", "bodyweight"], ["renfoBoxeMat", "avec matériel", "with equipment"]].forEach(([k, f, e]) => ROUTINES[k] && bouton(C(), L("Version libre · ", "Free version · ") + L(f, e), L(`${ROUTINES[k].exercices.length} exercices à modifier, à enregistrer dans tes séances`, `${ROUTINES[k].exercices.length} exercises to edit and save to your workouts`), "#C8283C", () => ouvrirRoutine(k))); },
       puissance: () => { titre(L("Séance de puissance", "Power session")); carte("puissance"); C().insertAdjacentHTML("beforeend", ficheBx(2)); },
@@ -370,6 +375,7 @@ function bxParcours(C, carte, rendu) {
       <span class="champ-titre">${L("Date de combat (facultatif)", "Fight date (optional)")}</span><div class="favForm"><input class="choixVoix" type="date" id="bxDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="bxDateX">${L("Effacer", "Clear")}</button></div>
       <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours pour finir la semaine du combat : semaine allégée, affûtage à J-2, repos à J-1. Sans date, les blocs s’enchaînent avec une semaine plus légère toutes les 4 semaines. Les séances dures évitent tes jours de club et leur veille.", "With a date, the 3 blocks are placed counting back to end on fight week: lighter week, taper 2 days out, rest the day before. Without a date, blocks follow each other with a lighter week every 4 weeks. Hard sessions avoid your club days and the day before.")}</p>
       ${P.niv === "debutant" && !P.cycle ? `<button class="toggle" id="bxCycle">${L("J’ai fini les Bases : passer au cycle complet", "I’ve finished the Basics: move to the full cycle")}</button>` : ""}
+      <button class="toggle" id="bxProg">📅 ${L("Programme 4 semaines : Exceller en cardio · boxe", "4-week programme: Excel at cardio · boxing")}</button>
       <button class="toggle" id="bxRaz">${L("Recommencer le parcours à cette semaine", "Restart the plan from this week")}</button></div>`);
   if (aFaire.length) aFaire.forEach(c => { const code = cle(c); carte(code, code === "avant" || code === "affutage" ? 1 : S.f < 1 ? S.f : undefined); C.querySelector("#bxAuj").appendChild(C.lastChild); });
   C.querySelectorAll("[data-bxl]").forEach(x => x.onclick = () => lancerBx(x.dataset.bxl, ["avant", "affutage"].includes(x.dataset.bxl) || S.f >= 1 ? undefined : S.f));
@@ -380,6 +386,7 @@ function bxParcours(C, carte, rendu) {
   $("bxDate").onchange = e => maj({ ...bxPref(), date: e.target.value });
   $("bxDateX").onclick = () => maj({ ...bxPref(), date: "" });
   if ($("bxCycle")) $("bxCycle").onclick = () => maj({ ...bxPref(), cycle: 1, debut: jourCle() });
+  $("bxProg").onclick = () => ouvrirProg("cardioBoxe");
   $("bxRaz").onclick = () => maj({ ...bxPref(), debut: jourCle() });
 }
 
@@ -401,8 +408,23 @@ const SAVOIR_BX = [
   ["🔄", "Mobilité : pourquoi chaque jour", "Mobility: why every day", "La garde ferme la poitrine et enroule les épaules ; la rotation répétée sollicite le haut du dos et les hanches. Une routine courte (5 à 10 min) avant chaque séance garde l’amplitude nécessaire pour tourner vite sans compenser avec le bas du dos. Travaille autant le côté faible que le fort.", "The guard closes the chest and rounds the shoulders; repeated rotation loads the upper back and hips. A short routine (5 to 10 min) before each session keeps the range you need to rotate fast without compensating with the lower back. Work your weak side as much as your strong side."]];
 const ficheBx = i => { const [ico, fr, en, tf, te] = SAVOIR_BX[i]; return `<details class="prog-info" style="--c:#C8283C"><summary>${ico} ${L(fr, en)}</summary><p>${L(tf, te)}</p></details>`; };
 
-/* --- Branchements : tuile « Boxe » dans Entraînement, et « Renfo par sport → Boxe » ouvre l'écran Boxe --- */
-bouton($("choicesP"), "Boxe", L("Parcours, technique, force, puissance, cardio, récup, combat", "Plan, technique, strength, power, cardio, recovery, fight"), "#C8283C", () => ouvrirBoxe());
-{ const P = $("choicesP"), b = P.lastChild, r = [...P.children].find(x => /Renfo par sport|Strength for your sport|Sport strength/.test(x.textContent)); P.insertBefore(b, r || P.children[3]); }
+/* --- Branchements : Sports → Boxe ouvre l'écran Boxe (le renfo boxe y est fusionné, onglet Force) --- */
 const vueModeAvantBoxe = vueMode;
-vueMode = grp => grp === "boxe" ? ouvrirBoxe() : vueModeAvantBoxe(grp);
+vueMode = grp => grp === "boxe" ? (bxRetour = null, ouvrirBoxe()) : vueModeAvantBoxe(grp);
+// Programmes : le programme « Exceller en cardio · boxe » reste, complété par les deux parcours de l'écran Boxe (Bases 6 semaines, cycle 3 blocs)
+const PARCOURS_BX = [["bases", "Boxe · Bases du boxeur", "Boxing · Boxer’s basics", "6 semaines pour débuter : garde, coups, défense, force de base et souffle, placées autour de tes jours de club.", "6 weeks to start: stance, punches, defence, base strength and fitness, placed around your club days.", "Débutant · 6 semaines · 2 à 5 séances par semaine", "Beginner · 6 weeks · 2 to 5 sessions a week", 6],
+  ["cycle", "Boxe · Cycle du boxeur", "Boxing · Boxer’s cycle", "3 blocs de 4 semaines (fondations, force, vitesse), calculés à rebours depuis ta date de combat, avec l’affûtage.", "3 blocks of 4 weeks (foundations, strength, speed), counted back from your fight date, with the taper.", "Club ou compétition · 12 semaines · 2 à 5 séances par semaine", "Club or competition · 12 weeks · 2 to 5 sessions a week", 12]];
+function cartesParcoursBx() {
+  const P = bxPref(), base = P.niv === "debutant" && !P.cycle, S = bxSemaine(P);
+  return PARCOURS_BX.map(([k, tf, te, df, de, mf, me, n]) => { const actif = !!lire("boxe") && (k === "bases") === base, w = actif ? Math.min(n, k === "bases" ? S.sem + 1 : (S.bloc - 1) * 4 + (P.date ? 0 : S.sem) + 1) : 0;
+    return `<button class="prog-carte" style="--c:#C8283C" data-bxp="${k}"><svg class="rond" viewBox="0 0 62 62"><circle cx="31" cy="31" r="26" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="7"/><circle cx="31" cy="31" r="26" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-dasharray="${163.4 * w / n} 200" transform="rotate(-90 31 31)"/><text x="31" y="38" text-anchor="middle">${actif ? w + "/" + n : "🥊"}</text></svg><div><strong>${L(tf, te)}</strong><span>${L(df, de)}</span><span class="prog-meta">${L(mf, me)}</span></div></button>`; }).join("");
+}
+const ouvrirProgsAvantBoxe = ouvrirProgs;
+ouvrirProgs = (...a) => {
+  ouvrirProgsAvantBoxe(...a); const z = $("pgListe").querySelector(".prog-zone"), c = z && z.querySelector('[data-p="cardioBoxe"]');
+  if (!z) return; c ? c.insertAdjacentHTML("afterend", cartesParcoursBx()) : z.insertAdjacentHTML("beforeend", cartesParcoursBx());
+  z.querySelectorAll("[data-bxp]").forEach(b => b.onclick = () => { const p = bxPref(), base = b.dataset.bxp === "bases";
+    if (base && !(p.niv === "debutant" && !p.cycle)) bxGarder({ ...p, niv: "debutant", cycle: 0, debut: jourCle() });
+    if (!base && p.niv === "debutant" && !p.cycle) bxGarder({ ...p, niv: "club", cycle: 1, debut: jourCle() });
+    ouvrirBoxe("parcours", () => ouvrirProgs()); });
+};
