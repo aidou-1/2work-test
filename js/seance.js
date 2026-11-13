@@ -237,10 +237,10 @@ function afficherEcran(nom) {
   ecranCourant = nom;
   if (nom !== "session") clearInterval(timer);
   $("plusRepos").classList.add("hidden");   // aucun chrono ne tourne hors de la séance
-  if (["menu", "reglages", "accueil", "profil", "planning", "page", "bienvenue", "outils", "outil", "moi", "infos"].includes(nom)) document.documentElement.style.setProperty("--accent", nom.startsWith("outil") ? "var(--vert)" : "var(--brand)");
+  if (["menu", "reglages", "accueil", "profil", "planning", "page", "bienvenue", "outils", "outil", "moi", "infos", "clubs"].includes(nom)) document.documentElement.style.setProperty("--accent", nom.startsWith("outil") ? "var(--vert)" : "var(--brand)");
   if (typeof garderEcran === "function") garderEcran(nom === "pret" || nom === "session");
-  ["accueil","menu","home","preview","session","pret","end","reglages","muscle","progres","progs","prog","recap","profil","planning","page","bienvenue","outils","outil","moi","infos"].forEach(s => $(s).classList.toggle("hidden", s !== nom));
-  $("quitBtn").classList.toggle("hidden", ["menu", "accueil", "reglages", "muscle", "progres", "progs", "prog", "recap", "profil", "planning", "page", "bienvenue", "outils", "outil", "moi", "infos"].includes(nom));
+  ["accueil","menu","home","preview","session","pret","end","reglages","muscle","progres","progs","prog","recap","profil","planning","page","bienvenue","outils","outil","moi","infos","clubs"].forEach(s => $(s).classList.toggle("hidden", s !== nom));
+  $("quitBtn").classList.toggle("hidden", ["menu", "accueil", "reglages", "muscle", "progres", "progs", "prog", "recap", "profil", "planning", "page", "bienvenue", "outils", "outil", "moi", "infos", "clubs"].includes(nom));
   if (nom === "menu" && typeof majTableau === "function") majTableau();
   if (nom === "menu" && typeof majSemaine === "function") majSemaine();
   if (nom === "menu" && typeof majBanniere === "function") majBanniere();
@@ -254,7 +254,7 @@ function afficherEcran(nom) {
   if (nom !== "outil") clearInterval(tMin);   // un minuteur libre ne tourne que sur son écran
   const onglet = { menu: "nMenu", progres: "nProgres", progs: "nProgs", outils: "nOutils", moi: "nMoi", reglages: "reglagesBtn" }[nom];   // barre de navigation : écrans principaux seulement
   $("nav").classList.toggle("hidden", !onglet); [...$("nav").children].forEach(b => b.setAttribute("aria-current", b.id === onglet ? "page" : "false"));
-  if (nom === "menu") { majReprise(); majVitalite(); majJeu(); majQuick();  if (typeof guideAuto === "function") guideAuto(); }
+  if (nom === "menu") { majReprise(); majVitalite(); majJeu(); majQuick();  if (typeof guideAuto === "function") guideAuto(); if (typeof majCarteClubs === "function") majCarteClubs(); }
   if (!["pret", "session"].includes(nom)) { clearTimeout(tSecours); $("voixSecours").classList.add("hidden"); }   // pas d'annonce de secours hors séance
   majVerrou();
 }

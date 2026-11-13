@@ -156,6 +156,7 @@ function celebrer() {
   const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: routineCle, t: routine.titre, m: mode, s: totalPrevu, n, c: routine.cat || routine.grp || "", b: routine.blessure ? 1 : 0, p: routine.prog ? 1 : 0, g: routine.gym || routine.salle ? 1 : 0, tb: routine.tbt ? 1 : 0, nv: routine.niv || "", e: mode === "tabata" || mode === "souffle" ? [] : ids.slice(0, 30), ...(fc.n && { fc: Math.round(fc.somme / fc.n), fcMax: fc.max }) });
   stocker("historique", JSON.stringify(h.slice(-3000)));
   if (routine.prog) progTerminer(routine.prog, routine.progI);
+  if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
   if (routine.reprise) repTerminer(routine.reprise, routine.repI);
   const S = statsGlobales(), neufs = verifierTrophees();
   $("fBilan").innerHTML = [[mn, L("minutes", "minutes")], [n, L(n > 1 ? "exercices" : "exercice", n > 1 ? "exercises" : "exercise")], [S.serie, L(S.serie > 1 ? "jours d’affilée" : "jour d’affilée", S.serie > 1 ? "days in a row" : "day in a row")]]

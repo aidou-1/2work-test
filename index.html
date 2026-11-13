@@ -72,6 +72,40 @@ html[data-theme="dark"] { color-scheme: dark;
 .i-fiche p { padding: 0 16px 12px 54px; color: var(--muted); font-size: .95rem; } .i-fiche p b { color: var(--ink); }
 .i-fiche .toggle { margin: 0 16px 14px 54px; }
 .i-ico { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: var(--soft); font-size: 1rem; }
+/* ----- Clubs ----- */
+.cl-point { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #E11D48; vertical-align: middle; margin-left: 4px; }
+.cl-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: #E11D48; color: #fff; font-size: .72rem; }
+.cl-intro { margin: 12px 0 4px; } .cl-attente { padding: 12px 16px; } .cl-attente small { display: block; color: var(--muted); }
+.cl-compte { padding: 14px 16px; } .cl-compte small { display: block; color: var(--muted); } .cl-compte .partage-btns { margin-top: 10px; }
+.cl-danger { color: #E11D48 !important; } .cl-danger-plein { background: #E11D48; }
+.cl-form { padding: 16px; margin-top: 8px; } .cl-form input, .cl-form textarea { width: 100%; } .cl-mode { margin-top: 12px; }
+.cl-case { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 12px; font-size: .9rem; color: var(--muted); } .cl-case input { flex: none; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--brand); }
+.cl-erreur { color: #E11D48; font-weight: 600; font-size: .9rem; min-height: 1em; } .cl-note { margin-top: 12px; text-align: center; }
+.cl-scan { width: 100%; border-radius: 16px; background: #000; }
+.cl-invit { padding: 22px 18px; text-align: center; margin-top: 14px; } .cl-invit h2 { font-family: var(--titre); font-size: 1.8rem; margin: 8px 0; } .cl-invit p { color: var(--muted); }
+.cl-blason { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; color: #fff; font-family: var(--titre); font-weight: 800; font-size: 1.6rem; background: var(--c); }
+.cl-onglets { margin-top: 6px; position: sticky; top: 0; z-index: 3; background: var(--bg); padding-top: 6px; }
+.cl-publier { margin: 4px 0 6px; }
+.cl-seance { padding: 14px 16px; margin: 10px 0; } .cl-seance b { display: block; font-family: var(--titre); font-size: 1.3rem; line-height: 1.1; margin: 2px 0 4px; } .cl-seance p { color: var(--muted); font-size: .92rem; }
+.cl-s-haut { display: flex; justify-content: space-between; align-items: center; } .cl-s-haut small { color: var(--accent-txt); font-weight: 700; text-transform: capitalize; }
+.cl-seance .partage-btns { margin-top: 10px; } .cl-fait { color: var(--ok) !important; border-color: var(--ok) !important; }
+.cl-suivi { margin-top: 10px; } .cl-suivi summary { cursor: pointer; font-weight: 600; color: var(--muted); } .cl-suivi > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cl-qui { padding: 4px 10px; border-radius: 999px; background: var(--soft); font-size: .85rem; color: var(--muted); } .cl-qui.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.cl-choix { max-height: 34vh; overflow-y: auto; margin: 6px 0 12px; } .cl-choix li { cursor: pointer; } .cl-choix li.cl-sel { background: color-mix(in srgb, var(--brand) 14%, transparent); }
+.cl-chat { display: flex; flex-direction: column; gap: 6px; height: calc(100dvh - 330px); min-height: 280px; overflow-y: auto; padding: 8px 2px; }
+.cl-jour { align-self: center; font-size: .75rem; color: var(--muted); padding: 2px 10px; border-radius: 999px; background: var(--soft); margin: 6px 0; text-transform: capitalize; }
+.cl-msg { align-self: flex-start; max-width: 82%; padding: 8px 12px 6px; border-radius: 18px 18px 18px 6px; background: var(--surface); border: 1px solid var(--ligne); cursor: pointer; }
+.cl-msg.moi { align-self: flex-end; border-radius: 18px 18px 6px 18px; background: color-mix(in srgb, var(--brand) 18%, var(--surface)); }
+.cl-msg > b { display: block; font-size: .82rem; } .cl-msg p { white-space: pre-wrap; overflow-wrap: anywhere; } .cl-msg small { display: block; text-align: right; font-size: .7rem; color: var(--muted); }
+.cl-msg.suppr p { font-style: italic; color: var(--muted); } .cl-msg q { display: block; quotes: none; font-size: .82rem; color: var(--muted); border-left: 3px solid var(--brand); padding-left: 8px; margin: 2px 0 4px; }
+.cl-reac { padding: 2px 8px; margin: 4px 4px 0 0; font-size: .85rem; background: var(--soft); border: 1px solid transparent; } .cl-reac.moi { border-color: var(--brand); }
+.cl-saisie { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); background: var(--bg); }
+.cl-saisie textarea { flex: 1; min-height: 46px; max-height: 120px; padding: 12px 16px; border-radius: 23px; border: 1px solid var(--ligne); background: var(--surface); color: var(--ink); font: inherit; resize: none; }
+.cl-saisie .toggle { min-width: 0; width: 46px; height: 46px; padding: 0; } .cl-saisie .sh-aide { width: 100%; text-align: center; }
+.cl-rep { width: 100%; font-size: .85rem; color: var(--muted); border-left: 3px solid var(--brand); padding-left: 8px; } .cl-rep button { background: none; color: var(--muted); padding: 0 6px; }
+.cl-apercu { color: var(--muted); } .cl-emojis { display: flex; justify-content: space-between; } .cl-emojis button { font-size: 1.7rem; width: 54px; height: 54px; background: var(--soft); }
+.cl-desc { color: var(--muted); margin: 8px 0; } .cl-inv { padding: 16px; display: grid; gap: 10px; } .cl-inv input { width: 100%; font-size: .85rem; }
+.cl-qr { width: 200px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 6px; } .cl-qr:empty { display: none; } .cl-qr svg { display: block; width: 100%; height: auto; }
 /* ----- Base ----- */
 * { box-sizing: border-box; margin: 0; }
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -873,6 +907,12 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 <label class="recherche"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="iRecherche" type="search" autocomplete="off" enterkeyhint="search"></label>
 <div id="iCorps"></div>
 </section>
+<section id="clubs" class="hidden">
+<button class="back" id="clRetour">← Retour</button>
+<h1 id="clTitre">Clubs</h1>
+<p class="sub" id="clSub"></p>
+<div id="clCorps"></div>
+</section>
 <section id="bienvenue" class="hidden"><button class="lien-discret bv-passer" id="bvPasser">Passer</button><div id="bvCorps"></div></section>
 <section id="moi" class="hidden"><div class="entete"><h1 id="moiTitre">Moi</h1></div><div id="moiCorps"></div></section>
 <section id="profil" class="hidden"><button class="back" id="profilRetour">← Retour</button><h1 id="pfTitre"></h1><p class="sub" id="pfSub"></p><div id="pfCorps"></div></section>
@@ -951,5 +991,6 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 <script src="js/jeu.js"></script>
 <script src="js/moi.js"></script>
 <script src="js/guide.js"></script>
+<script src="js/clubs.js"></script>
 </body>
 </html>
