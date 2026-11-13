@@ -50,7 +50,8 @@ function spPlan(sp, code, k, x) {
     blocs.push([nb, l.map(([id, d, , , a]) => [id, (tours > 1 ? tours + " × " : "") + (a || duTxt(d))]), L(dF, dE || dF)]);
   });
   plan[plan.length - 1].r = 0;
-  return { plan, blocs, total: Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60) };
+  const dist = tout.reduce((s, [, , , , tours, , items]) => s + tours * items.reduce((a, i) => a + (spChoix(i[0], x.mat) ? +((String(i[4] || "").match(/^(\d+) m$/) || [])[1] || 0) : 0), 0), 0);   // natation : mètres
+  return { plan, blocs, dist, total: Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60) };
 }
 function spSeance(sp, code, o = {}) {
   const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, x = { mat, dur: o.dur || P.dur, niv: P.niv, P, sac: mat.includes("gants"), court: o.f < 1, f: o.f || 1 }, cible = Math.round(x.dur * (o.f || 1));
@@ -60,7 +61,7 @@ function spSeance(sp, code, o = {}) {
   const html = `<li class="etude prog-carte-jour" style="--accent:${S.c}"><div><small><b>${L(...S.t)}${dur}${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</b></small><small>🎯 ${L(...S.d)}</small>
     <small>💬 ${L("Effort visé", "Target effort")} ${S.rpe}/10 ${L("(0 repos · 5 modéré · 8 très dur · 10 maximum)", "(0 rest · 5 moderate · 8 very hard · 10 max)")}${zr && /8|9|10/.test(S.rpe) && S.cardio ? L(` · zone rouge : ${zr} bpm et plus sur les efforts durs`, ` · red zone: ${zr} bpm and above on hard efforts`) : ""}</small>
     ${S.cardio ? `<small>📍 ${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>🏃 ${alluresVma()}</small>` : ""}` : `<small>🧰 ${mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + mat.filter(k => G.mat.includes(k)).map(k => L(...MAT_X[k])).join(", ") : L(`Version sans matériel (coche ton matériel dans ${G.nom[0]} pour l’utiliser)`, `No-equipment version (tick your equipment in ${G.nom[1]} to use it)`)}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
-  return { type: "seance", cat: sp, sp: code, fixe: true, couleur: S.c, plan: s.plan, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
+  return { type: "seance", cat: sp, sp: code, fixe: true, couleur: S.c, plan: s.plan, dist: s.dist, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
 }
 const spOnglet = {}, spRetour = {};
 function lancerSp(sp, code, f) {
@@ -82,7 +83,7 @@ function ouvrirSport(sp, onglet, rv) {
   $("oCorps").querySelectorAll("[data-bxm]").forEach(b => b.onclick = () => { const p = spPref(sp), k = b.dataset.bxm; p.mat = p.mat.includes(k) ? p.mat.filter(x => x !== k) : [...p.mat, k]; b.setAttribute("aria-pressed", p.mat.includes(k)); spGarder(sp, p); rendu(); });
   const C = () => $("bxC");
   const h = { sp, P, C, titre: t => C().insertAdjacentHTML("beforeend", `<h2 class="sec">${t}</h2>`), html: t => C().insertAdjacentHTML("beforeend", t), fiche: i => C().insertAdjacentHTML("beforeend", ficheSp(sp, i)),
-    carte: (code, f) => { const s = spSeance(sp, code, { f }), S = G.S[code]; bouton(C(), `${L(...S.t)} · ${s.total} min`, L(...S.d), S.c, () => lancerSp(sp, code, f)); },
+    carte: (code, f) => { const s = spSeance(sp, code, { f }), S = G.S[code]; bouton(C(), `${L(...S.t)} · ${s.total} min${s.dist ? ` · ${s.dist} m` : ""}`, L(...S.d), S.c, () => lancerSp(sp, code, f)); },
     cartes: l => l.forEach(c => h.carte(c)), ouvrir: o => ouvrirSport(sp, o), rendu: () => rendu(),
     gestes: (l, avert) => { C().insertAdjacentHTML("beforeend", `<ul class="list carnet bx-gestes">${l.filter(id => EXERCICES[id]).map(id => `<li class="bloc-ex" data-bxex="${id}">${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div><span class="duree">›</span></li>`).join("")}</ul>${avert ? `<p class="prog-avert">${avert}</p>` : ""}`);
       C().querySelectorAll("[data-bxex]").forEach(li => li.onclick = () => ficheExercice(li.dataset.bxex)); },
@@ -180,7 +181,7 @@ const seancesEquipe = (sp, mob) => ({
 
 /* --- Sports à objectif daté (cyclisme, natation, ski…) : 3 blocs de 4 semaines à rebours de la date, affûtage, séance J-2, repos J-1 ; sans date, blocs en boucle avec une semaine allégée.
    SP[sport].objectif = { objs [[clé, FR, EN]], debut { obj, sem (semaines), txt [FR, EN, texte FR, EN] } facultatif, blocs [[nom FR, EN, texte FR, EN]] × 3, sem(P, bloc, semaine) → séances par priorité,
-   dur (séances dures), longue (séance du week-end), taper(P) → semaines d'affûtage, jour [ico, FR, EN] (jour J), ech, profil [FR, EN], fiche(P, S), date [FR, EN] (libellé de la date) } */
+   dur (séances dures), longue (séance du week-end), taper(P) → semaines d'affûtage, jour [ico, FR, EN] (jour J), ech, profil [FR, EN], fiche(P, S), date [FR, EN] (libellé de la date), n (choix du nombre de séances, facultatif) } */
 function semaineObjectif(E, P) {
   const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c), w0 = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5));
   const cse = P.date ? new Date(P.date + "T12:00") : null, D = E.debut; let bloc = 1, f = 1, info, fixes = {}, liste;
@@ -206,7 +207,7 @@ function parcoursObjectif(h) {
   h.C().querySelectorAll(".bx-s[disabled]").forEach(b => b.textContent.startsWith(E.jour[0]) && (b.disabled = false, b.onclick = () => vueEch(E.ech)));
   h.html(`<h2 class="sec">${L(...E.profil)}</h2><div class="carnet bx-prof">
     <span class="champ-titre">${L("Mon objectif", "My goal")}</span>${chips("obo", E.objs, P.obj)}
-    <span class="champ-titre">${L("Séances par semaine", "Sessions per week")}</span>${chips("obk", [2, 3, 4, 5, 6].map(n => [n, n, n]), P.n)}
+    <span class="champ-titre">${L("Séances par semaine", "Sessions per week")}</span>${chips("obk", (E.n || [2, 3, 4, 5, 6]).map(n => [n, n, n]), P.n)}
     <span class="champ-titre">${L("Mes jours de club ou d’entraînement collectif (facultatif)", "My club or group training days (optional)")}</span>${choixJours("obj", P.jours)}
     ${E.debut && P.obj === E.debut.obj ? "" : `<span class="champ-titre">${L(...E.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="obDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="obDateX">${L("Effacer", "Clear")}</button></div>`}
     <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours et la fin est allégée (affûtage). La séance longue se place le week-end, les séances dures ne se suivent pas.", "With a date, the 3 blocks are counted back and the end is lighter (taper). The long session goes on the weekend, hard sessions are never back to back.")}</p>
