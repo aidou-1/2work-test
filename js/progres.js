@@ -156,6 +156,7 @@ function celebrer() {
   const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: routineCle, t: routine.titre, m: mode, s: totalPrevu, n, c: routine.cat || routine.grp || "", b: routine.blessure ? 1 : 0, p: routine.prog ? 1 : 0, g: routine.gym || routine.salle ? 1 : 0, tb: routine.tbt ? 1 : 0, nv: routine.niv || "", e: mode === "tabata" || mode === "souffle" ? [] : ids.slice(0, 30), ...(fc.n && { fc: Math.round(fc.somme / fc.n), fcMax: fc.max }) });
   stocker("historique", JSON.stringify(h.slice(-3000)));
   if (routine.prog) progTerminer(routine.prog, routine.progI);
+  if (typeof compter === "function") { if (routine.s1) s1Valider(routine.s1); compter("seance", "seance_" + (mode === "tabata" ? "tabata" : routine.cat || routine.grp || routineCle)); }
   if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
   if (typeof apresSeance === "function") apresSeance();
   if (routine.reprise) repTerminer(routine.reprise, routine.repI);
