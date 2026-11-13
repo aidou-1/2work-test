@@ -92,7 +92,7 @@ async function proposerRestauration() {
 }
 
 /* --- Inscription et connexion --- */
-function renduCompte(C, mode) {
+function renduCompte(C, mode, apres) {   // apres : suite de l’accueil du premier lancement, une fois le compte créé ou connecté
   const ins = mode === "inscription";
   C.innerHTML = `<div class="chips cl-mode">${[["inscription", "Créer un compte", "Create an account"], ["connexion", "Se connecter", "Sign in"]].map(([k, f, e]) => `<button class="toggle" data-mode="${k}" aria-pressed="${k === mode}">${L(f, e)}</button>`).join("")}</div>
     <form class="carnet cl-form" id="clForm" novalidate>
@@ -107,7 +107,7 @@ function renduCompte(C, mode) {
       <button class="primary" type="submit" id="cfOk">${ins ? L("Créer mon compte", "Create my account") : L("Me connecter", "Sign in")}</button>
       ${ins ? "" : `<button class="lien-discret" type="button" id="cfOubli">${L("Mot de passe oublié ?", "Forgot password?")}</button>`}</form>
     <p class="sh-aide cl-note">${L("Le compte sert seulement aux clubs. Le reste de l’appli marche toujours sans compte, et ton suivi reste sur ton téléphone.", "The account is only for clubs. The rest of the app still works without an account, and your progress stays on your phone.")}</p>`;
-  C.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => renduCompte(C, b.dataset.mode));
+  C.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => renduCompte(C, b.dataset.mode, apres));
   C.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { const [f, e, h] = PAGES[b.dataset.pg]; ouvrirFeuilleInfo(L(f, e), h()); });
   const err = t => { $("cfErreur").textContent = t; }, v = id => ($(id) ? $(id).value.trim() : "");
   if (ins) {
@@ -115,6 +115,7 @@ function renduCompte(C, mode) {
       if (!p) return I.textContent = ""; if (!SV.PSEUDO_OK.test(p)) return I.textContent = L("3 à 20 caractères : lettres, chiffres, . _ -", "3 to 20 characters: letters, digits, . _ -");
       tp = setTimeout(async () => { I.textContent = (await SV.pseudoLibre(p).catch(() => true)) ? "✓ " + L("Disponible", "Available") : "✕ " + L("Déjà pris", "Already taken"); }, 400); };
     $("cfNais").onchange = () => $("cfParentBloc").classList.toggle("hidden", !(v("cfNais") && ageDe(v("cfNais")) < 15));
+    if (lireProfil().naissance) { $("cfNais").value = lireProfil().naissance; $("cfNais").onchange(); }   // déjà donnée dans le profil
   }
   $("clForm").onsubmit = async e => {
     e.preventDefault(); err("");
@@ -125,7 +126,8 @@ function renduCompte(C, mode) {
       if (!/^(?=.*[a-z])(?=.*[0-9]).{8,}$/.test($("cfMdp").value)) return err(msgErr({ code: "auth/weak-password" }));
       if (!$("cfAccord").checked) return err(L("Coche la case d’accord pour continuer.", "Tick the consent box to continue.")); }
     $("cfOk").disabled = true;
-    try { ins ? await SV.inscription({ email: v("cfEmail"), mdp: $("cfMdp").value, pseudo: v("cfPseudo"), naissance: v("cfNais"), parental: ageDe(v("cfNais")) < 15 }) : await SV.connexion(v("cfEmail"), $("cfMdp").value); }
+    try { ins ? await SV.inscription({ email: v("cfEmail"), mdp: $("cfMdp").value, pseudo: v("cfPseudo"), naissance: v("cfNais"), parental: ageDe(v("cfNais")) < 15 }) : await SV.connexion(v("cfEmail"), $("cfMdp").value);
+      if (ins && !lireProfil().naissance) ecrireProfil("naissance", v("cfNais")); if (apres) apres(); }
     catch (x) { err(msgErr(x)); $("cfOk").disabled = false; }
   };
   if ($("cfOubli")) $("cfOubli").onclick = async () => { if (!v("cfEmail")) return err(L("Écris d’abord ton email ci-dessus.", "Type your email above first."));

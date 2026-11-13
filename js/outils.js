@@ -364,14 +364,15 @@ const AVIS_THEMES = [["Séances guidées", "Guided workouts"], ["Voix et consign
 // (Un envoi direct, sans passer par cette page, arrivait dans la feuille avec toutes les cases vides.)
 const lienAvis = r => `https://docs.google.com/forms/d/e/${AVIS_FORM.id}/viewform?usp=pp_url&` + new URLSearchParams(Object.entries(AVIS_FORM.contexte ? r : { ...r, message: [r.message, "— " + r.contexte].filter(Boolean).join("\n"), contexte: "" })
   .filter(([k, v]) => AVIS_FORM[k] && v !== "").map(([k, v]) => ["entry." + AVIS_FORM[k], String(v)]));
-function ouvrirAvis() {
+function ouvrirAvis(sujet) {   // sujet : sport en refonte dont on demande l’avis (facultatif)
   let note = 0; const zone = (k, ph) => `<textarea id="avisTxt-${k}" class="choixVoix avis-zone" rows="2" maxlength="800" placeholder="${ph}"></textarea>`, groupe = (k, l) => `<div class="chips avis-choix" data-g="${k}">${l.map(([f, e], i) => `<button class="toggle" data-i="${i}" aria-pressed="false">${L(f, e)}</button>`).join("")}</div>`;
-  ouvrirFeuilleInfo(L("Ton avis sur 2 WORK", "Your feedback on 2 WORK"), `<p class="sh-aide">${L("Deux minutes pour dire ce qui marche et ce qui coince : chaque avis est lu et sert à décider des prochaines améliorations.", "Two minutes to say what works and what does not: every review is read and decides the next improvements.")}</p>
+  if (typeof sujet !== "string") sujet = "";
+  ouvrirFeuilleInfo(sujet ? L("Ton avis : ", "Your feedback: ") + sujet : L("Ton avis sur 2 WORK", "Your feedback on 2 WORK"), `<p class="sh-aide">${L("Deux minutes pour dire ce qui marche et ce qui coince : chaque avis est lu et sert à décider des prochaines améliorations.", "Two minutes to say what works and what does not: every review is read and decides the next improvements.")}</p>
     <div class="avis-etoiles">${[1, 2, 3, 4, 5].map(k => `<button data-n="${k}" aria-label="${k}/5">★</button>`).join("")}</div>
     <span class="champ-titre">${L("Ce que tu as aimé", "What you liked")}</span>${groupe("aime", AVIS_THEMES.slice(0, -1))}${zone("aime", L("Dis-nous ce qui t’a plu, avec un exemple si possible…", "Tell us what you liked, with an example if you can…"))}
     <span class="champ-titre">${L("Ce qui t’a gêné ou manqué", "What bothered you or was missing")}</span>${groupe("gene", AVIS_THEMES)}${zone("gene", L("Dis-nous ce qui t’a gêné ou ce qui t’a manqué…", "Tell us what bothered you or what was missing…"))}
     <span class="champ-titre">${L("Penses-tu que cette appli peut t’être pratique ?", "Do you think this app can be useful to you?")}</span><div class="chips avis-choix" data-g="pratique">${[["Oui", "Yes"], ["Non", "No"]].map(([f, e]) => `<button class="toggle" data-v="${f}" aria-pressed="false">${L(f, e)}</button>`).join("")}</div>
-    <textarea id="avisTxt" class="choixVoix" rows="4" maxlength="1500" placeholder="${L("Autre chose à nous dire ? (facultatif)", "Anything else to tell us? (optional)")}"></textarea>
+    <textarea id="avisTxt" class="choixVoix" rows="4" maxlength="1500" placeholder="${sujet ? L("Ce que tu changerais ou ajouterais pour ce sport : exercices, séances, réalisme…", "What you would change or add for this sport: exercises, sessions, realism…") : L("Autre chose à nous dire ? (facultatif)", "Anything else to tell us? (optional)")}"></textarea>
     <p class="sh-aide">🔒 ${L("Avis anonyme : partent seulement ta note, tes choix, ton message et quelques infos techniques (nombre de séances, niveau, type de téléphone, langue).", "Anonymous feedback: only your rating, choices, message and a few technical details (number of workouts, level, phone type, language) are sent.")}</p>
     <button class="primary" id="avisOk">${L("Envoyer mon avis", "Send my feedback")}</button><p class="sh-ok" id="avisEtat"></p>`);
   const E = [...document.querySelectorAll(".avis-etoiles button")], etat = t => { $("avisEtat").textContent = t; };
@@ -381,6 +382,7 @@ function ouvrirAvis() {
   $("avisOk").onclick = async () => {
     const P = document.querySelector('[data-g="pratique"] [aria-pressed="true"]'), r = { note: note || "", aime: choisis("aime"), gene: choisis("gene"), message: $("avisTxt").value.trim(), pratique: P ? P.dataset.v : "" };
     if (!note && !r.aime && !r.gene && !r.message && !r.pratique) return etat(L("Choisis une note, un thème ou écris un mot.", "Pick a rating, a topic or write a few words."));
+    if (sujet) r.message = [`[${L("Refonte", "Rework")} · ${sujet}]`, r.message].filter(Boolean).join("\n");
     r.contexte = [`${lireHist().length} ${L("séances", "workouts")}`, `${L("niveau", "level")} ${niveauXp().n}`, installee() ? L("appli installée", "installed app") : L("navigateur", "browser"),
       iOS() ? "iOS" : /android/i.test(navigator.userAgent) ? "Android" : L("ordinateur", "computer"), LANGUE].filter(Boolean).join(" · ");
     stocker("avisDonnes", (+lire("avisDonnes") || 0) + 1);

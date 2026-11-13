@@ -356,16 +356,23 @@ const parCat = {}; [...$("choicesC").children].forEach(b => parCat[b.dataset.k] 
 const GROUPES_ECH = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course cyclisme natation"],
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "yoga pilates"], ["Avant la musculation", "Before strength training", "renfo"]];
 /* Les sports pratiqués le plus souvent ces 90 derniers jours (toutes séances de l'historique confondues) passent en tête des listes, sous « Tes sports » */
-function sportsFrequents(dispo, max = 4) {
+function sportsFrequents(dispo, max = 4) {   // d'abord les sports pratiqués ou qui te tentent (questionnaire d'accueil), puis les plus pratiqués dans l'appli
   const depuis = jourCle(new Date(Date.now() - 90 * 864e5)), n = {};
   lireHist().forEach(x => { if (x.j >= depuis && dispo.includes(x.c)) n[x.c] = (n[x.c] || 0) + 1; });
-  return Object.keys(n).sort((a, b) => n[b] - n[a]).slice(0, max);
+  return [...new Set([...dispo.filter(k => scorePref(k) >= 6).sort(triPref), ...Object.keys(n).sort((a, b) => n[b] - n[a])])].slice(0, max + 2);
 }
+/* Préférences du questionnaire d'accueil : environnements et style de chaque sport. Score : pratiqué 10, me tente 6, environnement 2 chacun, style 2 */
+const SP_PREF = { foot: "ext salle|equipe", basket: "salle ext|equipe", handball: "salle|equipe", volley: "salle ext|equipe", tennis: "ext salle|duel", padel: "ext salle|duel", course: "ext|seul",
+  cyclisme: "ext maison|seul", natation: "eau|seul", boxe: "salle maison|combat", escalade: "salle montagne|seul", ski: "montagne|seul", surf: "eau|seul", yoga: "maison salle|seul", pilates: "maison salle|seul", renfo: "maison salle|seul" };
+const scorePref = k => { const p = lireProfil(), [env, st] = (SP_PREF[k] || "|").split("|");
+  return ((p.sportsPratiques || []).includes(k) ? 10 : 0) + ((p.sportsEnvie || []).includes(k) ? 6 : 0) + (p.envs || []).filter(e => env.split(" ").includes(e)).length * 2 + ((p.styles || []).includes(st) ? 2 : 0); };
+const triPref = (a, b) => scorePref(b) - scorePref(a);
+const groupesPref = G => [...G].sort((a, b) => Math.max(...b[2].split(" ").map(scorePref)) - Math.max(...a[2].split(" ").map(scorePref)));   // familles les plus proches de tes réponses en premier
 const tesSports = (C, l, ajouter) => { if (!l.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L("Tes sports", "Your sports")}</h2>`); l.forEach(ajouter); };
 function listeSports() {   // guide en tête, sports regroupés par famille (reconstruit à chaque ouverture pour suivre la langue)
   const C = $("choicesC"); C.innerHTML = ficheEch();
   const F = sportsFrequents(GROUPES_ECH.flatMap(g => g[2].split(" "))); tesSports(C, F, k => parCat[k] && C.appendChild(parCat[k]));
-  GROUPES_ECH.forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(k => parCat[k] && C.appendChild(parCat[k])); });
+  groupesPref(GROUPES_ECH).forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)).sort(triPref); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(k => parCat[k] && C.appendChild(parCat[k])); });
   Object.values(parCat).forEach(b => !b.isConnected && C.appendChild(b));
 }
 
@@ -440,7 +447,7 @@ const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handbal
 function listeRenfo() {
   const C = $("choicesCS"); C.innerHTML = ficheRenfo();
   const F = sportsFrequents(GROUPES_RENFO.flatMap(g => g[2].split(" "))), ajout = k => bouton(C, CATS[k].titre, SP[k] ? L(...SP[k].resume) : L(RENFOS[k][0], RENFOS[k][1]), CATS[k].couleur, () => vueMode(k)); tesSports(C, F, ajout);
-  GROUPES_RENFO.forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(ajout); });
+  groupesPref(GROUPES_RENFO).forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)).sort(triPref); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(ajout); });
   C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L("Sans sport précis", "No specific sport")}</h2>`);
   bouton(C, "Renfo du corps", "Haut du corps, bas du corps ou tout le corps", CATS.renfo.couleur, () => vueZones());
 }

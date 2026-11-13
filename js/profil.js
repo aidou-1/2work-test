@@ -84,7 +84,8 @@ async function exporterTcx() {
    (formule de Tanaka : 208 − 0,7 × âge) et aux recommandations. Le niveau est partagé avec le renfo (« niveauRenfo »). */
 const OBJECTIFS = [["forme", "Être en forme", "Get fit", "#16A34A"], ["perte", "Perdre du poids", "Lose weight", "#EA580C"], ["muscle", "Prendre du muscle", "Build muscle", "#334E68"],
   ["perf", "Performer dans mon sport", "Perform in my sport", "#7B5EA7"], ["souplesse", "Souplesse et bien-être", "Flexibility and well-being", "#0F8A78"]];
-const lireProfil = () => lireJSON("profil", {});
+const ageNais = n => { const a = new Date(n), j = new Date(); return j.getFullYear() - a.getFullYear() - (j < new Date(j.getFullYear(), a.getMonth(), a.getDate()) ? 1 : 0); };
+const lireProfil = () => { const p = lireJSON("profil", {}); if (p.naissance) { const a = ageNais(p.naissance); if (a >= 4 && a <= 110) p.age = a; } return p; };   // l'âge suit la date de naissance
 const poidsKg = () => { const p = +lireProfil().poids; return p >= 30 && p <= 250 ? p : 70; };
 function ecrireProfil(champ, v) { const p = lireProfil(); p[champ] = v; stocker("profil", JSON.stringify(p)); if (champ === "niveau") stocker("niveauRenfo", v); }
 const sportsRenfo = () => Object.keys(RENFOS).filter(k => CATS[k]);
@@ -92,6 +93,15 @@ function zonesFc(age) {
   const fc = Math.round(208 - .7 * age);
   return [fc, [[50, 60, "Récupération", "Recovery", "#60A5FA"], [60, 70, "Endurance", "Endurance", "#34D399"], [70, 80, "Tempo", "Tempo", "#FACC15"], [80, 90, "Seuil", "Threshold", "#FB923C"], [90, 100, "Maximum", "Maximum", "#F43F5E"]]
     .map(([a, b, f, e, c]) => [Math.round(fc * a / 100), Math.round(fc * b / 100), L(f, e), c])];
+}
+// date de naissance, poids et taille : mêmes champs dans « Mon profil » et à l'accueil du premier lancement (préfixe des identifiants : pf ou bv)
+const champsCorps = (p, x) => `<label class="champ"><span>${L("Date de naissance", "Date of birth")} <small>(${L("facultatif · fréquence cardiaque et clubs", "optional · heart rate and clubs")})</small></span><input id="${x}Nais" type="date" max="${jourCle()}" value="${p.naissance || ""}"></label>
+  <div class="champ-duo"><label class="champ"><span>${L("Poids (kg)", "Weight (kg)")} <small>(${L("facultatif", "optional")})</small></span><input id="${x}Poids" type="number" inputmode="decimal" min="30" max="250" step="0.5" value="${p.poids || ""}" placeholder="—"></label>
+    <label class="champ"><span>${L("Taille (cm)", "Height (cm)")} <small>(${L("facultatif", "optional")})</small></span><input id="${x}Taille" type="number" inputmode="numeric" min="100" max="230" value="${p.taille || ""}" placeholder="—"></label></div>`;
+function brancherCorps(x, ok = () => {}) {
+  $(x + "Nais").onchange = e => { const v = e.target.value, a = v ? ageNais(v) : 0; ecrireProfil("naissance", a >= 4 && a <= 110 ? v : ""); if (!v) ecrireProfil("age", ""); ok(); };
+  $(x + "Poids").oninput = e => { const v = parseFloat(e.target.value); ecrireProfil("poids", v >= 30 && v <= 250 ? v : ""); ok(); };
+  $(x + "Taille").oninput = e => { const v = parseInt(e.target.value, 10); ecrireProfil("taille", v >= 100 && v <= 230 ? v : ""); ok(); };
 }
 let profilRetourVers = "reglages";
 function ouvrirProfil(depuis) {
@@ -104,8 +114,7 @@ function renduProfil() {
   const p = lireProfil(), niv = lireNiv(), C = $("pfCorps");
   C.innerHTML = `<div id="pfAvatar">${blocAvatar()}</div><div class="carnet profil-form">
       <label class="champ"><span>${L("Prénom", "First name")} <small>(${L("facultatif", "optional")})</small></span><input id="pfNom" type="text" maxlength="20" autocomplete="given-name" value="${(p.nom || "").replace(/"/g, "&quot;")}"></label>
-      <div class="champ-duo"><label class="champ"><span>${L("Âge", "Age")}</span><input id="pfAge" type="number" inputmode="numeric" min="10" max="99" value="${p.age || ""}" placeholder="—"></label>
-        <label class="champ"><span>${L("Poids (kg)", "Weight (kg)")}</span><input id="pfPoids" type="number" inputmode="decimal" min="30" max="250" step="0.5" value="${p.poids || ""}" placeholder="—"></label></div>
+      ${champsCorps(p, "pf")}
       <span class="champ-titre">${L("Mon objectif", "My goal")}</span><div class="choix-grille">${OBJECTIFS.map(o => `<button class="toggle" data-obj="${o[0]}" aria-pressed="${p.objectif === o[0]}">${L(o[1], o[2])}</button>`).join("")}</div>
       <label class="champ"><span>${L("Mon sport principal", "My main sport")}</span><select id="pfSport"><option value="">${L("Aucun en particulier", "None in particular")}</option>${sportsRenfo().map(k => `<option value="${k}"${p.sport === k ? " selected" : ""}>${T(CATS[k].titre)}</option>`).join("")}</select></label>
       <span class="champ-titre">${L("Mon niveau", "My level")}</span><div class="stepper niv-choix">${NIV_RENFO.map(n => `<button class="toggle" data-niv="${n[0]}" aria-pressed="${n[0] === niv}">${L(n[1], n[2])}</button>`).join("")}</div>
@@ -113,8 +122,7 @@ function renduProfil() {
       <p class="pf-ok" id="pfOk"></p></div><div id="pfResultats"></div>`;
   const ok = () => { $("pfOk").textContent = "✓ " + L("Enregistré", "Saved"); clearTimeout(ok.t); ok.t = setTimeout(() => $("pfOk") && ($("pfOk").textContent = ""), 1500); resultatsProfil(); };
   $("pfNom").oninput = e => { ecrireProfil("nom", e.target.value.trim()); ok(); };
-  $("pfAge").oninput = e => { const v = parseInt(e.target.value, 10); ecrireProfil("age", v >= 10 && v <= 99 ? v : ""); ok(); };
-  $("pfPoids").oninput = e => { const v = parseFloat(e.target.value); ecrireProfil("poids", v >= 30 && v <= 250 ? v : ""); ok(); };
+  brancherCorps("pf", ok);
   $("pfSport").onchange = e => { ecrireProfil("sport", e.target.value); ok(); };
   C.querySelectorAll("[data-obj]").forEach(b => b.onclick = () => { ecrireProfil("objectif", b.dataset.obj); C.querySelectorAll("[data-obj]").forEach(x => x.setAttribute("aria-pressed", x === b)); ok(); });
   C.querySelectorAll("[data-mat]").forEach(b => b.onclick = () => { const l = lireProfil().materiel || [], k = b.dataset.mat, n = l.includes(k) ? l.filter(x => x !== k) : [...l, k]; ecrireProfil("materiel", n); b.setAttribute("aria-pressed", n.includes(k)); ok(); });
@@ -301,8 +309,8 @@ const PAGES = {
     <h3>Intellectual property</h3><p>The texts, workouts, illustrations, videos and the 2 WORK name belong to the publisher. Reproduction without permission is prohibited. Some exercise illustrations and videos are made with the help of artificial intelligence tools; they show fictional characters. Barlow and Barlow Condensed fonts: SIL Open Font License 1.1. QR code generation: qrcode-generator (Kazuhiko Arase, MIT licence). Clubs: Firebase SDK (Google, Apache 2.0 licence).</p>
     <h3>Scientific sources</h3><p>Workouts are based on published guidelines and studies (ACSM, Jeffreys 2007, Fradkin 2010, Lauersen 2014, Tabata 1996, Thorborg 2017, Behm 2016…), cited in the app’s guides. They are provided for information.</p>`)],
   confidentialite: ["Confidentialité", "Privacy", () => L(`<h3>En bref</h3><p><b>Aucune publicité, aucun traceur, aucun compte obligatoire.</b> Tout ce que tu fais dans 2 WORK reste sur ton téléphone. Seuls les <b>clubs</b>, facultatifs, demandent un compte et envoient quelques données en ligne (détail plus bas).</p>
-    <h3>Données enregistrées sur ton appareil</h3><ul class="prog-obj"><li>Historique des séances, trophées, défis, programmes suivis</li><li>Charges notées en salle et ressenti de fin de séance</li><li>Profil (prénom, âge, poids, objectif, sport, niveau) et planning</li><li>Réglages (langue, voix, thème)</li></ul>
-    <p>Elles sont stockées dans le stockage local du navigateur (« localStorage ») et ne sont jamais envoyées à 2 WORK ni à un tiers. L’âge et le poids servent uniquement à des calculs faits sur le téléphone (calories, fréquence cardiaque).</p>
+    <h3>Données enregistrées sur ton appareil</h3><ul class="prog-obj"><li>Historique des séances, trophées, défis, programmes suivis</li><li>Charges notées en salle et ressenti de fin de séance</li><li>Profil (prénom, date de naissance ou âge, poids, taille, objectif, sport, niveau) et planning</li><li>Réponses au questionnaire d’accueil (sports pratiqués et qui te tentent, environnements, style, matériel) : elles servent seulement à ordonner les sports dans l’appli</li><li>Réglages (langue, voix, thème)</li></ul>
+    <p>Elles sont stockées dans le stockage local du navigateur (« localStorage ») et ne sont jamais envoyées à 2 WORK ni à un tiers. L’âge (calculé depuis la date de naissance), le poids et la taille sont facultatifs et servent uniquement à des calculs faits sur le téléphone (calories, fréquence cardiaque). Le compte proposé au premier lancement est facultatif (« Plus tard ») : rien n’est envoyé en ligne tant que tu ne le crées pas.</p>
     <h3>Cookies et mesure d’audience</h3><p>2 WORK n’utilise ni cookie, ni outil de statistiques, ni publicité. Les polices et les vidéos sont hébergées avec l’application.</p>
     <h3>Hébergement</h3><p>L’application est servie par GitHub Pages. Comme tout hébergeur, GitHub peut enregistrer des données techniques de connexion (adresse IP, navigateur) pour la sécurité du service : voir la <a href="https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">déclaration de confidentialité de GitHub</a>.</p>
     <h3>Apple Santé et Health Connect</h3><p>Dans l’application téléchargée depuis l’App Store ou Google Play, et seulement si tu l’actives, chaque séance terminée est enregistrée dans Apple Santé ou Health Connect (type de séance, durée, calories estimées). 2 WORK ne lit aucune de tes données de santé.</p>
@@ -314,10 +322,10 @@ const PAGES = {
     <p><b>Responsable du traitement :</b> l’éditeur de 2 WORK (voir les mentions légales). <b>Sous-traitant :</b> Google Ireland Limited (Firebase), lié par les conditions de traitement des données de Firebase. <b>Où :</b> les clubs, séances et messages sont stockés dans une base Cloud Firestore située dans l’Union européenne. L’email, le mot de passe chiffré et les journaux de connexion (adresse IP, gardée quelques semaines par sécurité) sont gérés par Firebase Authentication, qui peut les traiter hors de l’Union européenne, notamment aux États-Unis : Google LLC est certifiée au cadre de protection des données UE–États-Unis (décision d’adéquation de la Commission européenne) et applique les clauses contractuelles types. Les échanges sont chiffrés (HTTPS) et des règles de sécurité vérifient chaque lecture et chaque écriture.</p>
     <p><b>Pourquoi :</b> faire fonctionner les clubs, sur la base de ton consentement donné à l’inscription (et, sous 15 ans, de celui d’un parent : consentement conjoint, art. 45 de la loi Informatique et Libertés). <b>Durée :</b> tant que ton compte existe ; après sa suppression, Google efface aussi ses copies de sauvegarde (au plus 180 jours). La date de naissance sert uniquement à vérifier l’âge. Le coach et les co-coachs peuvent retirer un message, rendre muet ou exclure un membre, toujours avec un motif montré à la personne concernée ; un message signalé est montré au coach et aux co-coachs.</p>
     <p>« Supprimer mon compte » (Clubs → Mon compte) efface immédiatement ton compte, ton pseudo, ta place dans tes clubs et les clubs dont tu es le coach. Voir aussi la <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">confidentialité de Firebase</a>.</p>
-    <h3>Avis et suggestions</h3><p>Le bouton « Donner mon avis » ouvre un formulaire Google Forms : seul ce que tu choisis d’y écrire est envoyé, selon les <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">règles de confidentialité de Google</a>.</p>
+    <h3>Avis et suggestions</h3><p>Les boutons « Donner mon avis » (y compris sur un sport en refonte) ouvrent un formulaire Google Forms anonyme : seul ce que tu choisis d’y écrire est envoyé, avec le nom du sport concerné le cas échéant, selon les <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">règles de confidentialité de Google</a>.</p>
     <h3>Tes droits</h3><p>Tu peux consulter tes données dans « Mes progrès » et « Mon profil », et les supprimer à tout moment avec le bouton ci-dessous ou en effaçant les données du site dans ton navigateur. Désinstaller ou effacer le navigateur les supprime aussi. Pour les données des clubs : « Supprimer mon compte ». Tu as un droit d’accès, de rectification, d’effacement, de limitation, de portabilité, d’opposition et de retirer ton consentement à tout moment : écris à ${contactLien()}. Un parent peut demander par ce biais la suppression du compte de son enfant de moins de 15 ans. Tu peux aussi adresser une réclamation à la CNIL (<a href="https://www.cnil.fr/fr/plaintes" target="_blank" rel="noopener">cnil.fr</a>).</p>`,
-    `<h3>In short</h3><p><b>No ads, no trackers, no mandatory account.</b> Everything you do in 2 WORK stays on your phone. Only <b>clubs</b>, which are optional, need an account and send some data online (details below).</p><h3>Data stored on your device</h3><ul class="prog-obj"><li>Workout history, trophies, challenges, programmes</li><li>Gym weights and end-of-workout feedback</li><li>Profile (first name, age, weight, goal, sport, level) and weekly plan</li><li>Settings (language, voice, theme)</li></ul>
-    <p>They are kept in the browser’s local storage (“localStorage”) and are never sent to 2 WORK or any third party. Age and weight are only used for calculations on the phone (calories, heart rate).</p>
+    `<h3>In short</h3><p><b>No ads, no trackers, no mandatory account.</b> Everything you do in 2 WORK stays on your phone. Only <b>clubs</b>, which are optional, need an account and send some data online (details below).</p><h3>Data stored on your device</h3><ul class="prog-obj"><li>Workout history, trophies, challenges, programmes</li><li>Gym weights and end-of-workout feedback</li><li>Profile (first name, date of birth or age, weight, height, goal, sport, level) and weekly plan</li><li>Answers to the welcome questionnaire (sports you play and want to try, settings, style, equipment): only used to order sports in the app</li><li>Settings (language, voice, theme)</li></ul>
+    <p>They are kept in the browser’s local storage (“localStorage”) and are never sent to 2 WORK or any third party. Age (calculated from your date of birth), weight and height are optional and only used for calculations on the phone (calories, heart rate). The account offered at first launch is optional (“Later”): nothing is sent online until you create it.</p>
     <h3>Cookies and analytics</h3><p>2 WORK uses no cookies, no analytics and no ads. Fonts and videos are hosted with the app.</p>
     <h3>Hosting</h3><p>The app is served by GitHub Pages. Like any host, GitHub may log technical connection data (IP address, browser) for security: see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub’s privacy statement</a>.</p>
     <h3>Apple Health and Health Connect</h3><p>In the app downloaded from the App Store or Google Play, and only if you turn it on, each completed workout is saved to Apple Health or Health Connect (workout type, duration, estimated calories). 2 WORK does not read any of your health data.</p>
@@ -329,7 +337,7 @@ const PAGES = {
     <p><b>Controller:</b> the publisher of 2 WORK (see the legal notice). <b>Processor:</b> Google Ireland Limited (Firebase), bound by the Firebase data processing terms. <b>Where:</b> clubs, workouts and messages are stored in a Cloud Firestore database located in the European Union. Your email, encrypted password and sign-in logs (IP address, kept a few weeks for security) are handled by Firebase Authentication, which may process them outside the European Union, including in the United States: Google LLC is certified under the EU–US Data Privacy Framework (European Commission adequacy decision) and applies standard contractual clauses. Traffic is encrypted (HTTPS) and security rules check every read and write.</p>
     <p><b>Why:</b> to run clubs, based on your consent given at sign-up (and, under 15, a parent’s consent too: joint consent, art. 45 of the French Data Protection Act). <b>How long:</b> as long as your account exists; after deletion, Google also erases its backup copies (within 180 days). Your date of birth is only used to check your age. The coach and co-coaches can remove a message, mute or remove a member, always with a reason shown to the person concerned; a reported message is shown to the coach and co-coaches.</p>
     <p>“Delete my account” (Clubs → My account) immediately erases your account, username, club memberships and the clubs you coach. See also <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase privacy</a>.</p>
-    <h3>Feedback</h3><p>The “Give feedback” button opens a Google Forms form: only what you choose to write is sent, under <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google’s privacy policy</a>.</p>
+    <h3>Feedback</h3><p>The “Give feedback” buttons (including on a sport being reworked) open an anonymous Google Forms form: only what you choose to write is sent, with the sport’s name where relevant, under <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google’s privacy policy</a>.</p>
     <h3>Your rights</h3><p>You can view your data in “My progress” and “My profile”, and delete it at any time with the button below or by clearing this site’s data in your browser. For club data: “Delete my account”. You have the right to access, correct, erase, restrict, port and object, and to withdraw your consent at any time: write to ${contactLien()}. A parent can use this address to request deletion of their under-15 child’s account. You can also lodge a complaint with the CNIL (<a href="https://www.cnil.fr/en/" target="_blank" rel="noopener">cnil.fr</a>).</p>`) + `<button class="toggle contour danger" id="effacerTout">🗑 ${L("Supprimer toutes mes données", "Delete all my data")}</button>`],
   cgu: ["Conditions d’utilisation", "Terms of use", () => L(`<p class="sh-aide">Version du 13 novembre 2026</p>
     <h3>1. Objet</h3><p>Ces conditions encadrent l’utilisation de 2 WORK, application gratuite d’échauffement, d’entraînement et de récupération, éditée à titre non professionnel (voir les mentions légales). Utiliser l’application, et en particulier créer un compte pour les clubs, vaut acceptation de ces conditions.</p>
@@ -467,7 +475,7 @@ async function telechargerVideos(maj) {
 /* ============ SAUVEGARDE ET RESTAURATION ============
    Fichier JSON avec toutes les données de l'appli (et seulement elles). Avant une restauration, les données actuelles sont copiées
    dans « sauvegardeAvantRestauration » : rien n'est jamais perdu. */
-const CLE_APPLI = /^(tests|corps|cardioSupport|combat|minuteurs|boutique|progPerso|duel|avisDonnes|rappelNotif|avatar|charges|coach|defiSerie|duree\w*|favoris|historique|langue|langueVoix|muscleVu|musclesLus|niveauRenfo|nomVoix|planning|profil|recapVu|recupTabata|repriseAccord|repsTabata|theme|trophees|veille|voix|repos\w*|series\w*|cycles\w*|ouvrirReglages|sauvegardeDate|bienvenue|santeSync|banniere\w*|sonsUI|vibrations|volumeSons|forceVib|conseils|musique)$|^(prog_|reprise_|routine_|minutes_)/;
+const CLE_APPLI = /^(tests|corps|cardioSupport|combat|minuteurs|boutique|progPerso|duel|avisDonnes|rappelNotif|avatar|charges|coach|defiSerie|duree\w*|favoris|historique|langue|langueVoix|muscleVu|musclesLus|niveauRenfo|nomVoix|planning|profil|recapVu|recupTabata|repriseAccord|repsTabata|theme|trophees|veille|voix|repos\w*|series\w*|cycles\w*|ouvrirReglages|sauvegardeDate|bienvenue2?|santeSync|banniere\w*|sonsUI|vibrations|volumeSons|forceVib|conseils|musique)$|^(prog_|reprise_|routine_|minutes_)/;
 function donneesAppli() { const d = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (CLE_APPLI.test(k)) d[k] = localStorage.getItem(k); } } catch (e) {} return d; }
 async function sauvegarder() {
   const j = jourCle(), f = JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: donneesAppli() });
@@ -554,26 +562,53 @@ function majBanniere() {
 }
 
 /* ============ ACCUEIL DU PREMIER LANCEMENT ============
-   3 étapes : objectif → niveau (et sport) → première séance prête. Montré une seule fois, aux nouveaux utilisateurs. */
-const besoinBienvenue = () => { try { return !localStorage.getItem("bienvenue") && !lireHist().length && !lireProfil().objectif; } catch (e) { return false; } };
-function finBienvenue() { stocker("bienvenue", "1"); }
+   5 étapes : profil (gardé sur le téléphone) → compte facultatif (clubs, sauvegarde ; « Plus tard ») → sports pratiqués et qui tentent →
+   préférences (environnement, style, objectif, fréquence, matériel) → première séance prête. Les réponses ordonnent les listes de sports
+   (scorePref, js/catalogue.js). Montré une fois, à chacun, avec « Passer » à chaque étape. */
+const besoinBienvenue = () => { try { return !localStorage.getItem("bienvenue2"); } catch (e) { return false; } };
+function finBienvenue() { stocker("bienvenue", "1"); stocker("bienvenue2", "1"); }
+const ENVS_Q = [["salle", "En salle", "Indoors"], ["ext", "Dehors", "Outdoors"], ["eau", "Dans l’eau", "In the water"], ["montagne", "En montagne", "In the mountains"], ["maison", "À la maison", "At home"]];
+const STYLES_Q = [["seul", "Seul, à mon rythme", "Solo, at my own pace"], ["equipe", "En équipe", "In a team"], ["duel", "En duel, raquette en main", "One-on-one, with a racket"], ["combat", "Sports de combat", "Combat sports"]];
+const sportsQ = () => Object.keys(SP_PREF).filter(k => CATS[k] && k !== "renfo").map(k => [k, T(CATS[k].titre), T(CATS[k].titre)]);
+const basculer = (cle, k) => { const l = lireProfil()[cle] || [], n = l.includes(k) ? l.filter(x => x !== k) : [...l, k]; ecrireProfil(cle, n); return n.includes(k); };
 function bienvenue(etape = 1) {
-  const p = lireProfil(), C = $("bvCorps"), pts = `<div class="bv-points">${[1, 2, 3].map(i => `<i class="${i <= etape ? "on" : ""}"></i>`).join("")}</div>`;
+  const p = lireProfil(), C = $("bvCorps"), pts = `<div class="bv-points">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= etape ? "on" : ""}"></i>`).join("")}</div>`, suite = n => { scrollTo(0, 0); bienvenue(n); };
+  const multi = (cle, l) => `<div class="chips">${l.map(([k, f, e]) => `<button class="toggle" data-m="${cle}" data-k="${k}" aria-pressed="${(p[cle] || []).includes(k)}">${L(f, e)}</button>`).join("")}</div>`;
+  const brancherMulti = () => C.querySelectorAll("[data-m]").forEach(b => b.onclick = () => b.setAttribute("aria-pressed", basculer(b.dataset.m, b.dataset.k)));
   if (etape === 1) {
-    C.innerHTML = `${pts}<h1>${L("Bienvenue sur 2 WORK", "Welcome to 2 WORK")}</h1><p class="sub">${L("Échauffements, renfo, salle, Tabata et récupération, guidés à la voix. Deux questions et ta première séance est prête.", "Warm-ups, strength, gym, Tabata and recovery, voice-guided. Two questions and your first workout is ready.")}</p>
-      <h2 class="sec">${L("Quel est ton objectif ?", "What is your goal?")}</h2><div class="choices bv-objectifs">${OBJECTIFS.map(o => `<button class="choice" style="--c:${o[3]}" data-o="${o[0]}"><strong>${L(o[1], o[2])}</strong></button>`).join("")}</div>`;
-    C.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { ecrireProfil("objectif", b.dataset.o); bienvenue(2); });
+    C.innerHTML = `${pts}<h1>${L("Bienvenue sur 2 WORK", "Welcome to 2 WORK")}</h1><p class="sub">${L("Échauffements, sports, salle, Tabata et récupération, guidés à la voix. Commençons par ton profil : il adapte tes séances et prépare ton compte pour les clubs.", "Warm-ups, sports, gym, Tabata and recovery, voice-guided. Let’s start with your profile: it tailors your workouts and prepares your club account.")}</p>
+      <div class="carnet profil-form"><label class="champ"><span>${L("Prénom", "First name")} <small>(${L("facultatif", "optional")})</small></span><input id="bvNom" type="text" maxlength="20" autocomplete="given-name" value="${(p.nom || "").replace(/"/g, "&quot;")}"></label>${champsCorps(p, "bv")}</div>
+      <p class="sh-aide">🔒 ${L("Ces informations restent sur ton téléphone : elles ne sont envoyées à personne. Le poids et la taille servent aux calories, la date de naissance à la fréquence cardiaque. Tout est facultatif et modifiable dans « Mon profil ».", "This information stays on your phone: it is not sent to anyone. Weight and height are used for calories, date of birth for heart rate. Everything is optional and can be changed in “My profile”.")}</p>
+      <button class="primary" id="bvSuite">${L("Continuer", "Continue")}</button>`;
+    $("bvNom").oninput = e => ecrireProfil("nom", e.target.value.trim()); brancherCorps("bv"); $("bvSuite").onclick = () => suite(2);
   } else if (etape === 2) {
-    C.innerHTML = `${pts}<h1>${L("Ton niveau", "Your level")}</h1><p class="sub">${L("Pas d’inquiétude : l’appli te proposera de monter de niveau quand tu seras prêt.", "Don’t worry: the app will suggest moving up when you are ready.")}</p>
-      <div class="choices">${[["debutant", "Je débute ou je reprends", "I am starting or getting back into it", "#16A34A"], ["inter", "Je fais du sport 1 à 2 fois par semaine", "I exercise 1 to 2 times a week", "#2563EB"], ["avance", "Je m’entraîne 3 fois par semaine ou plus", "I train 3 times a week or more", "#7C3AED"]]
-        .map(([n, f, e, c]) => `<button class="choice" style="--c:${c}" data-n="${n}"><strong>${L(...NIV_RENFO.find(x => x[0] === n).slice(1, 3))}</strong><span>${L(f, e)}</span></button>`).join("")}</div>
-      <label class="champ bv-sport"><span>${L("Ton sport principal (facultatif)", "Your main sport (optional)")}</span><select id="bvSport"><option value="">${L("Aucun en particulier", "None in particular")}</option>${sportsRenfo().map(k => `<option value="${k}"${p.sport === k ? " selected" : ""}>${T(CATS[k].titre)}</option>`).join("")}</select></label>`;
-    C.insertAdjacentHTML("beforeend", `<span class="champ-titre">${L("Ton matériel (facultatif)", "Your equipment (optional)")}</span><div class="chips">${FAMILLES_MAT.map(([k, f, e]) => `<button class="toggle" data-mat="${k}" aria-pressed="${(p.materiel || []).includes(k)}">${L(f, e)}</button>`).join("")}</div>`);
-    C.querySelectorAll("[data-mat]").forEach(b => b.onclick = () => { const l = lireProfil().materiel || [], k = b.dataset.mat, n = l.includes(k) ? l.filter(x => x !== k) : [...l, k]; ecrireProfil("materiel", n); b.setAttribute("aria-pressed", n.includes(k)); });
-    $("bvSport").onchange = e => ecrireProfil("sport", e.target.value);
-    C.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { ecrireProfil("niveau", b.dataset.n); bienvenue(3); });
+    C.innerHTML = `${pts}<h1>${L("Ton compte", "Your account")}</h1><p class="sub">${L("Facultatif. Il sert aux clubs (rejoindre ton coach, discuter, séances partagées) et à la sauvegarde en ligne si tu l’actives. Tout le reste de l’appli marche sans compte et hors ligne.", "Optional. It is used for clubs (join your coach, chat, shared workouts) and online backup if you turn it on. The rest of the app works without an account and offline.")}</p>
+      <div id="bvCompte"><p class="vide">${L("Connexion au serveur…", "Connecting…")}</p></div><button class="toggle contour" id="bvPlusTard">${L("Plus tard", "Later")} ›</button>`;
+    $("bvPlusTard").onclick = () => suite(3);
+    chargerServeur().then(async () => { for (let i = 0; i < 30 && CL.u === undefined; i++) await new Promise(r => setTimeout(r, 100)); if (!$("bvCompte")) return;
+      if (CL.u) { $("bvCompte").innerHTML = `<div class="carnet"><p>✓ ${L("Connecté en tant que", "Signed in as")} <b>${echap(CL.u.pseudo || CL.u.email)}</b></p></div>`; $("bvPlusTard").textContent = L("Continuer", "Continue") + " ›"; }
+      else renduCompte($("bvCompte"), "inscription", () => suite(3)); })
+      .catch(() => { if ($("bvCompte")) $("bvCompte").innerHTML = `<p class="vide">📡 ${L("Pas de connexion pour l’instant : tu pourras créer ton compte plus tard dans Clubs.", "No connection right now: you can create your account later in Clubs.")}</p>`; });
+  } else if (etape === 3) {
+    C.innerHTML = `${pts}<h1>${L("Tes sports", "Your sports")}</h1><p class="sub">${L("Tes réponses mettent tes sports en tête des listes de l’appli.", "Your answers put your sports at the top of the app’s lists.")}</p>
+      <h2 class="sec">${L("Ceux que tu pratiques", "The ones you play")}</h2>${multi("sportsPratiques", sportsQ())}
+      <h2 class="sec">${L("Ceux qui te tentent", "The ones you’d like to try")}</h2>${multi("sportsEnvie", sportsQ())}
+      <button class="primary" id="bvSuite">${L("Continuer", "Continue")}</button>`;
+    brancherMulti(); $("bvSuite").onclick = () => { const q = lireProfil(), s = (q.sportsPratiques || []).find(k => RENFOS[k]); if (!q.sport && s) ecrireProfil("sport", s); suite(4); };
+  } else if (etape === 4) {
+    C.innerHTML = `${pts}<h1>${L("Tes préférences", "Your preferences")}</h1><p class="sub">${L("Plusieurs choix possibles.", "Several choices possible.")}</p>
+      <h2 class="sec">${L("Où aimes-tu bouger ?", "Where do you like to move?")}</h2>${multi("envs", ENVS_Q)}
+      <h2 class="sec">${L("Plutôt…", "Rather…")}</h2>${multi("styles", STYLES_Q)}
+      <h2 class="sec">${L("Ton objectif", "Your goal")}</h2><div class="chips">${OBJECTIFS.map(o => `<button class="toggle" data-o="${o[0]}" aria-pressed="${p.objectif === o[0]}">${L(o[1], o[2])}</button>`).join("")}</div>
+      <h2 class="sec">${L("À quelle fréquence fais-tu du sport ?", "How often do you exercise?")}</h2><div class="chips">${[["debutant", "Je débute ou je reprends", "Starting or getting back into it"], ["inter", "1 à 2 fois par semaine", "1 to 2 times a week"], ["avance", "3 fois par semaine ou plus", "3 times a week or more"]].map(([n, f, e]) => `<button class="toggle" data-n="${n}" aria-pressed="${p.niveau === n}">${L(f, e)}</button>`).join("")}</div>
+      <h2 class="sec">${L("Ton matériel (facultatif)", "Your equipment (optional)")}</h2>${multi("materiel", FAMILLES_MAT.map(([k, f, e]) => [k, f, e]))}
+      <button class="primary" id="bvSuite">${L("Voir ma première séance", "See my first workout")}</button>`;
+    brancherMulti();
+    C.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { ecrireProfil("objectif", b.dataset.o); C.querySelectorAll("[data-o]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+    C.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { ecrireProfil("niveau", b.dataset.n); C.querySelectorAll("[data-n]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+    $("bvSuite").onclick = () => suite(5);
   } else {
-    finBienvenue();
+    finBienvenue(); if (!p.objectif) ecrireProfil("objectif", "forme");
     const r = recommandations(), s = r[0], e = TPL.E(RENFOS[p.sport] ? p.sport : "complet", "express");
     C.innerHTML = `${pts}<div class="bv-pret">🎉</div><h1>${L("Ta première séance est prête", "Your first workout is ready")}</h1><p class="sub">${L("Construite pour ton objectif et ton niveau. Tu pourras tout changer dans « Mon profil ».", "Built for your goal and level. You can change everything in “My profile”.")}</p>
       <div class="carnet bv-seance" style="--c:${s.c}"><small>${L("Recommandée pour toi", "Recommended for you")}</small><b>${s.t}</b><span>${s.s}</span></div>
@@ -583,7 +618,7 @@ function bienvenue(etape = 1) {
       <button class="lien-discret" id="bvMenu">${L("Découvrir l’appli", "Explore the app")} ›</button>`;
     $("bvGo").onclick = s.go; $("bvEch").onclick = e.go; $("bvPlan").onclick = () => ouvrirPlanning("menu"); $("bvMenu").onclick = () => ecran("menu"); if ($("bvInstaller")) $("bvInstaller").onclick = installer;
   }
-  $("bvPasser").textContent = L("Passer", "Skip"); $("bvPasser").classList.toggle("hidden", etape === 3);
+  $("bvPasser").textContent = L("Passer", "Skip"); $("bvPasser").classList.toggle("hidden", etape === 5);
 }
 $("bvPasser").onclick = () => { finBienvenue(); ecran("menu"); };
 // raccourcis de l'icône installée (appui long) : ?go=ech | tabata | semaine | progres
