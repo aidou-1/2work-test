@@ -130,6 +130,54 @@ function placerSp(liste, jours, club, dur, lim = 7) {
 const choixJours = (attr, l) => `<div class="chips">${JOURS_SP.map(([f, e], d) => `<button class="toggle" data-${attr}="${d}" aria-pressed="${l.includes(d)}">${L(f, e)}</button>`).join("")}</div>`;
 const brancherJours = (h, attr, champ, maj) => h.C().querySelectorAll(`[data-${attr}]`).forEach(x => x.onclick = () => { const p = spPref(h.sp), d = +x.dataset[attr]; p[champ] = p[champ].includes(d) ? p[champ].filter(y => y !== d) : [...p[champ], d]; maj(p); });
 
+/* --- Sports d'équipe : en saison, la semaine se construit autour du jour de match ; sans match ou pendant la trêve, bloc de reprise de 6 semaines.
+   SP[sport].equipe = { saison(P) → [[séance, jours possibles par rapport au match]] par priorité, reprise [[nom FR, EN, texte FR, EN, séances]] (3 étapes de 2 semaines),
+   dur (séances dures), map(P, c) (séance adaptée au poste), ico, ech (échauffement d'avant-match), fiche(saison), profil [FR, EN], poste [[clé, FR, EN]] facultatif, txtSaison [FR, EN] } */
+function semaineEquipe(E, P) {
+  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c), fin = (o) => ({ L0, f: 1, ...o, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Entraînement", "Training"], l })) });
+  if (P.match >= 0 && !P.treve) {
+    const M = P.match, pris = new Set(); jours[M].push("match");
+    E.saison(P).slice(0, P.n).forEach(([c, offs]) => { const libres = offs.map(o => (M + o + 7) % 7).filter(d => d !== M && !jours[d].length && !pris.has(d)), d = libres.find(d => !club(d) || !dur(c)) ?? libres[0];
+      if (d !== undefined) { jours[d].push(c); pris.add(d); } });
+    return fin({ saison: 1, info: L("En saison · semaine construite autour du match", "In season · week built around the match") });
+  }
+  const w = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5)), b = Math.min(2, Math.floor(w / 2)), R = E.reprise[b];
+  placerSp(R[4].slice(0, P.n).map(c => E.map ? E.map(P, c) : c), jours, club, dur);
+  return fin({ bloc: b, R, info: (w < 6 ? L(`Reprise · semaine ${w + 1}/6`, `Pre-season · week ${w + 1}/6`) : L("Reprise terminée : indique ton jour de match", "Pre-season done: set your match day")) + " · " + L(R[0], R[1]) });
+}
+function parcoursEquipe(h) {
+  const G = SP[h.sp], E = G.equipe, P = h.P, S = semaineEquipe(E, P);
+  h.html(`<div class="etude ech-fiche" style="--accent:${G.c}"><b>${S.info}</b><p>${S.saison ? L(...E.txtSaison) : L(S.R[2], S.R[3])}</p></div>${E.fiche(S.saison)}`);
+  semaineSp(h, S, c => c === "match" ? E.ico + " " + L("Match · échauffement d’avant-match", "Match · pre-match warm-up") : L(...G.S[c].t), c => c === "match" ? null : c);
+  h.C().querySelectorAll(".bx-s[disabled]").forEach(b => { b.disabled = false; b.onclick = () => vueEch(E.ech); });
+  h.html(`<h2 class="sec">${L(...E.profil)}</h2><div class="carnet bx-prof">
+    <span class="champ-titre">${L("Je suis", "I am")}</span>${chips("eqn", [["debutant", "Débutant", "Beginner"], ["club", "Joueur en club", "Club player"], ["compet", "Compétition", "Competitive"]], P.niv)}
+    ${E.poste ? `<span class="champ-titre">${L("Mon poste", "My position")}</span>${chips("eqp", E.poste, P.poste)}` : ""}
+    <span class="champ-titre">${L("Jour de match", "Match day")}</span><div class="chips">${[[-1, "Aucun", "None"], ...JOURS_SP.map(([f, e], d) => [d, f, e])].map(([d, f, e]) => `<button class="toggle" data-eqm="${d}" aria-pressed="${P.match === d}">${L(f, e)}</button>`).join("")}</div>
+    <span class="champ-titre">${L("Mes jours d’entraînement au club", "My club training days")}</span>${choixJours("eqj", P.jours)}
+    <span class="champ-titre">${L("Séances de préparation par semaine", "Prep sessions per week")}</span>${chips("eqk", [1, 2, 3, 4, 5].map(n => [n, n, n]), P.n)}
+    <button class="toggle" id="eqTreve" aria-pressed="${!!P.treve}">${P.treve ? "✓ " : ""}${L("Trêve ou pré-saison : bloc de reprise de 6 semaines", "Break or pre-season: 6-week build-up block")}</button>
+    <p class="sh-aide">${L("Avec un jour de match, la semaine se construit autour de lui. Sans match (ou trêve cochée), l’appli te propose le bloc de reprise, qui commence cette semaine.", "With a match day, the week is built around it. Without a match (or break ticked), the app offers the build-up block, starting this week.")}</p></div>`);
+  const sp = h.sp, maj = p => { spGarder(sp, p); h.rendu(); };
+  brancherChips("eqn", v => maj({ ...spPref(sp), niv: v })); if (E.poste) brancherChips("eqp", v => maj({ ...spPref(sp), poste: v }));
+  brancherChips("eqk", v => maj({ ...spPref(sp), n: +v })); brancherJours(h, "eqj", "jours", maj);
+  h.C().querySelectorAll("[data-eqm]").forEach(b => b.onclick = () => maj({ ...spPref(sp), match: +b.dataset.eqm }));
+  $("eqTreve").onclick = () => { const p = spPref(sp); maj({ ...p, treve: !p.treve, debut: jourCle() }); };
+}
+
+// séances communes aux sports d'équipe : sprints répétés, intermittent 15/15, endurance de base, récupération active
+const seancesEquipe = (sp, mob) => ({
+  rsa: { c: "#16A34A", t: ["Sprints répétés", "Repeated sprints"], rpe: "9", max: 4, cardio: 1, d: ["Des sprints de 6 s avec 24 s de récupération, par séries de 6 : répéter les efforts jusqu’à la fin du match.", "6-second sprints with 24 s recovery, in sets of 6: repeat efforts until the final whistle."],
+    f: k => Array.from({ length: k }, (_, s) => [`Série ${s + 1}/${k}`, `Set ${s + 1}/${k}`, L("6 sprints de 6 s, 24 s de récupération, 3 min entre les séries.", "6 sprints of 6 s, 24 s recovery, 3 min between sets."), "", 6, 24, [[allSp(sp, 2), 6, 24, RPE_SP(9, L("avec un demi-tour si tu as la place", "with a turn if you have room")), "6 s"]], 180]) },
+  intermittent: { c: "#7C3AED", t: ["Intermittent 15/15", "15/15 intermittent"], rpe: "8", max: 4, cardio: 1, d: ["15 s vite, 15 s lentement, sans s’arrêter : le rythme haché du match, beaucoup de souffle gagné en peu de temps.", "15 s fast, 15 s slow, without stopping: the stop-start rhythm of a match, lots of fitness in little time."],
+    f: k => Array.from({ length: k }, (_, s) => [`Bloc ${s + 1}/${k}`, `Block ${s + 1}/${k}`, L("8 min d’intermittent, 3 min de récupération entre les blocs.", "8 min of intermittent running, 3 min recovery between blocks."), "", 16, 0, [[allSp(sp, 1), 15, 0, RPE_SP(8, L("vite", "fast")), "15 s"], [allSp(sp, 0), 15, 0, L("lent, sans s’arrêter", "slow, keep moving"), "15 s"]], 180]) },
+  base: { c: "#0EA5E9", t: ["Endurance de base", "Base endurance"], rpe: "6", max: 6, cardio: 1, d: ["Des blocs de course à allure confortable : la base de la reprise, sans se mettre dans le rouge.", "Running blocks at a comfortable pace: the foundation of pre-season, without going into the red."],
+    f: k => [["Blocs de course", "Running blocks", "Tu dois pouvoir parler en courant.", "You should be able to talk as you run.", k, 60, [[allSp(sp, 1), 300, 60, RPE_SP(6, L("confortable", "comfortable")), "5 min"]]]] },
+  recup: { c: "#14B8A6", t: ["Récupération active", "Active recovery"], rpe: "3", max: 1, cardio: 1, sansEch: 1, d: ["Le lendemain du match : effort très facile puis mobilité, pour faire circuler le sang et récupérer plus vite.", "The day after the match: very easy effort then mobility, to get the blood flowing and recover faster."],
+    f: (k, x) => [["Cardio très facile", "Very easy cardio", "Tu peux parler sans effort.", "You can talk easily.", 1, 0, [[allSp(sp, 0), { 20: 600, 35: 1080, 50: 1500 }[x.dur], 30, RPE_SP(3, L("très facile", "very easy")), ""]]],
+      ["Circuit de mobilité", "Mobility circuit", "Lent, sans douleur, en respirant.", "Slow, pain-free, breathing.", 1, 0, mob.slice(0, { 20: 4, 35: 6, 50: 8 }[x.dur]).map(id => [id, 45, 10, "", "45 s"])]] },
+});
+
 /* --- Sports → un sport complet ouvre son écran ; les autres gardent leur page --- */
 const vueModeAvantSp = vueMode;
 vueMode = grp => SP[grp] ? (spRetour[grp] = null, ouvrirSport(grp)) : vueModeAvantSp(grp);

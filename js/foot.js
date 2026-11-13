@@ -67,7 +67,7 @@ const THEMES_FT = {
   deux: ["À deux", "In pairs", [[["ftPasseDeux", "ftMurPasse", "ftAppuis"], "Passes en mouvement, une touche", "Passing on the move, one touch"], [["ftDuel", "pasDefensifs"], "Duel, on inverse toutes les 15 s", "Duel, swap every 15 s"], [["ftTete", "sautsRebond"], "Jeu de tête, peu de répétitions", "Heading, few reps"], [["ftPasseDeux", "ftMurPasse", "ftAppuis"], "Passe et suit", "Pass and follow"]]],
   sansBallon: ["Sans ballon : appuis et coordination", "No ball: footwork and coordination", [[["ftAppuis"], "Dedans-dehors puis 5 m", "In-and-out then 5 m"], [["splitStep"], "Réaction et premier pas", "Reaction and first step"], [["sprintNavette"], "Changements de direction", "Changes of direction"], [["pasDefensifs"], "Pas défensifs", "Defensive slides"], [["skater"], "Appuis latéraux", "Lateral bounds"]]],
   gardien: ["Technique du gardien", "Goalkeeping technique", [[["gdPosition"], "Posture et pas chassés", "Stance and shuffles"], [["gdPrise", "gdPosition"], "Haute, mi-hauteur, au sol", "High, mid, low"], [["gdPlongeon"], "À genoux puis debout", "Kneeling then standing"], [["gdReflexes", "gdDetente"], "Réflexes", "Reflexes"], [["gdRelance", "gdPosition"], "Relance main et pied", "Hand and foot distribution"]]] };
-const FTS = {
+const FTS = { ...seancesEquipe("foot", MOB_FT),
   force: { c: "#16A34A", t: ["Force et prévention", "Strength and prevention"], rpe: "7", max: 5, core: 1, d: ["Jambes, fessiers et dos solides, plus les exercices qui protègent ischios, adducteurs et chevilles : moins de blessures, plus de duels gagnés.", "Strong legs, glutes and back, plus the moves that protect hamstrings, adductors and ankles: fewer injuries, more duels won."],
     f: k => [["Force", "Strength", "Charge qui laisse 2 à 3 répétitions en réserve.", "Load that leaves 2 to 3 reps in reserve.", k, 90, [[["bxTrapBar", "goblet", "squat"], 40, 30, RPE_SP(7, L("6 à 8 répétitions", "6 to 8 reps")), "6–8"], [["bulgare", "fentesalt"], 45, 30, RPE_SP(7, L("6 par jambe", "6 per leg")), "2 × 6"], [["hipThrust", "pontuni"], 40, 30, RPE_SP(7, L("10 répétitions", "10 reps")), "10"], [["dbRow", "bandRow", "superman"], 40, 30, RPE_SP(7, L("10 répétitions", "10 reps")), "10"]]],
       ["Prévention", "Prevention", "Ischios, adducteurs, mollets, chevilles : les zones les plus blessées au foot.", "Hamstrings, adductors, calves, ankles: the most injured areas in football.", 2, 30, [["nordique", 30, 40, RPE_SP(8, L("3 à 5 descentes très lentes", "3 to 5 very slow lowers")), "3–5"], ["copenhague", 40, 20, L("20 s par côté", "20 s per side"), "2 × 20 s"], ["mollet1", 40, 20, L("12 par jambe", "12 per leg"), "2 × 12"], ["equilibre", 40, 20, L("yeux ouverts puis fermés", "eyes open then closed"), "2 × 20 s"]]]] },
@@ -78,17 +78,8 @@ const FTS = {
     f: k => [["Appuis", "Footwork", "Rapide et relâché.", "Quick and relaxed.", 2, 30, [["ftAppuis", 20, 20, L("dedans-dehors puis 5 m", "in-and-out then 5 m"), "20 s"], ["splitStep", 20, 30, L("réaction au premier pas", "react on the first step"), "20 s"]]],
       ["Accélérations", "Accelerations", "10 à 20 m à fond, retour en marchant.", "10 to 20 m all out, walk back.", k + 1, 60, [[allFt(2), 5, 55, RPE_SP(10, L("départ arrêté, 20 m", "standing start, 20 m")), "5 s"]]],
       ["Changements de direction", "Changes of direction", "Abaisse le bassin avant de tourner.", "Drop your hips before you turn.", k, 60, [["sprintNavette", 10, 50, RPE_SP(10, L("5 m aller-retour", "5 m there and back")), "10 s"]]]] },
-  rsa: { c: "#16A34A", t: ["Sprints répétés", "Repeated sprints"], rpe: "9", max: 4, cardio: 1, d: ["Des sprints de 6 s avec 24 s de récupération, par séries de 6 : répéter les efforts jusqu’à la fin du match.", "6-second sprints with 24 s recovery, in sets of 6: repeat efforts until the final whistle."],
-    f: k => Array.from({ length: k }, (_, s) => [`Série ${s + 1}/${k}`, `Set ${s + 1}/${k}`, L("6 sprints de 6 s, 24 s de récupération, 3 min entre les séries.", "6 sprints of 6 s, 24 s recovery, 3 min between sets."), "", 6, 24, [[allFt(2), 6, 24, RPE_SP(9, L("avec un demi-tour si tu as la place", "with a turn if you have room")), "6 s"]], 180]) },
-  intermittent: { c: "#7C3AED", t: ["Intermittent 15/15", "15/15 intermittent"], rpe: "8", max: 4, cardio: 1, d: ["15 s vite, 15 s lentement, sans s’arrêter : le rythme haché du match, beaucoup de souffle gagné en peu de temps.", "15 s fast, 15 s slow, without stopping: the stop-start rhythm of a match, lots of fitness in little time."],
-    f: k => Array.from({ length: k }, (_, s) => [`Bloc ${s + 1}/${k}`, `Block ${s + 1}/${k}`, L("8 min d’intermittent, 3 min de récupération entre les blocs.", "8 min of intermittent running, 3 min recovery between blocks."), "", 16, 0, [[allFt(1), 15, 0, RPE_SP(8, L("vite", "fast")), "15 s"], [allFt(0), 15, 0, L("lent, sans s’arrêter", "slow, keep moving"), "15 s"]], 180]) },
   moteur: { c: "#2563EB", t: ["Cardio moteur · 4 × 4 min", "Engine cardio · 4 × 4 min"], rpe: "8–9", max: 5, cardio: 1, d: ["4 minutes dures et régulières, 3 minutes en trottinant : le format qui fait le plus progresser l’endurance des footballeurs.", "4 hard, steady minutes, 3 minutes jogging: the format that most improves footballers’ endurance."],
     f: k => [["Intervalles de 4 min", "4-min intervals", "Récupération active 3 min en trottinant.", "3-min active recovery, jogging.", k, 180, [[allFt(1), 240, 180, RPE_SP("8–9", L("dur mais régulier", "hard but steady")), "4 min"]]]] },
-  base: { c: "#0EA5E9", t: ["Endurance de base", "Base endurance"], rpe: "6", max: 6, cardio: 1, d: ["Des blocs de course à allure confortable : la base de la reprise, sans se mettre dans le rouge.", "Running blocks at a comfortable pace: the foundation of pre-season, without going into the red."],
-    f: k => [["Blocs de course", "Running blocks", "Tu dois pouvoir parler en courant.", "You should be able to talk as you run.", k, 60, [[allFt(1), 300, 60, RPE_SP(6, L("confortable", "comfortable")), "5 min"]]]] },
-  recup: { c: "#14B8A6", t: ["Récupération active", "Active recovery"], rpe: "3", max: 1, cardio: 1, sansEch: 1, d: ["Le lendemain du match : effort très facile puis mobilité, pour faire circuler le sang et récupérer plus vite.", "The day after the match: very easy effort then mobility, to get the blood flowing and recover faster."],
-    f: (k, x) => [["Cardio très facile", "Very easy cardio", "Tu peux parler sans effort.", "You can talk easily.", 1, 0, [[allFt(0), { 20: 600, 35: 1080, 50: 1500 }[x.dur], 30, RPE_SP(3, L("très facile", "very easy")), ""]]],
-      ["Circuit de mobilité", "Mobility circuit", "Lent, sans douleur, en respirant.", "Slow, pain-free, breathing.", 1, 0, MOB_FT.slice(0, { 20: 4, 35: 6, 50: 8 }[x.dur]).map(id => [id, 45, 10, "", "45 s"])]] },
   activation: { c: "#F59E0B", t: ["Activation · veille de match", "Activation · day before the match"], rpe: "5–7", max: 1, fixe: 1, calme: 1, d: ["20 minutes la veille du match : mobilité, appuis, quelques accélérations courtes et quelques touches de balle. Tu dois finir plus frais qu’en arrivant.", "20 minutes the day before the match: mobility, footwork, a few short accelerations and a few touches. You should finish fresher than you started."],
     f: () => [["Appuis et coordination", "Footwork and coordination", "", "", 2, 30, [["ftAppuis", 20, 20, "", "20 s"], ["splitStep", 20, 20, "", "20 s"]]],
       ["Accélérations courtes", "Short accelerations", "", "", 4, 60, [[allFt(2), 4, 56, RPE_SP(9, L("10 m, vif et relâché", "10 m, sharp and relaxed")), "4 s"]]],
@@ -97,7 +88,7 @@ const FTS = {
     f: k => [["Détente", "Spring", "Chaque saut à 100 %, repos complet.", "Every jump at 100%, full rest.", Math.min(k + 1, 4), 60, [[["bxBoxJump", "squatsaute"], 15, 45, RPE_SP(9, L("3 sauts", "3 jumps")), "3"], ["gdDetente", 20, 40, RPE_SP(9, L("3 par côté", "3 per side")), "2 × 3"]]],
       ["Plongeons et relevés", "Dives and get-ups", "Sol souple. Relève-toi en moins d’une seconde.", "Soft ground. Get up in under a second.", k, 60, [["gdPlongeon", 30, 30, RPE_SP(8, L("alterne les côtés", "alternate sides")), "30 s"], ["gdReflexes", 30, 30, "", "30 s"], ["burpees", 20, 40, L("relevé explosif", "explosive get-up"), "20 s"]]]] }
 };
-Object.entries(THEMES_FT).forEach(([th, [fr, en, l]]) => FTS["tech_" + th] = { c: th === "gardien" ? "#B45309" : "#15803D", t: [fr, en], rpe: "6–7", max: 12, core: 0, d: ["Des ateliers de 2 minutes guidés à la voix, 45 s de repos. ", "Voice-guided 2-minute drills, 45 s rest. "],
+Object.entries(THEMES_FT).forEach(([th, [fr, en, l]]) => FTS["tech_" + th] = { c: th === "gardien" ? "#B45309" : "#15803D", t: [fr, en], rpe: "6–7", max: 15, core: 0, d: ["Des ateliers de 2 minutes guidés à la voix, 45 s de repos. ", "Voice-guided 2-minute drills, 45 s rest. "],
   f: k => [["Ateliers", "Drills", L(`${k} ateliers de 2 min, 45 s de repos.`, `${k} drills of 2 min, 45 s rest.`), "", 1, 0, Array.from({ length: k }, (_, i) => { const [s, cF, cE] = l[i % l.length]; return [s, 120, 45, L(cF, cE), "2 min", L("atelier ", "drill ") + (i + 1) + "/" + k]; })]] });
 FTS.tech_gardien.d = ["Posture, prise de balle, plongeons, réflexes et relance, en ateliers de 2 minutes.", "Stance, catching, dives, reflexes and distribution, in 2-minute drills."];
 
@@ -108,41 +99,10 @@ const SAISON_FT = gk => [["recup", [1, 2]], ["force", [2, 3, -4]], ["activation"
 const REPRISE_FT = [["Remise en route", "Getting going", "Endurance de base, force et prévention : on reconstruit le moteur et les tendons.", "Base endurance, strength and prevention: rebuild the engine and the tendons.", ["base", "force", "tech_conduite", "recup", "moteur"]],
   ["Développement", "Development", "Intermittent, force, sprints répétés : on monte l’intensité.", "Intermittent running, strength, repeated sprints: raise the intensity.", ["intermittent", "force", "rsa", "tech_passes", "moteur"]],
   ["Spécifique", "Specific", "Vitesse, puissance, sprints répétés : prêt pour le premier match.", "Speed, power, repeated sprints: ready for the first match.", ["vitesse", "puissance", "rsa", "tech_frappe", "intermittent"]]];
-function ftSemaine(P = spPref("foot")) {
-  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), gk = P.poste === "gardien";
-  if (P.match >= 0 && !P.treve) {
-    const M = P.match, pris = new Set(), liste = SAISON_FT(gk).slice(0, P.n); jours[M].push("match");
-    liste.forEach(([c, offs]) => { const libres = offs.map(o => (M + o + 7) % 7).filter(d => d !== M && !jours[d].length && !pris.has(d)), d = libres.find(d => !club(d) || !DUR_FT.includes(c)) ?? libres[0];
-      if (d !== undefined) { jours[d].push(c); pris.add(d); } });
-    return { L0, f: 1, saison: 1, info: L("En saison · semaine construite autour du match", "In season · week built around the match"), jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Entraînement", "Training"], l })) };
-  }
-  const w = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5)), b = Math.min(2, Math.floor(w / 2)), R = REPRISE_FT[b];
-  let liste = R[4].slice(0, P.n); if (gk) liste = liste.map(c => c === "vitesse" ? "gdPuissance" : c.startsWith("tech_") ? "tech_gardien" : c);
-  placerSp(liste, jours, club, c => DUR_FT.includes(c));
-  return { L0, f: 1, bloc: b, info: (w < 6 ? L(`Reprise · semaine ${w + 1}/6`, `Pre-season · week ${w + 1}/6`) : L("Reprise terminée : indique ton jour de match", "Pre-season done: set your match day")) + " · " + L(R[0], R[1]), R,
-    jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Entraînement", "Training"], l })) };
-}
-function ftParcours(h) {
-  const P = h.P, S = ftSemaine(P), gk = P.poste === "gardien";
-  h.html(S.saison ? `<div class="etude ech-fiche" style="--accent:#16A34A"><b>${S.info}</b><p>${L("Lendemain de match : récupération. Force loin du match, vitesse en milieu de semaine, activation la veille. Rien de dur dans les 48 h avant le coup d’envoi.", "Day after the match: recovery. Strength far from the match, speed mid-week, activation the day before. Nothing hard in the 48 h before kick-off.")}</p></div>`
-    : `<div class="etude ech-fiche" style="--accent:#16A34A"><b>${S.info}</b><p>${L(S.R[2], S.R[3])}</p></div>`);
-  h.html(ficheFt(S.saison));
-  semaineSp(h, S, c => c === "match" ? "⚽ " + L("Match · échauffement d’avant-match", "Match · pre-match warm-up") : L(...FTS[c].t), c => c === "match" ? null : c);
-  if (S.jours.some(j => j.l.includes("match"))) h.C().querySelectorAll(".bx-s[disabled]").forEach(b => { b.disabled = false; b.onclick = () => vueEch("foot"); });
-  h.html(`<h2 class="sec">${L("Mon profil de footballeur", "My football profile")}</h2><div class="carnet bx-prof">
-    <span class="champ-titre">${L("Je suis", "I am")}</span>${chips("ftn", [["debutant", "Débutant", "Beginner"], ["club", "Joueur en club", "Club player"], ["compet", "Compétition", "Competitive"]], P.niv)}
-    <span class="champ-titre">${L("Mon poste", "My position")}</span>${chips("ftp", [["champ", "Joueur de champ", "Outfield player"], ["gardien", "Gardien de but", "Goalkeeper"]], P.poste)}
-    <span class="champ-titre">${L("Jour de match", "Match day")}</span><div class="chips">${[[-1, "Aucun", "None"], ...JOURS_SP.map(([f, e], d) => [d, f, e])].map(([d, f, e]) => `<button class="toggle" data-ftm="${d}" aria-pressed="${P.match === d}">${L(f, e)}</button>`).join("")}</div>
-    <span class="champ-titre">${L("Mes jours d’entraînement au club", "My club training days")}</span>${choixJours("ftj", P.jours)}
-    <span class="champ-titre">${L("Séances de préparation par semaine", "Prep sessions per week")}</span>${chips("ftk", [1, 2, 3, 4, 5].map(n => [n, n, n]), P.n)}
-    <button class="toggle" id="ftTreve" aria-pressed="${!!P.treve}">${P.treve ? "✓ " : ""}${L("Trêve ou pré-saison : bloc de reprise de 6 semaines", "Break or pre-season: 6-week build-up block")}</button>
-    <p class="sh-aide">${L("Avec un jour de match, la semaine se construit autour de lui. Sans match (ou trêve cochée), l’appli te propose le bloc de reprise, qui commence cette semaine.", "With a match day, the week is built around it. Without a match (or break ticked), the app offers the build-up block, starting this week.")}</p></div>`);
-  const maj = p => { spGarder("foot", p); h.rendu(); };
-  brancherChips("ftn", v => maj({ ...spPref("foot"), niv: v })); brancherChips("ftp", v => maj({ ...spPref("foot"), poste: v }));
-  brancherChips("ftk", v => maj({ ...spPref("foot"), n: +v })); brancherJours(h, "ftj", "jours", maj);
-  h.C().querySelectorAll("[data-ftm]").forEach(b => b.onclick = () => maj({ ...spPref("foot"), match: +b.dataset.ftm }));
-  $("ftTreve").onclick = () => { const p = spPref("foot"); maj({ ...p, treve: !p.treve, debut: jourCle() }); };
-}
+const EQUIPE_FT = { saison: P => SAISON_FT(P.poste === "gardien"), reprise: REPRISE_FT, dur: DUR_FT, ico: "⚽", ech: "foot", fiche: s => ficheFt(s),
+  map: (P, c) => P.poste === "gardien" ? (c === "vitesse" ? "gdPuissance" : c.startsWith("tech_") ? "tech_gardien" : c) : c,
+  profil: ["Mon profil de footballeur", "My football profile"], poste: [["champ", "Joueur de champ", "Outfield player"], ["gardien", "Gardien de but", "Goalkeeper"]],
+  txtSaison: ["Lendemain de match : récupération. Force loin du match, vitesse en milieu de semaine, activation la veille. Rien de dur dans les 48 h avant le coup d’envoi.", "Day after the match: recovery. Strength far from the match, speed mid-week, activation the day before. Nothing hard in the 48 h before kick-off."] };
 const ficheFt = saison => saison ? `<details class="prog-info" style="--c:#16A34A"><summary>${L("Comment se construit ta semaine", "How your week is built")}</summary>
   <ul class="prog-obj"><li><b>J+1</b> — ${L("récupération active : cardio très facile et mobilité.", "active recovery: very easy cardio and mobility.")}</li><li><b>J+2 / J+3</b> — ${L("force et prévention, le plus loin possible du match suivant.", "strength and prevention, as far as possible from the next match.")}</li>
   <li><b>J-4 / J-3</b> — ${L("vitesse et changements de direction (gardien : détente et plongeons).", "speed and change of direction (goalkeeper: spring and dives).")}</li><li><b>J-2</b> — ${L("technique, intensité modérée.", "technique, moderate intensity.")}</li><li><b>J-1</b> — ${L("activation courte : tu dois finir plus frais.", "short activation: you should finish fresher.")}</li></ul>
@@ -169,7 +129,7 @@ SP.foot = { nom: ["Football", "Football"], sous: ["Ta préparation de footballeu
   c: "#16A34A", cle: "sp_foot", pre: "ft_", def: { niv: "club", poste: "champ", match: -1, treve: 0 }, mat: ["ballon", "mur", "plots", "partenaire", "kb", "elastique", "box", "barre"],
   S: FTS, mob: MOB_FT, calme: ["quadDebout", "ischioCouche", "papillon", "figure4", "molletMur"], mobTxt: ["Hanches, adducteurs, chevilles : on prépare les appuis.", "Hips, adductors, ankles: prepare your footwork."],
   coreNom: ["Gainage", "Core"], core: [["planchelat", 30, 10, "", "30 s"], ["bird", 30, 10, "", "30 s"], ["deadbug", 30, 10, "", "30 s"]], savoir: SAVOIR_FT,
-  onglets: [["parcours", "Mon parcours", "My plan", ftParcours],
+  equipe: EQUIPE_FT, onglets: [["parcours", "Mon parcours", "My plan", parcoursEquipe],
     ["technique", "Technique", "Technique", h => { h.html(`<div class="etude ech-fiche" style="--accent:#16A34A"><b>${L("Avec ou sans ballon", "With or without a ball")}</b><p>${L("Coche « Ballon », « Un mur », « Plots » ou « Un partenaire » dans ton matériel : les ateliers s’adaptent. Sans ballon, chaque atelier devient un travail d’appuis.", "Tick “Ball”, “A wall”, “Cones” or “A partner” in your equipment: the drills adapt. Without a ball, each drill becomes footwork.")}</p></div>`);
       h.titre(L("Seul avec un ballon", "On your own with a ball")); h.cartes(["tech_conduite", "tech_passes", "tech_frappe"]);
       h.titre(L("À deux et sans ballon", "In pairs and without a ball")); h.cartes(["tech_deux", "tech_sansBallon"]);
