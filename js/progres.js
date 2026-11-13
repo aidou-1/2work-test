@@ -348,7 +348,7 @@ const PROGRAMMES = [
      ["cardio", "Endurance de force", "Strength endurance", ["skisquat", "chaise", "skater", "planche", "lateral", "calfraise"], "bas"],
      ["recup", "Récupération des jambes", "Leg recovery", ["quadDebout", "ischioCouche", "molletMur", "figure4", "papillon", "enfantStat"], null]],
     [35, 25, [3, 3, 4, 2], "dyn"]],
-  ["cardio", "Cardio & tonus", "Cardio & tone", "Brûler des calories, gagner en souffle et dessiner la silhouette, à haute intensité.", "Burn calories, build stamina and sculpt your body, high intensity.", "#E11D48", ["Intermédiaire +", "Intermediate +"], "25–35 min",
+  ["cardio", "Brûler et tonifier · à la maison", "Burn and tone · at home", "Sans sport, au poids du corps : brûler des calories, gagner en souffle et dessiner la silhouette, à haute intensité. La suite logique de « Remise en forme ».", "No sport needed, bodyweight only: burn calories, build stamina and sculpt your body, high intensity. The natural next step after “Get fit”.", "#E11D48", ["Intermédiaire +", "Intermediate +"], "25–35 min",
     ["Améliorer nettement ton souffle", "Augmenter la dépense énergétique", "Tonifier tout le corps"], ["Clearly improve your stamina", "Increase energy expenditure", "Tone the whole body"],
     [["hiit", "Fractionné corps entier", "Full-body intervals", ["burpees", "climbers", "squatsaute", "kneeup", "planchetouch"], "complet"],
      ["force", "Haut du corps", "Upper body", ["pompes", "pike", "tspin", "pompesserrees", "superman"], "haut"],
