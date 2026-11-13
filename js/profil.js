@@ -119,7 +119,9 @@ function renduProfil() {
       <label class="champ"><span>${L("Mon sport principal", "My main sport")}</span><select id="pfSport"><option value="">${L("Aucun en particulier", "None in particular")}</option>${sportsRenfo().map(k => `<option value="${k}"${p.sport === k ? " selected" : ""}>${T(CATS[k].titre)}</option>`).join("")}</select></label>
       <span class="champ-titre">${L("Mon niveau", "My level")}</span><div class="stepper niv-choix">${NIV_RENFO.map(n => `<button class="toggle" data-niv="${n[0]}" aria-pressed="${n[0] === niv}">${L(n[1], n[2])}</button>`).join("")}</div>
       <span class="champ-titre">${L("Mon matériel", "My equipment")} <small>(${L("pour le Quick start et la bibliothèque", "for Quick start and the library")})</small></span><div class="choix-grille pair">${FAMILLES_MAT.map(m => `<button class="toggle" data-mat="${m[0]}" aria-pressed="${(p.materiel || []).includes(m[0])}">${L(m[1], m[2])}</button>`).join("")}</div>
+      <button class="toggle contour" id="pfQuest">🧭 ${L("Refaire le questionnaire des sports", "Redo the sports questionnaire")}</button>
       <p class="pf-ok" id="pfOk"></p></div><div id="pfResultats"></div>`;
+  $("pfQuest").onclick = () => ecran("bienvenue", () => bienvenue(3));
   const ok = () => { $("pfOk").textContent = "✓ " + L("Enregistré", "Saved"); clearTimeout(ok.t); ok.t = setTimeout(() => $("pfOk") && ($("pfOk").textContent = ""), 1500); resultatsProfil(); };
   $("pfNom").oninput = e => { ecrireProfil("nom", e.target.value.trim()); ok(); };
   brancherCorps("pf", ok);
