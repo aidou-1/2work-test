@@ -100,7 +100,7 @@ function ouvrirSport(sp, onglet, rv) {
       bouton(C(), L("Toutes les séances de cardio", "All cardio sessions"), L("Pyramide, sprints, intermittent… avec les niveaux", "Pyramid, sprints, intermittent… with levels"), "#64748B", () => ouvrirCardio(sp));
       if (fiche !== undefined) h.fiche(fiche); brancherChips("bxs", s => { stocker("cardioSupport", JSON.stringify({ ...cardioPref(), s })); rendu(); }); },
     savoir: () => h.html(G.savoir.map((_, i) => ficheSp(sp, i)).join("")) };
-  const rendu = () => { C().innerHTML = sp === "boxe" ? "" : `<div class="etude ech-fiche sp-refonte" style="--accent:#F59E0B"><b>🛠️ ${L("Sport en cours de refonte", "Sport being reworked")}</b><p>${L("Cet écran sera bientôt refait pour être plus complet et plus réaliste, sur le modèle de la boxe. En attendant, tes idées d’amélioration sont les bienvenues : elles nous aident à faire mieux.", "This screen will soon be rebuilt to be more complete and realistic, like boxing. Meanwhile, your improvement ideas are very welcome: they help us do better.")}</p><button class="toggle" id="spAvis">💬 ${L("Donner mon avis sur ce sport", "Give feedback on this sport")}</button></div>`;
+  const rendu = () => { C().innerHTML = sp === "boxe" ? "" : `<div class="etude ech-fiche sp-refonte" style="--accent:#F59E0B"><b>🛠️ ${L("Sport en cours de refonte", "Sport being reworked")}</b><p>${L("Cet écran sera bientôt refait pour être plus complet et plus réaliste, sur le modèle de la boxe. En attendant, tes idées d’amélioration sont les bienvenues : elles nous aident à faire mieux.", "This screen will soon be rebuilt to be more complete and realistic, like boxing. Meanwhile, your improvement ideas are very welcome: they help us do better.")}</p><button class="toggle" id="spAvis" style="background:#B45309">💬 ${L("Donner mon avis sur ce sport", "Give feedback on this sport")}</button></div>`;
     if ($("spAvis")) $("spAvis").onclick = () => ouvrirAvis(L(...G.nom)); h.P = spPref(sp); O[3](h); };
   rendu();
 }
@@ -210,7 +210,7 @@ function parcoursObjectif(h) {
     <span class="champ-titre">${L("Mon objectif", "My goal")}</span>${chips("obo", E.objs, P.obj)}
     <span class="champ-titre">${L("Séances par semaine", "Sessions per week")}</span>${chips("obk", (E.n || [2, 3, 4, 5, 6]).map(n => [n, n, n]), P.n)}
     <span class="champ-titre">${L("Mes jours de club ou d’entraînement collectif (facultatif)", "My club or group training days (optional)")}</span>${choixJours("obj", P.jours)}
-    ${E.debut && P.obj === E.debut.obj ? "" : `<span class="champ-titre">${L(...E.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="obDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="obDateX">${L("Effacer", "Clear")}</button></div>`}
+    ${E.debut && P.obj === E.debut.obj ? "" : `<span class="champ-titre">${L(...E.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="obDate" aria-label="${L(...E.date)}" value="${P.date}" min="${jourCle()}"><button class="toggle" id="obDateX">${L("Effacer", "Clear")}</button></div>`}
     <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours et la fin est allégée (affûtage). La séance longue se place le week-end, les séances dures ne se suivent pas.", "With a date, the 3 blocks are counted back and the end is lighter (taper). The long session goes on the weekend, hard sessions are never back to back.")}</p>
     <button class="toggle" id="obRaz">${L("Recommencer le parcours à cette semaine", "Restart the plan from this week")}</button></div>`);
   const maj = p => { spGarder(sp, p); h.rendu(); };
@@ -245,7 +245,7 @@ function parcoursSaison(h) {
     ${en ? `<span class="champ-titre">${L(...Z.jours)}</span>${choixJours("szj", P[Z.jk] || [])}
       <span class="champ-titre">${L("Séances d’entretien par semaine", "Maintenance sessions per week")}</span>${chips("szm", [0, 1, 2, 3].map(n => [n, n, n]), P.n2)}`
     : `<span class="champ-titre">${L("Séances de préparation par semaine", "Pre-season sessions per week")}</span>${chips("szk", [2, 3, 4, 5].map(n => [n, n, n]), P.n)}
-      <span class="champ-titre">${L(...Z.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="szDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="szDateX">${L("Effacer", "Clear")}</button></div>
+      <span class="champ-titre">${L(...Z.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="szDate" aria-label="${L(...Z.date)}" value="${P.date}" min="${jourCle()}"><button class="toggle" id="szDateX">${L("Effacer", "Clear")}</button></div>
       <button class="toggle" id="szRaz">${L("Recommencer la préparation à cette semaine", "Restart pre-season from this week")}</button>`}</div>`);
   const maj = p => { spGarder(sp, p); h.rendu(); };
   if (Z.prat) brancherChips("szp", v => maj({ ...spPref(sp), prat: v })); brancherChips("szn", v => maj({ ...spPref(sp), niv: v }));

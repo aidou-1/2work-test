@@ -118,7 +118,7 @@ function avatarSvg(v = vitalite(), a = lireAvatar()) {   // buste : la tête du 
 }
 function majVitalite() {   // carte du menu : avatar, barre de vitalité et série (les 5 minutes pour la recharger : carte Quick start juste en dessous)
   const Z = $("vitaCarte"); if (!Z) return; const v = vitalite(), e = etatVita(v), fait = lireHist().some(x => x.j === jourCle()), sr = series(lireHist());
-  Z.innerHTML = `<button class="vita-av" id="vitaAv" aria-label="${L("Modifier mon avatar", "Edit my avatar")}">${avatarSvg(v)}</button><div class="vita-txt"><strong>${L(e[1], e[2])}</strong><div class="vita-barre vb-${e[0]}" role="progressbar" aria-valuenow="${v}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(4, v)}%"></i></div>
+  Z.innerHTML = `<button class="vita-av" id="vitaAv" aria-label="${L("Modifier mon avatar", "Edit my avatar")}">${avatarSvg(v)}</button><div class="vita-txt"><strong>${L(e[1], e[2])}</strong><div class="vita-barre vb-${e[0]}" role="progressbar" aria-label="${L("Vitalité", "Vitality")}" aria-valuenow="${v}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(4, v)}%"></i></div>
     <small>${L("Vitalité", "Vitality")} ${v} % · 🔥 ${sr.cur} ${L(sr.cur > 1 ? "jours d’affilée" : "jour d’affilée", sr.cur > 1 ? "days in a row" : "day in a row")}${sr.joker ? " · 🛡️" : ""} · ${fait ? L("rechargée aujourd’hui, reviens demain", "recharged today, come back tomorrow") : v >= 80 ? L("garde le feu allumé", "keep the fire burning") : L("5 minutes suffisent pour la remonter", "5 minutes is enough to raise it")}</small></div>`;
   $("vitaAv").onclick = () => ouvrirMoi();
 }

@@ -23,7 +23,7 @@ function xpTotal(h = lireHist()) {
 const RANGS = [["Débutant", "Beginner"], ["Régulier", "Regular"], ["Motivé", "Motivated"], ["Sportif", "Sporty"], ["Athlète", "Athlete"], ["Compétiteur", "Competitor"], ["Expert", "Expert"], ["Élite", "Elite"], ["Champion", "Champion"], ["Légende", "Legend"]];
 const seuilXp = n => 75 * n * (n - 1);   // XP nécessaires pour atteindre le niveau n : 0, 150, 450, 900, 1500…
 function niveauXp(xp = xpTotal()) { let n = 1; while (seuilXp(n + 1) <= xp) n++; const a = seuilXp(n), b = seuilXp(n + 1); return { n, xp, nom: L(...RANGS[Math.min(n, RANGS.length) - 1]), dans: xp - a, pour: b - a, pct: Math.round((xp - a) / (b - a) * 100) }; }
-const barreXp = N => `<div class="vita-barre vb-xp" role="progressbar" aria-valuenow="${N.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(3, N.pct)}%"></i></div>`;
+const barreXp = N => `<div class="vita-barre vb-xp" role="progressbar" aria-label="${L("Progression vers le niveau suivant", "Progress to the next level")}" aria-valuenow="${N.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(3, N.pct)}%"></i></div>`;
 const carteDefis = (D, plus = "") => `<div class="carte"><h2>${L("Défis de la semaine", "Weekly challenges")} · ${D.filter(d => d.ok).length}/3</h2>${listeDefis(D)}${plus}</div>`;
 const listeDefis = D => `<ul class="defis-sem">${D.map(d => `<li class="${d.ok ? "ok" : ""}"><span>${d.ok ? "✓" : "○"} ${L(d.fr, d.en)}</span><b>${d.v}/${d.cible}</b><i style="--p:${d.v / d.cible * 100}%"></i></li>`).join("")}</ul>`;
 
