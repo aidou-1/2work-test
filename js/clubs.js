@@ -168,19 +168,26 @@ function ongSeances(Z, cb) {
   }));
 }
 function feuillePublier() {
-  let type = "cat", choix = null; const fav = lireFav ? lireFav() : [];
+  let type = "cat", choix = null, fam = null; const fav = lireFav ? lireFav() : [];
+  // « Parcourir » : le catalogue rangé comme dans l'appli, famille par famille
+  const FAM = [["ech", "🔥", "Échauffements par sport", "Warm-ups by sport", r => modeDe(r) === "echauffement"], ["sport", "💪", "Renfo par sport", "Strength by sport", r => modeDe(r) === "seance" && r.grp && !["haut", "bas", "complet"].includes(r.grp)],
+    ["corps", "🧍", "Renfo du corps", "Body strength", r => modeDe(r) === "seance" && ["haut", "bas", "complet"].includes(r.grp)], ["salle", "🏋️", "Salle de musculation", "Gym", r => modeDe(r) === "salle"], ["tabata", "⏱️", "Tabata", "Tabata", r => modeDe(r) === "tabata"],
+    ["etir", "🧘", "Étirements", "Stretching", r => r.cat === "etir"], ["souffle", "🌬️", "Respiration", "Breathing", r => r.cat === "coherence"], ["rep", "🩹", "Retour après blessure", "Back after injury", r => r.blessure]];
+  const famDe = r => FAM.find(f => f[4](r));
   const cats = () => Object.entries(ROUTINES).filter(([k, r]) => r.titre && !/^(club_|fav_|perso$)/.test(k)), progs = PROGRAMMES.filter(p => p[0] !== "perso");
-  ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Catalogue", "Catalogue"], ["fav", "Mes séances", "My workouts"], ["prog", "Programme", "Programme"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
+  ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Parcourir", "Browse"], ["fav", "Mes séances", "My workouts"], ["prog", "Programmes", "Programmes"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
     <label class="recherche"><input id="pbQ" type="search" placeholder="${L("Rechercher", "Search")}" autocomplete="off"></label><ul class="list cl-choix" id="pbListe"></ul>
     <div class="champ-duo"><label class="champ"><span id="pbDateT">${L("Date", "Date")}</span><input type="date" id="pbDate" value="${jourCle()}" min="${decaler(jourCle(), -30)}"></label><label class="champ"><span>${L("Titre affiché", "Displayed title")}</span><input id="pbTitre" maxlength="60"></label></div>
     <label class="champ"><span>${L("Consigne pour le groupe (facultatif)", "Note for the group (optional)")}</span><textarea id="pbNote" class="choixVoix" rows="2" maxlength="300" placeholder="${L("ex. À faire avant l’entraînement de jeudi", "e.g. Do it before Thursday’s practice")}"></textarea></label><p class="cl-erreur" id="pbErr"></p>
     <button class="primary" id="pbOk">${L("Publier pour tout le club", "Post to the whole club")}</button>`);
-  const liste = () => { const q = plat($("pbQ").value.trim()), l = type === "cat" ? cats().map(([k, r]) => [k, T(r.titre), T(r.detail || "")]) : type === "fav" ? fav.filter(f => ROUTINES[f.base]).map(f => ["fav:" + f.id, propre(f.nom), T("{n} exercices", { n: f.ids.length })]) : progs.map(p => ["prog:" + p[0], L(p[1], p[2]), L(p[3], p[4])]);
-    $("pbListe").innerHTML = l.filter(x => !q || plat(x[1] + " " + x[2]).includes(q)).slice(0, 40).map(x => `<li data-k="${x[0]}" class="${choix === x[0] ? "cl-sel" : ""}"><div><b>${echap(x[1])}</b><small>${echap(x[2])}</small></div><span class="duree">${choix === x[0] ? "✓" : ""}</span></li>`).join("") || `<li><small>${type === "fav" ? L("Aucune séance enregistrée : crée-la d’abord dans Entraînement → Planifier ma séance.", "No saved workout: create it first in Training → Plan my workout.") : L("Aucun résultat.", "No results.")}</small></li>`;
+  const liste = () => { const q = plat($("pbQ").value.trim());
+    if (type === "cat" && !q && !fam) { $("pbListe").innerHTML = FAM.map(f => [f, cats().filter(([, r]) => famDe(r) === f).length]).filter(x => x[1]).map(([f, n]) => `<li data-fam="${f[0]}"><span class="i-ico">${f[1]}</span><div><b>${L(f[2], f[3])}</b><small>${n} ${L("séances", "workouts")}</small></div><span class="duree">›</span></li>`).join(""); return; }
+    const F = FAM.find(f => f[0] === fam), l = type === "cat" ? cats().filter(([, r]) => q || famDe(r) === F).map(([k, r]) => [k, T(r.titre), T(r.detail || "") || (q && famDe(r) ? L(famDe(r)[2], famDe(r)[3]) : "")]) : type === "fav" ? fav.filter(f => ROUTINES[f.base]).map(f => ["fav:" + f.id, propre(f.nom), T("{n} exercices", { n: f.ids.length })]) : progs.map(p => ["prog:" + p[0], L(p[1], p[2]), L(p[3], p[4])]);
+    $("pbListe").innerHTML = (type === "cat" && F && !q ? `<li data-fam="" class="bloc-titre"><b>‹ ${F[1]} ${L(F[2], F[3])}</b></li>` : "") + l.filter(x => !q || plat(x[1] + " " + x[2]).includes(q)).slice(0, q ? 40 : 200).map(x => `<li data-k="${x[0]}" class="${choix === x[0] ? "cl-sel" : ""}"><div><b>${echap(x[1])}</b><small>${echap(x[2])}</small></div><span class="duree">${choix === x[0] ? "✓" : ""}</span></li>`).join("") || `<li><small>${type === "fav" ? L("Aucune séance enregistrée : crée-la d’abord dans Entraînement → Planifier ma séance.", "No saved workout: create it first in Training → Plan my workout.") : L("Aucun résultat.", "No results.")}</small></li>`;
     $("pbDateT").textContent = type === "prog" ? L("Début du programme", "Programme start") : L("Date", "Date"); };
-  $("pbType").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; type = b.dataset.t; choix = null; $("pbType").querySelectorAll("[data-t]").forEach(x => x.setAttribute("aria-pressed", x === b)); liste(); };
+  $("pbType").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; type = b.dataset.t; choix = null; fam = null; $("pbType").querySelectorAll("[data-t]").forEach(x => x.setAttribute("aria-pressed", x === b)); liste(); };
   $("pbQ").oninput = liste;
-  $("pbListe").onclick = e => { const li = e.target.closest("[data-k]"); if (!li) return; choix = li.dataset.k; $("pbTitre").value = li.querySelector("b").textContent; liste(); };
+  $("pbListe").onclick = e => { const f = e.target.closest("[data-fam]"); if (f) { fam = f.dataset.fam || null; liste(); $("pbListe").scrollTop = 0; return; } const li = e.target.closest("[data-k]"); if (!li) return; choix = li.dataset.k; $("pbTitre").value = li.querySelector("b").textContent; liste(); };
   liste();
   $("pbOk").onclick = async () => {
     if (!choix) return $("pbErr").textContent = L("Choisis une séance dans la liste.", "Pick a workout from the list.");
