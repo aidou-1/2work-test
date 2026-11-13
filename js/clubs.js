@@ -149,7 +149,7 @@ function ongSeances(Z, cb) {
   desab.push(SV.ecouterSeances(cb.id, async l => {
     const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l.map(s => s.id));
     const carte = s => { const P = s.prog && PROGRAMMES.find(p => p[0] === s.prog);
-      return `<div class="carnet cl-seance" data-s="${s.id}"><div class="cl-s-haut"><small>${P ? L("Programme dès ", "Programme from ") : ""}${dateLisible(s.date)}</small>${staff() ? `<button class="lien" data-sup="${s.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button>` : ""}</div>
+      return `<div class="carnet cl-seance" data-s="${s.id}"><div class="cl-s-haut"><small>${P ? L("Programme · ", "Programme · ") : ""}${dateLisible(s.date)}</small>${staff() ? `<button class="lien" data-sup="${s.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button>` : ""}</div>
         <b>${echap(s.titre)}</b>${s.note ? `<p>${echap(s.note)}</p>` : ""}
         <div class="partage-btns"><button class="toggle" data-go="${s.id}">▶ ${P ? L("Ouvrir le programme", "Open the programme") : L("Lancer", "Start")}</button><button class="toggle contour${faits[s.id] ? " cl-fait" : ""}" data-fait="${s.id}">${faits[s.id] ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done")}</button></div>
         ${staff() ? `<details class="cl-suivi" data-suivi="${s.id}"><summary>${L("Qui l’a faite ?", "Who did it?")} <span id="nb_${s.id}"></span></summary><div id="qui_${s.id}"></div></details>` : ""}</div>`; };
@@ -200,7 +200,7 @@ function ongChat(Z, cb) {
   let msgs = [], bas = true;
   desab.push(SV.ecouterMessages(cb.id, l => { msgs = l; const F = $("chFil"); if (!F) return; bas = bas || F.scrollTop + F.clientHeight > F.scrollHeight - 80;
     F.innerHTML = l.length ? l.map((m, i) => { const moi = m.uid === CL.u.uid, j = m.t && m.t.toDate ? jourCle(m.t.toDate()) : jourCle(), sep = !i || (l[i - 1].t && l[i - 1].t.toDate && jourCle(l[i - 1].t.toDate()) !== j);
-      return `${sep ? `<p class="cl-jour">${dateLisible(j)}</p>` : ""}<div class="cl-msg${moi ? " moi" : ""}${m.suppr ? " suppr" : ""}" data-m="${m.id}">${moi ? "" : `<b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}</b>`}
+      return `${sep ? `<p class="cl-jour">${dateLisible(j)}</p>` : ""}<div class="cl-msg${moi ? " moi" : ""}${m.suppr ? " efface" : ""}" data-m="${m.id}">${moi ? "" : `<b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}</b>`}
         ${m.rep ? `<q><b>${echap(m.rep.pseudo)}</b> ${echap(m.rep.extrait)}</q>` : ""}<p>${m.suppr ? L("Message supprimé", "Message deleted") : echap(m.texte).replace(/\n/g, "<br>")}</p><small>${heure(m.t)}</small>
         ${Object.entries(m.reac || {}).filter(([, u]) => u.length).map(([e, u]) => `<button class="cl-reac${u.includes(CL.u.uid) ? " moi" : ""}" data-r="${e}">${e} ${u.length}</button>`).join("")}</div>`; }).join("")
       : `<p class="vide">${L("Aucun message. Lance la discussion !", "No messages yet. Start the conversation!")}</p>`;
