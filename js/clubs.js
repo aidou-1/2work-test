@@ -140,7 +140,8 @@ function renduClub(C) {
 /* Séances : le staff publie (catalogue, séances enregistrées, programme), chacun lance et coche ; le staff voit qui a fait quoi */
 function routineClub(s) {   // séance du club → routine locale « club_<id> » (même moteur que les favoris), pour la lancer et la cocher à la fin
   const b = ROUTINES[s.base]; if (!b) return null; const k = "club_" + s.id;
-  ROUTINES[k] = { ...b, titre: propre(s.titre), titreFr: propre(s.titre), club: { c: CL.c, s: s.id, titre: s.titre }, exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
+  const t = String(s.titre).replace(/[<>"'`&]/g, "").slice(0, 60);   // titre écrit par un coach : jamais de balise ni de guillemet
+  ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, titre: t }, exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
   if (typeof CONSEILLES !== "undefined") CONSEILLES[k] = CONSEILLES[s.base] || ROUTINES[k].exercices; return k;
 }
 function ongSeances(Z, cb) {
@@ -156,7 +157,7 @@ function ongSeances(Z, cb) {
     $("spListe").innerHTML = (av.length ? `<h2 class="sec">${L("À venir", "Upcoming")}</h2>${av.map(carte).join("")}` : `<p class="vide">${L("Aucune séance prévue pour l’instant.", "No workout planned yet.")}${staff() ? "<br>" + L("Publie la première avec le bouton ci-dessus.", "Post the first one with the button above.") : ""}</p>`)
       + (pa.length ? `<h2 class="sec">${L("Passées", "Past")}</h2>${pa.slice(0, 15).map(carte).join("")}` : "");
     $("spListe").onclick = async e => { const b = e.target.closest("button"); if (!b) return; const d = b.dataset, s = l.find(x => x.id === (d.go || d.fait || d.sup));
-      if (d.go) { if (s.prog) return ouvrirProg(s.prog); const k = routineClub(s); k ? ouvrirRoutine(k) : alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); }
+      if (d.go) { if (s.prog) return PROGRAMMES.some(p => p[0] === s.prog) && ouvrirProg(s.prog); const k = routineClub(s); k ? ouvrirRoutine(k) : alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); }
       if (d.fait) { const oui = !b.classList.contains("cl-fait"); b.disabled = true; await SV.marquerFait(cb.id, s.id, CL.u.pseudo, oui).catch(() => {}); b.disabled = false; b.classList.toggle("cl-fait", oui); b.textContent = oui ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done"); }
       if (d.sup && b.dataset.conf) await SV.supprimerSeance(cb.id, s.id); else if (d.sup) { b.dataset.conf = 1; b.textContent = L("Supprimer ?", "Delete?"); }
     };
@@ -268,9 +269,9 @@ function ongReglages(Z, cb) {
   desab.push(SV.ecouterSignalements(cb.id, l => { $("rgSig").innerHTML = l.length ? `<h2 class="sec">⚑ ${L("Messages signalés", "Reported messages")} · ${l.length}</h2><ul class="list">${l.map(r => `<li><div><b>${echap(r.auteur)}</b><small>${echap(r.extrait)}</small></div><button class="toggle contour cl-danger" data-del="${r.m}" data-r="${r.id}">🗑</button><button class="toggle contour" data-ok="${r.id}">${L("Garder", "Keep")}</button></li>`).join("")}</ul>` : "";
     $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) await SV.effacerMessage(cb.id, b.dataset.del).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r || b.dataset.ok).catch(() => {}); }; }));
 }
-// QR code dessiné sur place (bibliothèque libre « qrcode-generator », chargée seulement ici)
+// QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
-  if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"; s.onload = ok; s.onerror = ko; document.head.append(s); });
+  if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/qrcode.js"; s.onload = ok; s.onerror = ko; document.head.append(s); });
   const q = qrcode(0, "M"); q.addData(t); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
 }
 

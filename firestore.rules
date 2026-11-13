@@ -2,89 +2,117 @@ rules_version = '2';
 // 2 WORK · règles de sécurité Firestore (clubs, séances partagées, chat).
 // Principe : chacun ne lit que ce qui le concerne ; un club n'est visible que de ses membres ;
 // seuls le coach et les co-coachs publient des séances, valident les demandes et modèrent.
+// Chaque écriture est vérifiée champ par champ (liste fermée de champs, types, tailles) ;
+// le pseudo écrit est toujours celui du compte (impossible de parler au nom d'un autre).
 service cloud.firestore {
   match /databases/{db}/documents {
     function connecte() { return request.auth != null; }
     function moi() { return request.auth.uid; }
+    function D() { return request.resource.data; }
     function membreDoc(c) { return /databases/$(db)/documents/clubs/$(c)/membres/$(moi()); }
     function membre(c) { return connecte() && exists(membreDoc(c)); }
     function role(c) { return get(membreDoc(c)).data.role; }
     function staff(c) { return membre(c) && role(c) in ['coach', 'cocoach']; }
     function coach(c) { return membre(c) && role(c) == 'coach'; }
-    function seulement(l) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(l); }
+    function seulement(l) { return D().diff(resource.data).affectedKeys().hasOnly(l); }
+    function champs(oblig, permis) { return D().keys().hasAll(oblig) && D().keys().hasOnly(permis); }
     function texte(s, max) { return s is string && s.size() > 0 && s.size() <= max; }
+    function texteVide(s, max) { return s is string && s.size() <= max; }
+    function monPseudo() { return get(/databases/$(db)/documents/profils/$(moi())).data.pseudo; }
+    function maintenant(t) { return t == request.time; }
+    function jour(s) { return s is string && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function id(s) { return s is string && s.matches('^[A-Za-z0-9_-]{1,40}$'); }
 
-    // compte privé : seulement soi (date de naissance, accord parental)
+    // compte privé : seulement soi (date de naissance, accord parental, liste de ses clubs)
     match /comptes/{uid} {
       allow read, delete: if connecte() && moi() == uid;
-      allow create, update: if connecte() && moi() == uid && request.resource.data.keys().hasOnly(['naissance', 'parental', 'cree', 'clubs', 'attente']);
+      allow create: if connecte() && moi() == uid && champs(['naissance', 'parental', 'cree', 'clubs', 'attente'], ['naissance', 'parental', 'cree', 'clubs', 'attente'])
+        && jour(D().naissance) && D().parental is bool && maintenant(D().cree) && D().clubs == [] && D().attente == [];
+      allow update: if connecte() && moi() == uid && seulement(['clubs', 'attente'])
+        && D().clubs is list && D().clubs.size() <= 50 && D().attente is list && D().attente.size() <= 50;
     }
-    // profil public : pseudo affiché dans les clubs et le chat
+    // profil public : pseudo affiché dans les clubs et le chat (pas modifiable ensuite)
     match /profils/{uid} {
       allow read: if connecte();
-      allow create: if connecte() && moi() == uid && texte(request.resource.data.pseudo, 20)
-        && getAfter(/databases/$(db)/documents/pseudos/$(request.resource.data.pseudo.lower())).data.uid == uid;
-      allow update: if connecte() && moi() == uid && seulement(['couleur']);
+      allow create: if connecte() && moi() == uid && champs(['pseudo'], ['pseudo']) && D().pseudo.matches('^[A-Za-z0-9_.-]{3,20}$')
+        && getAfter(/databases/$(db)/documents/pseudos/$(D().pseudo.lower())).data.uid == uid;
       allow delete: if connecte() && moi() == uid;
     }
     // réservation des pseudos : un document par pseudo en minuscules, donc impossible d'avoir deux fois le même
     match /pseudos/{p} {
       allow get: if true;
-      allow create: if connecte() && request.resource.data.uid == moi() && p.matches('^[a-z0-9_.-]{3,20}$');
+      allow create: if connecte() && champs(['uid'], ['uid']) && D().uid == moi() && p.matches('^[a-z0-9_.-]{3,20}$')
+        && getAfter(/databases/$(db)/documents/profils/$(moi())).data.pseudo.lower() == p;
       allow delete: if connecte() && resource.data.uid == moi();
     }
 
     match /clubs/{c} {
       allow read: if membre(c);
-      allow create: if connecte() && request.resource.data.coach == moi() && texte(request.resource.data.nom, 40)
+      allow create: if connecte() && champs(['nom', 'sport', 'desc', 'coach', 'cree'], ['nom', 'sport', 'desc', 'coach', 'cree'])
+        && D().coach == moi() && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300) && maintenant(D().cree)
         && getAfter(/databases/$(db)/documents/clubs/$(c)/membres/$(moi())).data.role == 'coach';
-      allow update: if staff(c) && seulement(['nom', 'sport', 'desc']);
+      allow update: if staff(c) && seulement(['nom', 'sport', 'desc']) && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300);
       allow delete: if coach(c);
 
-      // lien d'invitation : connaître le code suffit pour lire le nom du club et demander à entrer
+      // lien d'invitation : connaître le code (9 caractères aléatoires) suffit pour lire le nom du club et demander à entrer
       match /invits/{code} {
         allow get: if connecte();
-        allow list, create, delete: if staff(c);
+        allow list, delete: if staff(c);
+        allow create: if staff(c) && code.matches('^[a-z0-9]{9}$') && champs(['nom', 'cree'], ['nom', 'cree']) && texte(D().nom, 40) && maintenant(D().cree);
       }
       match /demandes/{uid} {
         allow read: if staff(c) || (connecte() && moi() == uid);
-        allow create: if connecte() && moi() == uid && !exists(membreDoc(c)) && texte(request.resource.data.pseudo, 20)
-          && exists(/databases/$(db)/documents/clubs/$(c)/invits/$(request.resource.data.code));
+        allow create: if connecte() && moi() == uid && !exists(membreDoc(c)) && champs(['pseudo', 'code', 'nom', 't'], ['pseudo', 'code', 'nom', 't'])
+          && D().pseudo == monPseudo() && texteVide(D().nom, 40) && maintenant(D().t) && id(D().code)
+          && exists(/databases/$(db)/documents/clubs/$(c)/invits/$(D().code));
         allow delete: if staff(c) || (connecte() && moi() == uid);
       }
       match /membres/{uid} {
         allow read: if membre(c);
-        // le créateur s'inscrit coach en créant le club ; ensuite seul le staff ajoute, et seulement des membres
-        allow create: if (connecte() && moi() == uid && request.resource.data.role == 'coach' && getAfter(/databases/$(db)/documents/clubs/$(c)).data.coach == uid)
-          || (staff(c) && request.resource.data.role == 'membre' && exists(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)));
-        // le coach nomme ou retire les co-coachs ; le staff rend muet ; personne ne touche au rôle du coach
-        allow update: if resource.data.role != 'coach' && ((coach(c) && seulement(['role', 'muet']) && request.resource.data.role in ['membre', 'cocoach'])
-          || (staff(c) && seulement(['muet'])));
-        // on peut partir ; le staff peut exclure un membre ; le coach ne part qu'en supprimant le club
-        allow delete: if resource.data.role != 'coach' && ((connecte() && moi() == uid) || staff(c))
-          || (connecte() && moi() == uid && !exists(/databases/$(db)/documents/clubs/$(c)));   // le coach part en dernier, club supprimé
+        // le créateur s'inscrit coach en créant le club ; ensuite seul le staff ajoute, et seulement quelqu'un qui l'a demandé
+        allow create: if champs(['uid', 'pseudo', 'role', 'muet', 'depuis'], ['uid', 'pseudo', 'role', 'muet', 'depuis']) && D().uid == uid && D().muet == false && maintenant(D().depuis)
+          && ((connecte() && moi() == uid && D().role == 'coach' && D().pseudo == monPseudo() && getAfter(/databases/$(db)/documents/clubs/$(c)).data.coach == uid)
+            || (staff(c) && D().role == 'membre' && D().pseudo == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.pseudo));
+        // le coach nomme ou retire les co-coachs ; le staff rend muet ; personne ne touche au rôle du coach ni ne se modifie soi-même
+        allow update: if resource.data.role != 'coach' && uid != moi() && D().muet is bool
+          && ((coach(c) && seulement(['role', 'muet']) && D().role in ['membre', 'cocoach'])
+            || (staff(c) && resource.data.role == 'membre' && seulement(['muet'])));
+        // on peut partir ; le staff peut exclure un membre (un co-coach seulement par le coach) ; le coach part en dernier, club supprimé
+        allow delete: if (resource.data.role != 'coach' && ((connecte() && moi() == uid) || coach(c) || (staff(c) && resource.data.role == 'membre')))
+          || (connecte() && moi() == uid && !exists(/databases/$(db)/documents/clubs/$(c)));
       }
       match /seances/{s} {
         allow read: if membre(c);
-        allow create, update, delete: if staff(c);
+        allow create, update: if staff(c) && champs(['titre', 'date', 'note', 'auteur', 'cree'], ['titre', 'date', 'note', 'auteur', 'cree', 'base', 'ids', 'prog'])
+          && texte(D().titre, 60) && jour(D().date) && texteVide(D().note, 300) && D().auteur == moi()
+          && (!('base' in D()) || id(D().base)) && (!('prog' in D()) || id(D().prog)) && (!('ids' in D()) || (D().ids is list && D().ids.size() <= 60));
+        allow delete: if staff(c);
         match /faits/{uid} {
           allow read: if membre(c);
-          allow create, update: if membre(c) && moi() == uid;
+          allow create, update: if membre(c) && moi() == uid && champs(['pseudo', 't'], ['pseudo', 't']) && D().pseudo == monPseudo() && maintenant(D().t);
           allow delete: if (connecte() && moi() == uid) || staff(c);
         }
       }
       match /messages/{m} {
+        function reac(e) {
+          let avant = resource.data.reac.get(e, []);
+          let apres = D().reac.get(e, []);
+          return D().reac.diff(resource.data.reac).affectedKeys().hasOnly([e]) && apres is list && apres.size() == apres.toSet().size()
+            && (apres.toSet() == avant.toSet().union([moi()].toSet()) || apres.toSet() == avant.toSet().difference([moi()].toSet()));
+        }
         allow read: if membre(c);
-        allow create: if membre(c) && get(membreDoc(c)).data.muet != true && request.resource.data.uid == moi()
-          && texte(request.resource.data.texte, 1000) && request.resource.data.t == request.time;
-        // réactions : n'importe quel membre ; suppression (texte effacé) : l'auteur ou le staff
-        allow update: if membre(c) && (seulement(['reac'])
-          || ((resource.data.uid == moi() || staff(c)) && seulement(['suppr', 'texte']) && request.resource.data.suppr == true && request.resource.data.texte == ''));
+        allow create: if membre(c) && get(membreDoc(c)).data.muet != true && champs(['uid', 'pseudo', 'texte', 't', 'reac'], ['uid', 'pseudo', 'texte', 't', 'reac', 'rep'])
+          && D().uid == moi() && D().pseudo == monPseudo() && texte(D().texte, 1000) && maintenant(D().t) && D().reac == {}
+          && (!('rep' in D()) || (D().rep is map && D().rep.keys().hasOnly(['m', 'pseudo', 'extrait']) && texteVide(D().rep.extrait, 80) && texteVide(D().rep.pseudo, 20)));
+        // réactions : chacun ajoute ou retire seulement la sienne, parmi 5 emojis ; suppression (texte effacé) : l'auteur ou le staff
+        allow update: if membre(c) && ((seulement(['reac']) && (reac('👍') || reac('❤️') || reac('💪') || reac('🔥') || reac('😂')))
+          || ((resource.data.uid == moi() || staff(c)) && seulement(['suppr', 'texte']) && D().suppr == true && D().texte == ''));
         allow delete: if coach(c);   // seulement pour supprimer le club entier
       }
       match /signalements/{r} {
         allow read, delete: if staff(c);
-        allow create: if membre(c) && request.resource.data.par == moi();
+        allow create: if membre(c) && champs(['m', 'extrait', 'auteur', 'par', 't'], ['m', 'extrait', 'auteur', 'par', 't']) && D().par == moi()
+          && id(D().m) && texteVide(D().extrait, 200) && texteVide(D().auteur, 20) && maintenant(D().t);
       }
     }
   }
