@@ -76,8 +76,10 @@ function guideAuto() {
   }, 900);
 }
 
-/* --- Installation sur l'écran d'accueil, au tout premier lancement (avant le questionnaire de bienvenue) --- */
-const besoinInstallGuide = () => !installee() && !lire("guideInstall") && /^https?:/.test(location.protocol);
+/* --- Installation sur l'écran d'accueil : premier écran à chaque ouverture dans le navigateur, avant le questionnaire de bienvenue ;
+   « Plus tard » vaut pour cette visite seulement --- */
+const plusTardSession = () => { try { return sessionStorage.getItem("guideInstall"); } catch (e) { return null; } };
+const besoinInstallGuide = () => !installee() && !plusTardSession() && /^https?:/.test(location.protocol);   // à chaque ouverture dans le navigateur, tant que l'appli n'est pas installée
 function guideInstall() {
   const C = $("bvCorps"), natif = invitInstall && !iOS(),
     app = iOS() ? (/ipad/i.test(UA) || navigator.maxTouchPoints > 1 && !/iphone/i.test(UA) ? "iPad" : "iPhone") : android() ? "Android" : L("Ordinateur", "Computer"),
@@ -88,7 +90,7 @@ function guideInstall() {
     ${natif ? `<button class="primary" id="giNatif">📲 ${L("Installer maintenant", "Install now")}</button>` : `<div class="carnet gi-etapes">${htmlInstall()}</div><button class="primary" id="giFait">✓ ${L("C’est fait", "Done")}</button>`}
     <button class="lien-discret" id="giPlusTard">${L("Plus tard, continuer dans le navigateur", "Later, continue in the browser")}</button>`;
   $("bvPasser").classList.add("hidden"); brancherInstall();
-  const suite = () => { stocker("guideInstall", jourCle()); suiteBienvenue(); };
+  const suite = () => { try { sessionStorage.setItem("guideInstall", "1"); } catch (e) {} suiteBienvenue(); };
   $("giPlusTard").onclick = suite;
   if (natif) $("giNatif").onclick = async () => { if (await installer()) suite(); };
   else $("giFait").onclick = suite;

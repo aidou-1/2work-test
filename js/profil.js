@@ -491,13 +491,12 @@ function renduDonnees(msg) {
   const info = [...$("reglages").querySelectorAll("h2.sec")].pop();
   info.insertAdjacentHTML("beforebegin", `<h2 class="sec">${L("Appli et données", "App and data")}</h2><div class="carnet" id="rgAppli"></div><div class="carnet" id="rgVideosBloc"><div id="rgVideos"></div></div><div class="carnet" id="rgDonnees"></div>`);
 })();
-// bannière discrète sur le menu : installer (si pas installée) puis sauvegarder (si jamais ou > 30 jours), au plus une à la fois, refusable 7 jours
+// bannière discrète sur le menu : sauvegarder (si jamais ou > 30 jours), refusable 7 jours (l'installation est proposée en grand à l'ouverture, js/guide.js)
 function majBanniere() {
   const Z = $("banniere"); if (!Z) return; const n = lireHist().length, lu = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const repos = k => { const d = joursDepuis(lu(k)); return d !== null && d < 7; };
   let b = null;
-  if (!installee() && !repos("banniereInstall") && /^https?:/.test(location.protocol)) b = ["banniereInstall", "📲", L("Installe 2 WORK", "Install 2 WORK"), L("Plein écran, hors ligne, données protégées", "Full screen, offline, protected data"), installer];
-  else if (n >= 5 && !repos("banniereSauvegarde") && (joursDepuis(lu("sauvegardeDate")) ?? 99) > 30) b = ["banniereSauvegarde", "💾", L("Sauvegarde ton suivi", "Back up your progress"), L(`${n} séances à mettre à l’abri`, `${n} workouts to keep safe`), sauvegarder];
+  if (n >= 5 && !repos("banniereSauvegarde") && (joursDepuis(lu("sauvegardeDate")) ?? 99) > 30) b = ["banniereSauvegarde", "💾", L("Sauvegarde ton suivi", "Back up your progress"), L(`${n} séances à mettre à l’abri`, `${n} workouts to keep safe`), sauvegarder];
   if (!b) { Z.innerHTML = ""; return; }
   Z.innerHTML = `<button class="bn-corps"><span class="sc-ico">${b[1]}</span><span><strong>${b[2]}</strong><small>${b[3]}</small></span></button><button class="bn-fermer" aria-label="${L("Plus tard", "Later")}">✕</button>`;
   Z.querySelector(".bn-corps").onclick = b[4];
