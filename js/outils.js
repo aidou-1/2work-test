@@ -61,14 +61,23 @@ function ficheExercice(id) {
 }
 
 /* --- Quick start : on coche ses contraintes (temps, matériel, zone, intensité) et le circuit est prêt ; quatre raccourcis en un appui --- */
+const ZONES_QS = [["tout", "Tout le corps", "Full body"], ["bas", "Cuisses et fessiers", "Legs and glutes"], ["haut", "Haut du corps", "Upper body"], ["tronc", "Abdos", "Core"]];
 const INTENSITES = { calme: [30, 30, "Tranquille", "Easy"], normal: [40, 20, "Normale", "Normal"], intense: [45, 15, "Très intense", "Very intense"] };
+// réserve du Quick start : seulement du renfo général (renfo du corps au poids du corps et avec matériel, leurs exercices conseillés, salle), jamais un geste propre à un sport
+const renfoQuick = () => [...new Set([...["renfoHaut", "renfoBas", "renfoComplet"].flatMap(k => [...(ROUTINES[k] || {}).exercices || [], ...(ROUTINES[k + "Mat"] || {}).exercices || [], ...(CONSEILLES[k] || [])]),
+  ...Object.values(ROUTINES).filter(r => r.salle).flatMap(r => r.exercices), ...SALLE, "pike"])].filter(id => EXERCICES[id]);
+// derniers choix du Quick start (matériel, zone, intensité), repris par la carte « Tu ne sais pas quoi faire ? » de l'accueil
+// zone principale d'un exercice : celle de son premier muscle (« Lombaires, fessiers » → abdos et gainage), pour ne pas mettre un gainage dans « cuisses »
+const zoneQuick = id => { const m = EXERCICES[id].muscles.split(" · ")[0], z1 = ZONES.slice(1).find(x => x[3].test(m.split(",")[0])); return z1 ? z1[0] : (ZONES.slice(1).find(x => x[3].test(m)) || [""])[0]; };
+const quickPrefs = () => ({ z: "tout", m: monMatos().length ? "mien" : "sans", int: "normal", ...lireJSON("quickPrefs", {}) });
 function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal" }) {   // renvoie faux s'il n'y a pas assez d'exercices
   const dyn = id => /saut|burpee|climber|jump|skater|sprint|explos/i.test(EXERCICES[id].nom + " " + EXERCICES[id].description);
-  const pool = Object.keys(EXERCICES).filter(id => !EXERCICES[id].etir && EXERCICES[id].duree >= 40 && dansZone(id, z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (z !== "tout" || ZONES.slice(1).some(x => dansZone(id, x[0]))) && (int !== "calme" || !dyn(id)));
+  const pool = renfoQuick().filter(id => !EXERCICES[id].etir && (z === "tout" ? zoneQuick(id) : zoneQuick(id) === z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (int !== "calme" || !dyn(id)));
   if (pool.length < 3) return false;
-  const hasard = l => l.map(x => [Math.random() - (int === "intense" && dyn(x) ? 1 : 0), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);   // très intense : les exercices dynamiques d'abord
+  stocker("quickPrefs", JSON.stringify({ z, m, int }));
+  const hasard = l => l.map(x => [Math.random() - (int === "intense" && dyn(x) ? 1 : 0) - (m === "mien" && EXERCICES[x].mat ? .6 : 0), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);   // très intense : les exercices dynamiques d'abord ; avec ton matériel : surtout des exercices qui s'en servent
   // tout le corps : on alterne bas, haut et tronc pour ne pas enchaîner deux fois la même zone
-  const paniers = z === "tout" ? ZONES.slice(1).map(x => hasard(pool.filter(id => dansZone(id, x[0])))) : [hasard(pool)], choix = [], [effort, pause, f, e] = INTENSITES[int];
+  const paniers = z === "tout" ? ZONES.slice(1).map(x => hasard(pool.filter(id => zoneQuick(id) === x[0]))) : [hasard(pool)], choix = [], [effort, pause, f, e] = INTENSITES[int];
   for (let k = 0; choix.length < Math.min(8, pool.length) && k < 60; k++) { const id = paniers[k % paniers.length].shift(); if (id && !choix.includes(id)) choix.push(id); }
   try { localStorage.removeItem("routine_express"); } catch (err) {}
   ROUTINES.express = { type: "seance", retour: () => ouvrirExpress(), titre: "Quick start · " + min + " min" + (int === "normal" ? "" : " · " + L(f, e).toLowerCase()), detail: "", couleur: int === "intense" ? "#DC2626" : "#0EA5E9",
@@ -78,20 +87,20 @@ function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal" }) {
 }
 /* Accueil : « Tu ne sais pas quoi faire ? » — on choisit seulement son temps, la séance part tout de suite, avec son matériel s'il est enregistré */
 function majQuick() {
-  const Z = $("quickCarte"); if (!Z) return; const m = monMatos().length ? "mien" : "sans";
+  const Z = $("quickCarte"); if (!Z) return; const q = quickPrefs(), m = q.m, regl = [q.z !== "tout" && L(...ZONES_QS.find(x => x[0] === q.z).slice(1)), q.int !== "normal" && L(...INTENSITES[q.int].slice(2)), m === "mien" && L("ton matériel", "your equipment")].filter(Boolean).join(" · ");
   Z.innerHTML = `<div class="quick-corps"><strong>${ico("eclair")} ${L("Tu ne sais pas quoi faire ?", "Not sure what to do?")}</strong><small>${L("Choisis juste ton temps et fonce : l’appli compose une séance avec ce que tu as sous la main" + (m === "mien" ? " (ton matériel compris)." : ", sans matériel."), "Just pick your time and go: the app builds a workout with what you have at hand" + (m === "mien" ? " (including your equipment)." : ", no equipment."))}</small>
-    <div class="quick-temps">${[5, 10, 15, 20, 30].map(n => `<button class="toggle" data-qmin="${n}">${n} min</button>`).join("")}</div><button class="lien" id="quickPlus">${L("Plus de choix : zone, intensité, matériel ›", "More options: area, intensity, equipment ›")}</button></div>`;
-  Z.querySelectorAll("[data-qmin]").forEach(b => b.onclick = () => ouvrirExpress({ min: +b.dataset.qmin, m })); $("quickPlus").onclick = () => ouvrirExpress();
+    <div class="quick-temps">${[5, 10, 15, 20, 30].map(n => `<button class="toggle" data-qmin="${n}">${n} min</button>`).join("")}</div><button class="lien" id="quickPlus">${regl ? "Quick start · " + regl + " · " + L("modifier", "change") + " ›" : L("Quick start : zone, intensité, matériel ›", "Quick start: area, intensity, equipment ›")}</button></div>`;
+  Z.querySelectorAll("[data-qmin]").forEach(b => b.onclick = () => ouvrirExpress({ ...q, min: +b.dataset.qmin })); $("quickPlus").onclick = () => ouvrirExpress();
 }
 function ouvrirExpress(direct) {
   if (direct && composerExpress(direct)) return;
-  const c = { min: 15, z: "tout", m: monMatos().length ? "mien" : "sans", int: "normal" };
+  const c = { min: 15, ...quickPrefs() };
   outil("Quick start", L("Coche tes contraintes, l’appli compose la séance. Ou pars en un appui avec un raccourci.", "Tick your constraints and the app builds the workout. Or start in one tap with a shortcut."),
     `<div class="chips">${[[ico("eclair") + " 15 min · " + L("sans matériel", "no equipment"), { min: 15 }], [ico("flamme") + " 10 min · " + L("très intense", "very intense"), { min: 10, int: "intense" }], [ico("cible") + " 15 min · " + L("focus cuisses", "leg focus"), { min: 15, z: "bas" }], [ico("pile") + " 5 min · " + L("recharge", "recharge"), { min: 5 }]]
       .map(([t, o]) => `<button class="toggle" data-pre='${JSON.stringify(o)}'>${t}</button>`).join("")}</div>
      <div class="carnet"><span class="champ-titre">${L("Durée", "Duration")}</span>${chips("d", [5, 10, 15, 20, 30].map(n => [n, n + " min", n + " min"]), c.min)}
       <span class="champ-titre">${L("Matériel", "Equipment")}</span>${chips("m", CHOIX_MAT.slice(1), c.m)}
-      <span class="champ-titre">Focus</span>${chips("z", [["tout", "Tout le corps", "Full body"], ["bas", "Cuisses et fessiers", "Legs and glutes"], ["haut", "Haut du corps", "Upper body"], ["tronc", "Abdos", "Core"]], c.z)}
+      <span class="champ-titre">Focus</span>${chips("z", ZONES_QS, c.z)}
       <span class="champ-titre">${L("Intensité", "Intensity")}</span>${chips("i", Object.entries(INTENSITES).map(([k, v]) => [k, v[2], v[3]]), c.int)}<p class="sh-aide" id="xAide"></p></div>
      <button class="primary" id="xGo">${ico("eclair")} ${L("Composer ma séance", "Build my workout")}</button>`);
   const aide = t => { $("xAide").textContent = t || (c.m === "mien" ? (monMatos().length ? monMatos().map(k => L(...FAMILLES_MAT.find(x => x[0] === k).slice(1, 3))).join(", ") : L("Aucun matériel enregistré : ajoute-le dans Réglages → Mon profil.", "No equipment saved: add it in Settings → My profile.")) : L(`${INTENSITES[c.int][0]} s d’effort, ${INTENSITES[c.int][1]} s de repos.`, `${INTENSITES[c.int][0]} s work, ${INTENSITES[c.int][1]} s rest.`)); };
