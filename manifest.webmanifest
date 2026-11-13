@@ -1,0 +1,32 @@
+{
+  "name": "2 WORK · Échauffement, renfo, récupération",
+  "short_name": "2 WORK",
+  "description": "Échauffements par sport, renfo, salle, Tabata, programmes et retour au calme, guidés à la voix.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0C0A09",
+  "theme_color": "#0C0A09",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["health", "fitness", "sports"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "icons/ecran-1.jpg", "sizes": "1080x2337", "type": "image/jpeg", "form_factor": "narrow", "label": "Ton tableau de bord : série, séance du jour et menus" },
+    { "src": "icons/ecran-2.jpg", "sizes": "1080x2337", "type": "image/jpeg", "form_factor": "narrow", "label": "Le muscle du jour sur une planche anatomique" },
+    { "src": "icons/ecran-3.jpg", "sizes": "1080x2337", "type": "image/jpeg", "form_factor": "narrow", "label": "Des séances de renfo construites pour ton sport" },
+    { "src": "icons/ecran-4.jpg", "sizes": "1080x2337", "type": "image/jpeg", "form_factor": "narrow", "label": "Ta semaine planifiée selon ton objectif" }
+  ],
+  "shortcuts": [
+    { "name": "Échauffements", "short_name": "Échauffement", "url": "./?go=ech", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Tabata", "url": "./?go=tabata", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Ma semaine", "url": "./?go=semaine", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mes progrès", "url": "./?go=progres", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
