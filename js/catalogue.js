@@ -439,7 +439,7 @@ const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handbal
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "pilates"]];
 function listeRenfo() {
   const C = $("choicesCS"); C.innerHTML = ficheRenfo();
-  const F = sportsFrequents(GROUPES_RENFO.flatMap(g => g[2].split(" "))), ajout = k => bouton(C, CATS[k].titre, k === "boxe" ? L("Parcours jusqu’au combat, technique, renfo, force, puissance, cardio, récup", "Plan up to your fight, technique, strength, power, cardio, recovery") : L(RENFOS[k][0], RENFOS[k][1]), CATS[k].couleur, () => vueMode(k)); tesSports(C, F, ajout);
+  const F = sportsFrequents(GROUPES_RENFO.flatMap(g => g[2].split(" "))), ajout = k => bouton(C, CATS[k].titre, SP[k] ? L(...SP[k].resume) : L(RENFOS[k][0], RENFOS[k][1]), CATS[k].couleur, () => vueMode(k)); tesSports(C, F, ajout);
   GROUPES_RENFO.forEach(([fr, en, l]) => { const r = l.split(" ").filter(k => !F.includes(k)); if (!r.length) return; C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L(fr, en)}</h2>`); r.forEach(ajout); });
   C.insertAdjacentHTML("beforeend", `<h2 class="sec">${L("Sans sport précis", "No specific sport")}</h2>`);
   bouton(C, "Renfo du corps", "Haut du corps, bas du corps ou tout le corps", CATS.renfo.couleur, () => vueZones());

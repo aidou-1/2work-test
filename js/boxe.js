@@ -8,13 +8,6 @@
    Réglages gardés : clé « boxe » (profil, jours de club, séances par semaine, date de combat, durée, matériel).
    Historique : chaque séance est notée « bx_<code> », catégorie « boxe » (trophées et avatar de boxe inchangés). */
 
-/* --- Matériel du jour : [clé, FR, EN] --- */
-const BX_MAT = [["gants", "Gants et sac", "Gloves and bag"], ["corde", "Corde à sauter", "Jump rope"], ["elastique", "Élastique", "Resistance band"], ["medecine", "Médecine-ball", "Medicine ball"],
-  ["kb", "Kettlebell ou haltères", "Kettlebell or dumbbells"], ["barre", "Barre et disques", "Barbell and plates"], ["box", "Box ou banc solide", "Box or sturdy bench"], ["traction", "Barre de traction ou sangles", "Pull-up bar or straps"]];
-// matériel demandé par les exercices existants utilisés dans les séances de boxe
-const BXM = { kbSwing: "kb", goblet: "kb", dbRow: "kb", bulgare: "kb", stepUp: "box", souleveTerre: "barre", squatBarre: "barre", rafaleSac: "gants", lancerMedecine: "medecine",
-  rotElastique: "elastique", bandRow: "elastique", bandPullApart: "elastique", tractions: "traction", tractionBloquee: "traction", traineau: "barre" };
-
 /* --- Nouveaux exercices : [id, durée, matériel, mat FR, EN, nom FR, EN, muscles FR, EN, description FR, EN, pose, consigne FR, EN]
    Pose : objet POSES (dessin provisoire) ou id d'un exercice dont on emprunte le dessin. Les planches illustrées remplaceront ces dessins. */
 const GARDE_BX = [115, 82, 10, 25, 160, 20, 165, 25, -5, -35, 10];   // garde de profil (pied gauche devant)
@@ -152,24 +145,15 @@ const BX_EX = [
     "deadbug", "Sur le dos, jambes tendues vers le plafond.|Une jambe descend lentement, remonte, puis l’autre.|Le bas du dos reste plaqué. Arrête la descente avant qu’il se décolle.", "On your back, legs straight up.|One leg lowers slowly, comes up, then the other.|Lower back stays pressed down. Stop before it lifts."]
 ];
 {
-  const EN = LANGUE === "en";
-  BX_EX.forEach(([id, duree, m, matFr, matEn, nomFr, nomEn, musFr, musEn, descFr, descEn, pose, vFr, vEn]) => {
-    const mat = EN ? matEn : matFr;
-    EXERCICES[id] = { nom: EN ? nomEn : nomFr, nomFr, duree, video: null, description: EN ? descEn : descFr, muscles: (EN ? musEn : musFr) + (mat ? " · " + mat : ""), mat: !!mat };
-    if (m) { BXM[id] = m; MATOS.push(id); }
-    VOIX_SALLE[id] = nomEn; POSES[id] = typeof pose === "string" ? POSES[pose] : pose;
-    if (typeof CONSIGNES !== "undefined") CONSIGNES[id] = [vFr, vEn];
-  });
+  exosSp(BX_EX);
   if (typeof ECHS !== "undefined") ECHS.boxe.splice(0, 4, ["footwork", "jumpingJack", "bxAli"], ["armcircles", "thread", "openbook", "hip9090", "bxAigle"], ["scap", "planchetouch", "tspin"], ["slips", "bxJab", "bxDirect", "bxRoule", "shadow"]);
   TESTS.push(["bxSaut", "Saut vertical", "Vertical jump", "cm", "cm", "Debout de côté contre un mur, marque le plus haut point atteint bras tendu, puis saute en touchant le mur le plus haut possible : la différence en centimètres est ta détente. Garde le meilleur de 3 essais.", "Standing side-on to a wall, mark the highest point you reach with your arm up, then jump and touch the wall as high as you can: the difference in centimetres is your jump height. Keep the best of 3 tries."],
     ["bxCoups", "Coups en 30 secondes", "Punches in 30 seconds", "coups", "punches", "Au sac ou en shadow, jab-direct le plus vite possible pendant 30 s en revenant en garde à chaque coup : compte les coups (ou fais-les compter). Mesure de vitesse et d’endurance des bras.", "On the bag or shadow boxing, jab-cross as fast as you can for 30 s, returning to guard each time: count the punches (or have them counted). Measures arm speed and endurance."]);
 }
 
 /* --- Réglages et choix du matériel --- */
-const bxPref = () => ({ niv: "club", jours: [], n: 3, date: "", debut: jourCle(), dur: 35, mat: [], cycle: 0, ...lireJSON("boxe", {}) });
-const bxGarder = p => stocker("boxe", JSON.stringify(p));
-const bxDispo = (id, mat) => EXERCICES[id] && (BXM[id] || "").split(" ").every(m => !m || mat.includes(m));
-const bxChoix = (slot, mat) => [].concat(slot).find(id => bxDispo(id, mat)) || null;
+const bxPref = () => spPref("boxe"), bxGarder = p => spGarder("boxe", p);
+const ouvrirBoxe = (o, rv) => ouvrirSport("boxe", o, rv), lancerBx = (c, f) => lancerSp("boxe", c, f), bxSeance = (c, o) => spSeance("boxe", c, o);
 const COMBOS_BX = [["1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3", "1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3"], ["1-2-3-2 · 1-6-3 · 1c-2 · 3c-3 · 2-3-2 · 1-2-5-2", "1-2-3-2 · 1-6-3 · 1b-2 · 3b-3 · 2-3-2 · 1-2-5-2"],
   ["1-2 · esquive · 2 / 1-2 · roulé · 3-2 / bloque · 2-3 / retrait · 2 / 1-1-2-3c-3", "1-2 · slip · 2 / 1-2 · roll · 3-2 / block · 2-3 / pull back · 2 / 1-1-2-3b-3"]];
 // thèmes techniques : [nom FR, EN, exercices du round [id, focus FR, EN]]
@@ -185,7 +169,7 @@ const THEMES_BX = {
 const RPE_BX = (a, b) => L(`Effort ${a}/10 · `, `Effort ${a}/10 · `) + b;
 const MOB_BX = ["openbook", "thread", "hip9090", "bxAigle", "wgs", "bxGlisses", "cossack", "bxClam", "bxMoulin", "armcircles"];
 const CALME_BX = ["murPecs", "figure4", "fenteBasse", "enfantStat", "relaxation"];
-const allBx = a => "c_" + supportDe("boxe")[0] + a;
+const allBx = a => allSp("boxe", a);
 const BXS = {
   forceA: { c: "#7C3AED", t: ["Force A · fondations", "Strength A · foundations"], tab: "force", rpe: "7", max: 5, core: 1, d: ["Sauts, coup isométrique, puis circuit de force du corps entier : la base solide avant les charges lourdes.", "Jumps, isometric punch, then a full-body strength circuit: the solid base before heavy loads."],
     f: k => [["Puissance", "Power", "Qualité maximale, repos complet : on apprend à sauter et à se recevoir.", "Top quality, full rest: learn to jump and land.", Math.min(k, 3), 60, [[["bxBoxJump", "receptionSaut"], 20, 40, L("4 sauts, réception silencieuse", "4 jumps, quiet landing"), "4"], [["bxIsoCoup", "bxIsoMur"], 30, 30, RPE_BX(8, L("3 × 5 s par côté", "3 × 5 s per side")), "3 × 5 s"]]],
@@ -213,17 +197,17 @@ const BXS = {
     f: k => Array.from({ length: k }, (_, s) => [`Round ${s + 1}/${k}`, `Round ${s + 1}/${k}`, L("6 × (20 s de déplacement + 10 s de rafale), puis 1 min de repos.", "6 × (20 s moving + 10 s flurry), then 1 min rest."), "", 6, 0, [[allBx(0), 20, 0, L("Bouge, respire", "Move, breathe"), "20 s"], [allBx(2), 10, 0, RPE_BX(10, L("rafale", "flurry")), "10 s"]], 60]) },
   base: { c: "#0EA5E9", t: ["Rounds d’endurance", "Endurance rounds"], tab: "cardio", rpe: "7", max: 9, cardio: 1, d: ["Rounds de 3 min à allure tenable, 1 min 30 de repos : on construit le souffle de base sans se mettre dans le rouge.", "3-min rounds at a sustainable pace, 1 min 30 rest: build your base fitness without going into the red."],
     f: k => [["Rounds", "Rounds", "Tu dois pouvoir dire quelques mots pendant l’effort.", "You should be able to say a few words during the effort.", k, 90, [[allBx(1), 180, 90, RPE_BX(7, L("tenable", "sustainable")), "3 min"]]]] },
-  recup: { c: "#14B8A6", t: ["Récupération active", "Active recovery"], tab: "recup", rpe: "3", max: 1, cardio: 1, d: ["Effort très facile puis mobilité : le sang circule, les tensions partent, tu récupères plus vite de la semaine.", "Very easy effort then mobility: blood flows, tension goes, you recover faster from the week."],
+  recup: { c: "#14B8A6", t: ["Récupération active", "Active recovery"], tab: "recup", rpe: "3", max: 1, cardio: 1, sansEch: 1, d: ["Effort très facile puis mobilité : le sang circule, les tensions partent, tu récupères plus vite de la semaine.", "Very easy effort then mobility: blood flows, tension goes, you recover faster from the week."],
     f: (k, x) => [["Cardio très facile", "Very easy cardio", "Tu peux parler sans effort.", "You can talk easily.", 1, 0, [[allBx(0), { 20: 600, 35: 1080, 50: 1500 }[x.dur], 30, RPE_BX(3, L("très facile", "very easy")), ""]]],
       ["Circuit de mobilité", "Mobility circuit", "Lent, sans douleur, en respirant.", "Slow, pain-free, breathing.", 1, 0, MOB_BX.slice(0, { 20: 4, 35: 6, 50: 8 }[x.dur]).map(id => [id, 45, 10, "", "45 s"])]] },
-  mobilite: { c: "#0891B2", t: ["Mobilité boxe · 10 min", "Boxing mobility · 10 min"], tab: "recup", rpe: "3", max: 1, fixe: 1, d: ["Haut du dos, hanches, fessiers et épaules : la routine courte à faire avant chaque séance ou les jours sans.", "Upper back, hips, glutes and shoulders: the short routine to do before any session or on rest days."],
+  mobilite: { c: "#0891B2", t: ["Mobilité boxe · 10 min", "Boxing mobility · 10 min"], tab: "recup", rpe: "3", max: 1, fixe: 1, sansMob: 1, d: ["Haut du dos, hanches, fessiers et épaules : la routine courte à faire avant chaque séance ou les jours sans.", "Upper back, hips, glutes and shoulders: the short routine to do before any session or on rest days."],
     f: () => [["Mobilité", "Mobility", "Une légère tension, jamais de douleur. Les exercices sur un côté changent à mi-temps.", "Mild tension, never pain. One-sided moves switch halfway.", 1, 0, MOB_BX.map(id => [id, 50, 10, "", "50 s"])]] },
-  avant: { c: "#F59E0B", t: ["Échauffement d’avant-combat", "Pre-fight warm-up"], tab: "combat", rpe: "5–8", max: 1, fixe: 1, d: ["15 min structurées avant les pattes ou le combat : monter en température, mobiliser, activer, puis quelques rafales pour être vif.", "15 structured minutes before pads or the fight: raise temperature, mobilise, activate, then a few flurries to feel sharp."],
+  avant: { c: "#F59E0B", t: ["Échauffement d’avant-combat", "Pre-fight warm-up"], tab: "combat", rpe: "5–8", max: 1, fixe: 1, sansMob: 1, d: ["15 min structurées avant les pattes ou le combat : monter en température, mobiliser, activer, puis quelques rafales pour être vif.", "15 structured minutes before pads or the fight: raise temperature, mobilise, activate, then a few flurries to feel sharp."],
     f: () => [["Monter en température", "Raise", "", "", 1, 0, [["footwork", 60, 5, RPE_BX(4, ""), "1 min"], ["jumpingJack", 30, 5, "", "30 s"], ["bxAli", 30, 15, "", "30 s"]]],
       ["Mobiliser", "Mobilise", "", "", 1, 0, [["openbook", 30, 5, "", "30 s"], ["hip9090", 30, 5, "", "30 s"], ["thread", 30, 5, "", "30 s"], ["armcircles", 30, 15, "", "30 s"]]],
       ["Activer", "Activate", "", "", 1, 0, [[["bxPallof", "planchetouch"], 30, 15, "", "30 s"], ["squatsaute", 20, 30, L("3 sauts vifs", "3 sharp jumps"), "3"], [["bxLancerCoup", "lancer"], 20, 30, L("4 par côté, vite", "4 per side, fast"), "2 × 4"]]],
       ["Être vif", "Get sharp", "Le shadow monte de 50 % à 80 %, puis 3 rafales de 5 s.", "Shadow builds from 50% to 80%, then 3 flurries of 5 s.", 1, 0, [["bxCombo", 90, 30, L("Shadow à 50 % : ", "Shadow at 50%: ") + L(...COMBOS_BX[0]), "90 s"], ["bxCombo", 90, 30, L("Shadow à 80 % : ", "Shadow at 80%: ") + L(...COMBOS_BX[1]), "90 s"], [["rafaleSac", "shadow"], 5, 25, RPE_BX(10, ""), "5 s"], [["rafaleSac", "shadow"], 5, 25, RPE_BX(10, ""), "5 s"], [["rafaleSac", "shadow"], 5, 0, RPE_BX(10, ""), "5 s"]]]] },
-  affutage: { c: "#EA580C", t: ["Affûtage · J-2", "Taper · 2 days out"], tab: "combat", rpe: "8", max: 1, fixe: 1, d: ["Deux jours avant le combat : peu de volume, beaucoup de vivacité. Tu sors de la séance plus frais qu’en entrant.", "Two days before the fight: little volume, lots of sharpness. You leave the session fresher than you came in."],
+  affutage: { c: "#EA580C", t: ["Affûtage · J-2", "Taper · 2 days out"], tab: "combat", rpe: "8", max: 1, fixe: 1, calme: 1, d: ["Deux jours avant le combat : peu de volume, beaucoup de vivacité. Tu sors de la séance plus frais qu’en entrant.", "Two days before the fight: little volume, lots of sharpness. You leave the session fresher than you came in."],
     f: () => [["Vivacité", "Sharpness", "Qualité maximale, repos complet.", "Top quality, full rest.", 2, 60, [[["bxBoxJump", "squatsaute"], 15, 45, L("3 sauts", "3 jumps"), "3"], [["bxLancerCoup", "bxShadowElast", "lancer"], 15, 45, L("4 par côté", "4 per side"), "2 × 4"]]],
       ["Sprints courts", "Short sprints", "", "", 3, 110, [[allBx(2), 10, 110, RPE_BX(9, L("vite et relâché", "fast and relaxed")), "10 s"]]],
       ["Shadow", "Shadow", "", "", 2, 60, [["bxCombo", 120, 60, L("Vif et précis : ", "Sharp and precise: ") + L(...COMBOS_BX[1]), "2 min"]]]] }
@@ -233,39 +217,6 @@ Object.entries(THEMES_BX).forEach(([th, [fr, en, l]]) => BXS["tech_" + th] = { c
   f: (k, x) => { const R = x.niv === "debutant" ? 120 : 180; return [["Rounds techniques", "Technique rounds", L(`${k} rounds de ${R / 60} min, 1 min de repos · `, `${k} rounds of ${R / 60} min, 1 min rest · `) + (x.sac ? L("au sac", "on the bag") : L("en shadow", "shadow boxing")), "", 1, 0,
     Array.from({ length: k }, (_, i) => { const [id, cF, cE, c] = l[i % l.length]; return [id, R, 60, (x.sac ? L("Au sac · ", "Bag · ") : L("Shadow · ", "Shadow · ")) + L(cF, cE) + (c !== undefined ? L(...COMBOS_BX[c]) : ""), (R / 60) + " min", "Round " + (i + 1) + "/" + k]; })]]; } });
 
-/* --- Construction : mobilité → bloc principal → gainage-rotation → retour au calme, volume ajusté à la durée --- */
-function bxPlan(code, k, x) {
-  const S = BXS[code], plan = [], blocs = [], m = x.mat, D = S.fixe ? 35 : x.dur, n = (a, b, c) => ({ 20: a, 35: b, 50: c })[D];
-  const tout = [...(S.cardio || ["mobilite", "avant"].includes(code) ? [] : [["Mobilité", "Mobility", L("Haut du dos, hanches, épaules : on prépare la rotation.", "Upper back, hips, shoulders: prepare the rotation."), "", 1, 0, MOB_BX.slice(0, n(3, 5, 6)).map(id => [id, 40, 5, "", "40 s"])]]),
-    ...(S.cardio && code !== "recup" ? [["Échauffement", "Warm-up", L("4 minutes progressives, deux accélérations.", "4 progressive minutes, two accelerations."), "", 1, 0, [[allBx(0), 120, 0, RPE_BX(3, ""), "2 min"], [allBx(1), 60, 0, RPE_BX(6, ""), "1 min"], [allBx(0), 20, 0, "", "20 s"], [allBx(2), 10, 0, RPE_BX(9, ""), "10 s"], [allBx(0), 20, 0, "", "20 s"], [allBx(2), 10, 60, RPE_BX(9, ""), "10 s"]]]] : []),
-    ...S.f(k, x), ...(S.core && D >= 35 && !x.court ? [["Gainage-rotation", "Core-rotation", L("Court et contrôlé.", "Short and controlled."), "", n(1, 1, 2), 20, [[["bxPallof", "planchelat"], 30, 10, "", "30 s"], [["bxLancerGenoux", "russian"], 30, 10, "", "30 s"], ["deadbug", 30, 10, "", "30 s"]]]] : []),
-    ...(S.cardio && code !== "recup" ? [["Retour au calme", "Cool-down", L("Trois minutes très faciles.", "Three very easy minutes."), "", 1, 0, [[allBx(0), 180, 0, RPE_BX(2, ""), "3 min"]]]] : []),
-    ...(S.cardio || S.fixe && code !== "affutage" ? [] : [["Retour au calme", "Cool-down", L("Étirements doux, respiration lente.", "Gentle stretches, slow breathing."), "", 1, 0, CALME_BX.slice(0, n(2, 3, 4)).map(id => [id, 40, 5, "", "40 s"])]])];
-  tout.forEach(([nF, nE, dF, dE, tours, rT, items, fin]) => {
-    const nb = L(nF, nE), l = items.map(([s, d, r, p, a, lab]) => [bxChoix(s, m), d, r, p, a, lab]).filter(i => i[0]);
-    if (!l.length) return;
-    for (let t = 1; t <= tours; t++) l.forEach(([id, d, r, p, , lab], i) => plan.push({ id, d, r: i < l.length - 1 ? r : t < tours ? rT : fin ?? 30, bn: nb, t, tt: tours, ft: i === l.length - 1 && t < tours,
-      lab: lab ? nb + " · " + lab : nb + (tours > 1 ? L(" · tour ", " · round ") + t + "/" + tours : "") + (l.length > 1 ? " · " + (i + 1) + "/" + l.length : ""), presc: p || undefined }));
-    blocs.push([nb, l.map(([id, d, , , a]) => [id, (tours > 1 ? tours + " × " : "") + (a || duTxt(d))]), L(dF, dE || dF)]);
-  });
-  plan[plan.length - 1].r = 0;
-  return { plan, blocs, total: Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60) };
-}
-function bxSeance(code, o = {}) {
-  const P = bxPref(), S = BXS[code], x = { mat: o.mat || P.mat, dur: o.dur || P.dur, niv: P.niv, sac: (o.mat || P.mat).includes("gants"), court: o.f < 1 }, cible = Math.round(x.dur * (o.f || 1));
-  let s = bxPlan(code, 1, x);
-  for (let k = 2; k <= S.max && !S.fixe && S.max > 1; k++) { const t = bxPlan(code, k, x); if (t.total > cible + 2) break; s = t; }
-  const zr = zoneRouge(), sup = supportDe("boxe"), dur = S.fixe ? "" : " · " + L("format ", "format ") + x.dur + " min";
-  const html = `<li class="etude prog-carte-jour" style="--accent:${S.c}"><div><small><b>${L(...S.t)}${dur}${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</b></small><small>🎯 ${L(...S.d)}</small>
-    <small>💬 ${L("Effort visé", "Target effort")} ${S.rpe}/10 ${L("(0 repos · 5 modéré · 8 très dur · 10 maximum)", "(0 rest · 5 moderate · 8 very hard · 10 max)")}${zr && /8|9|10/.test(S.rpe) && S.cardio ? L(` · zone rouge : ${zr} bpm et plus sur les efforts durs`, ` · red zone: ${zr} bpm and above on hard efforts`) : ""}</small>
-    ${S.cardio ? `<small>📍 ${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>🏃 ${alluresVma()}</small>` : ""}` : `<small>🧰 ${x.mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + x.mat.map(k => L(...BX_MAT.find(m => m[0] === k).slice(1))).join(", ") : L("Version au poids du corps (coche ton matériel dans Boxe pour l’utiliser)", "Bodyweight version (tick your equipment in Boxing to use it)")}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
-  return { type: "seance", cat: "boxe", bx: code, fixe: true, couleur: S.c, plan: s.plan, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
-}
-let bxOnglet = "parcours", bxRetour = null;
-function lancerBx(code, f) {
-  const k = "bx_" + code; ROUTINES[k] = { ...bxSeance(code, { f }), retour: () => ouvrirBoxe(bxOnglet) }; CONSEILLES[k] = ROUTINES[k].exercices; ouvrirRoutine(k);
-}
-
 /* --- Mon parcours : Bases (6 semaines) pour les débutants, puis cycle de 3 blocs de 4 semaines, à rebours depuis la date de combat s'il y en a une --- */
 const BLOCS_BX = [["Bases du boxeur", "Boxer’s basics", "Apprendre les gestes, construire le souffle et la force de base.", "Learn the moves, build base fitness and strength."],
   ["Bloc 1 · Fondations", "Block 1 · Foundations", "Bases de force, technique des sauts, intervalles longs et sprints à fond.", "Strength basics, jump technique, long intervals and all-out sprints."],
@@ -274,8 +225,6 @@ const BLOCS_BX = [["Bases du boxeur", "Boxer’s basics", "Apprendre les gestes,
 const SEM_BX = { 0: w => [["tech_bases", "tech_bases", "tech_crochets", "tech_crochets", "tech_defense", "tech_defense"][w], "forceA", "base", ["tech_pas", "tech_combos"][w > 2 ? 1 : 0], "recup"],
   1: () => ["forceA", "sprints", "moteur", "gainage", "recup"], 2: () => ["forceB", "tolerance", "specifique", "rsa", "forceA"], 3: () => ["puissance", "rsa", "specifique", "recup", "sprints"] };
 const DUR_BX = ["forceA", "forceB", "puissance", "sprints", "tolerance", "rsa", "specifique", "moteur"];
-const lundi = (d = new Date()) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; };
-const plusJ = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 function bxSemaine(P = bxPref(), decal = 0) {
   const L0 = plusJ(lundi(), 7 * decal), w0 = Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5), cbt = P.date ? new Date(P.date + "T12:00") : null;
   let bloc, sem, f = 1, info = "", fixes = {};
@@ -288,108 +237,36 @@ function bxSemaine(P = bxPref(), decal = 0) {
   } else { const w = Math.max(0, w0 - (P.niv === "debutant" && !P.cycle ? 6 : 0)); bloc = Math.floor(w / 4) % 3 + 1; sem = w % 4; if (sem === 3) f = .7; info = L(`Semaine ${sem + 1}/4`, `Week ${sem + 1}/4`) + (sem === 3 ? L(" · semaine allégée", " · lighter week") : ""); }
   const liste = SEM_BX[bloc](sem).slice(0, P.n), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => DUR_BX.includes(c);
   Object.entries(fixes).forEach(([j, c]) => jours[j].push(c));
-  const nf = Object.keys(fixes).length, lim = nf ? Math.min(...Object.keys(fixes).map(Number)) : 7;
-  [...liste.filter(dur), ...liste.filter(c => !dur(c))].slice(0, nf ? Math.min(2, P.n - 1) : P.n).forEach(c => {
-    let best = -1, sc = 1e9;
-    for (let d = 0; d < lim; d++) {
-      if (jours[d].length) continue;
-      const voisinDur = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].some(dur)), voisin = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].length);
-      const s = (club(d) ? (dur(c) ? 6 : 2) : 0) + (dur(c) && club(d + 1) ? 4 : 0) + (dur(c) && voisinDur ? 3 : 0) + (voisin ? 1 : 0) + d * .01;
-      if (s < sc) { sc = s; best = d; }
-    }
-    if (best >= 0) jours[best].push(c);
-  });
+  const nf = Object.keys(fixes).length;
+  placerSp(liste.slice(0, nf ? Math.min(2, P.n - 1) : P.n), jours, club, dur, nf ? Math.min(...Object.keys(fixes).map(Number)) : 7);
   return { L0, bloc, sem, f, info, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), l })) };
 }
 
-/* --- L'écran Boxe --- */
-const ONGLETS_BX = [["parcours", "Mon parcours", "My plan"], ["technique", "Technique", "Technique"], ["force", "Force", "Strength"], ["puissance", "Puissance", "Power"], ["cardio", "Cardio", "Cardio"],
-  ["recup", "Récup", "Recovery"], ["combat", "Combat", "Fight"], ["tests", "Tests", "Tests"], ["savoir", "Savoir", "Knowledge"]];
-const JOURS_BX = [["Lun", "Mon"], ["Mar", "Tue"], ["Mer", "Wed"], ["Jeu", "Thu"], ["Ven", "Fri"], ["Sam", "Sat"], ["Dim", "Sun"]];
-function ouvrirBoxe(onglet = bxOnglet, rv) {
-  bxOnglet = onglet; if (rv) bxRetour = rv; const P = bxPref();
-  outil(L("Boxe", "Boxing"), L("Ta préparation complète de boxeur : choisis une séance à la carte ou suis ton parcours.", "Your complete boxing preparation: pick any session or follow your plan."),
-    `<div class="chips bx-onglets">${ONGLETS_BX.map(([k, f, e]) => `<button class="toggle" data-bxo="${k}" aria-pressed="${k === onglet}">${L(f, e)}</button>`).join("")}</div>
-     ${["savoir", "tests"].includes(onglet) ? "" : `<div class="carnet bx-regl"><span class="champ-titre">${L("Durée de la séance", "Session length")}</span>${chips("bxd", [[20, "20 min", "20 min"], [35, "35 min", "35 min"], [50, "50 min", "50 min"]], P.dur)}
-       <span class="champ-titre">${L("Ton matériel aujourd’hui", "Your equipment today")}</span><div class="chips">${BX_MAT.map(([k, f, e]) => `<button class="toggle" data-bxm="${k}" aria-pressed="${P.mat.includes(k)}">${L(f, e)}</button>`).join("")}</div>
-       <p class="sh-aide">${L("Rien de coché = version au poids du corps. Les séances choisissent l’exercice adapté à ce que tu as.", "Nothing ticked = bodyweight version. Sessions pick the exercise that fits what you have.")}</p></div>`}<div id="bxC"></div>`, () => (bxRetour || vueSCats)());
-  $("oCorps").querySelectorAll("[data-bxo]").forEach(b => b.onclick = () => { const y = scrollY; ouvrirBoxe(b.dataset.bxo); scrollTo(0, Math.min(y, 120)); });
-  brancherChips("bxd", v => { bxGarder({ ...bxPref(), dur: +v }); rendu(); });
-  $("oCorps").querySelectorAll("[data-bxm]").forEach(b => b.onclick = () => { const p = bxPref(), k = b.dataset.bxm; p.mat = p.mat.includes(k) ? p.mat.filter(x => x !== k) : [...p.mat, k]; b.setAttribute("aria-pressed", p.mat.includes(k)); bxGarder(p); rendu(); });
-  const C = () => $("bxC"), titre = t => C().insertAdjacentHTML("beforeend", `<h2 class="sec">${t}</h2>`);
-  const carte = (code, f) => { const s = bxSeance(code, { f }), S = BXS[code]; bouton(C(), `${L(...S.t)} · ${s.total} min`, L(...S.d), S.c, () => lancerBx(code, f)); };
-  const rendu = () => {
-    C().innerHTML = "";
-    ({
-      parcours: () => bxParcours(C(), carte, rendu),
-      technique: () => { C().insertAdjacentHTML("beforeend", `<div class="etude ech-fiche" style="--accent:#C8283C"><b>${L("Numérotation des coups", "Punch numbers")}</b><p>${L("1 jab · 2 direct · 3 crochet avant · 4 crochet arrière · 5 uppercut avant · 6 uppercut arrière · « c » = au corps. Coche « Gants et sac » pour travailler au sac, sinon en shadow.", "1 jab · 2 cross · 3 lead hook · 4 rear hook · 5 lead uppercut · 6 rear uppercut · “b” = to the body. Tick “Gloves and bag” to work on the bag, otherwise shadow boxing.")}</p></div>`);
-        titre(L("Rounds techniques guidés", "Guided technique rounds")); Object.keys(THEMES_BX).forEach(t => carte("tech_" + t));
-        titre(L("Rounds libres à la voix", "Free voice-called rounds")); bouton(C(), L("Mode combat", "Fight mode"), L("Minuteur de rounds, cloche, enchaînements annoncés au hasard (simples, avancés, défense, contre)", "Round timer, bell, random called combinations (basic, advanced, defence, counters)"), "#DC2626", () => ouvrirCombat(() => ouvrirBoxe("technique")));
-        titre(L("Les gestes", "The moves")); C().insertAdjacentHTML("beforeend", `<ul class="list carnet bx-gestes">${["bxGarde", "bxJab", "bxDirect", "bxCrochetAv", "bxCrochetAr", "bxUpperAv", "bxUpperAr", "bxCorps", "slips", "bxRoule", "bxRetrait", "bxBloc", "bxContre", "bxPivot", "bxEntree", "bxAli"].map(id => `<li class="bloc-ex" data-bxex="${id}">${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div><span class="duree">›</span></li>`).join("")}</ul>
-          <p class="prog-avert">${L("L’appli guide, mais ne corrige pas ton geste : fais-le vérifier par ton coach. Sparring uniquement encadré, avec protège-dents, bandages et casque.", "The app guides you but cannot correct your technique: have your coach check it. Sparring only when supervised, with gum shield, wraps and headguard.")}</p>`);
-        C().querySelectorAll("[data-bxex]").forEach(li => li.onclick = () => ficheExercice(li.dataset.bxex)); },
-      force: () => { titre(L("Séances de force", "Strength sessions")); ["forceA", "forceB", "gainage"].forEach(c => carte(c));
-        titre(L("Renfo boxe · circuit en 4 blocs", "Boxing strength · 4-block circuit")); const nv = lireNiv();
-        C().insertAdjacentHTML("beforeend", `<div class="stepper niv-choix">${NIV_RENFO.map(n => `<button class="toggle" data-bxr="${n[0]}" aria-pressed="${n[0] === nv}">${L(n[1], n[2])}</button>`).join("")}</div><p class="niv-txt">${L(...NIV_RENFO.find(n => n[0] === nv).slice(9))}</p>`);
-        C().querySelectorAll("[data-bxr]").forEach(b => b.onclick = () => { stocker("niveauRenfo", b.dataset.bxr); rendu(); });
-        [[0, "Poids du corps", "Bodyweight", "Sans matériel, partout", "No equipment, anywhere"], [1, "Avec matériel", "With equipment", "Kettlebell, haltères, élastique, sac…", "Kettlebell, dumbbells, band, bag…"]].forEach(([m, f, e, df, de]) => { const s = seanceRenfo("boxe", m, nv);
-          bouton(C(), `${L(f, e)} · ${s.total} min`, L(df, de) + " · " + L("échauffement, circuit, prévention, retour au calme", "warm-up, circuit, prevention, cool-down"), "#C8283C", () => { ROUTINES.renfo = { ...seanceRenfo("boxe", m, lireNiv()), retour: () => ouvrirBoxe("force") }; CONSEILLES.renfo = ROUTINES.renfo.exercices; ouvrirRoutine("renfo"); }); });
-        C().insertAdjacentHTML("beforeend", ficheBx(1)); titre(L("Personnaliser", "Customise"));
-        [["renfoBoxe", "au poids du corps", "bodyweight"], ["renfoBoxeMat", "avec matériel", "with equipment"]].forEach(([k, f, e]) => ROUTINES[k] && bouton(C(), L("Version libre · ", "Free version · ") + L(f, e), L(`${ROUTINES[k].exercices.length} exercices à modifier, à enregistrer dans tes séances`, `${ROUTINES[k].exercices.length} exercises to edit and save to your workouts`), "#C8283C", () => ouvrirRoutine(k))); },
-      puissance: () => { titre(L("Séance de puissance", "Power session")); carte("puissance"); C().insertAdjacentHTML("beforeend", ficheBx(2)); },
-      cardio: () => { const S = supportDe("boxe");
-        C().insertAdjacentHTML("beforeend", `<div class="carnet"><span class="champ-titre">${L("Où fais-tu ton cardio ?", "Where do you do your cardio?")}</span>${chips("bxs", SUPPORTS.filter(x => pourSport(x[7], "boxe")).map(x => [x[0], x[1], x[2]]), S[0])}</div>`);
-        titre(L("Séances de cardio", "Cardio sessions")); ["moteur", "tolerance", "sprints", "rsa", "specifique", "base"].forEach(c => carte(c));
-        bouton(C(), L("Toutes les séances de cardio", "All cardio sessions"), L("Pyramide, sprints groupés, rounds de combat… avec les niveaux", "Pyramid, grouped sprints, fight rounds… with levels"), "#64748B", () => ouvrirCardio("boxe"));
-        C().insertAdjacentHTML("beforeend", ficheBx(3));
-        brancherChips("bxs", s => { stocker("cardioSupport", JSON.stringify({ ...cardioPref(), s })); rendu(); }); },
-      recup: () => { titre(L("Récupérer et rester mobile", "Recover and stay mobile")); ["mobilite", "recup"].forEach(c => carte(c));
-        bouton(C(), L("Étirements et respiration", "Stretching and breathing"), L("Les séances de retour au calme de l’appli", "The app’s cool-down sessions"), "#14B8A6", () => vueCalme()); C().insertAdjacentHTML("beforeend", ficheBx(6)); },
-      combat: () => { titre(L("Le jour J et avant", "Fight day and before")); ["avant", "affutage"].forEach(c => carte(c));
-        bouton(C(), L("Mode combat", "Fight mode"), L("Rounds avec cloche, repos et enchaînements annoncés", "Rounds with bell, rest and called combinations"), "#DC2626", () => ouvrirCombat(() => ouvrirBoxe("combat")));
-        bouton(C(), L("Ma date de combat", "My fight date"), P.date ? L("Combat le ", "Fight on ") + dateCourte(P.date) + L(" : ton parcours est calculé à rebours", ": your plan counts back from it") : L("Ajoute-la dans Mon parcours : l’appli place les blocs à rebours", "Add it in My plan: the app places the blocks counting back"), "#7C3AED", () => ouvrirBoxe("parcours"));
-        C().insertAdjacentHTML("beforeend", ficheBx(4) + ficheBx(5)); },
-      tests: () => { const R = lireTests(), der = id => { const l = R.filter(x => x.id === id); return l.length ? l[l.length - 1].v : "—"; };
-        C().insertAdjacentHTML("beforeend", `<div class="carnet"><h3>${L("Tes derniers résultats", "Your latest results")}</h3><p>${L("Saut vertical", "Vertical jump")} : <b>${der("bxSaut")}</b> cm · ${L("Coups en 30 s", "Punches in 30 s")} : <b>${der("bxCoups")}</b> · VMA : <b>${der("navette")}</b> km/h</p><p class="sh-aide">${L("Refais-les toutes les 4 semaines (fin de bloc), échauffé, dans les mêmes conditions.", "Repeat them every 4 weeks (end of a block), warmed up, in the same conditions.")}</p></div>`);
-        bouton(C(), L("Test navette (VMA)", "Shuttle test (top aerobic speed)"), L("Guidé au bip : il règle ensuite les allures de tes séances de course", "Beep-guided: it then sets the paces of your running sessions"), "#16A34A", ouvrirNavette);
-        bouton(C(), L("Noter mes tests", "Log my tests"), L("Saut vertical, coups en 30 s, pompes, gainage… avec leur courbe", "Vertical jump, punches in 30 s, push-ups, plank… with their chart"), "#2563EB", () => ouvrirTests(() => ouvrirBoxe("tests")));
-        bouton(C(), L("Test de rounds au sac", "Bag rounds test"), L("Sprints répétés au sac : note ensuite ton effort ressenti", "Repeated sprints on the bag: then rate your perceived effort"), "#BE123C", () => lancerBx("rsa")); },
-      savoir: () => C().insertAdjacentHTML("beforeend", SAVOIR_BX.map((_, i) => ficheBx(i)).join(""))
-    })[bxOnglet]();
-  };
-  rendu();
-}
-
-function bxParcours(C, carte, rendu) {
-  const P = bxPref(), S = bxSemaine(P), auj = (new Date().getDay() + 6) % 7, a = jourCle(S.L0), b = jourCle(plusJ(S.L0, 6)), B = BLOCS_BX[S.bloc];
-  const lib = c => c === "repos" ? L("Repos complet", "Full rest") : c === "combat" ? "🥊 " + L("Combat · échauffement d’avant-combat", "Fight · pre-fight warm-up") : L(...BXS[c].t), cle = c => c === "combat" ? "avant" : c;
-  const deja = {}, aFaire = S.jours[auj].l.filter(c => c !== "repos");
-  C.insertAdjacentHTML("beforeend", `<div class="etude ech-fiche" style="--accent:#C8283C"><b>${L(B[0], B[1])} · ${S.info}</b><p>${L(B[2], B[3])}</p></div>${S.bloc ? ficheCycle(false) : ficheBases(S.sem === 0)}
-    ${aFaire.length ? `<h2 class="sec">${L("Aujourd’hui", "Today")}</h2><div id="bxAuj"></div>` : ""}
-    <h2 class="sec">${L("Ta semaine", "Your week")}</h2><ul class="carnet bx-sem">${S.jours.map((j, d) => `<li class="${d === auj ? "auj" : ""}"><b>${L(...JOURS_BX[d])} ${j.d.getDate()}</b><span>${j.club ? `<i class="bx-club">${L("Club", "Club")}</i>` : ""}${j.l.map(c => { const n = (deja[c] = (deja[c] || 0) + 1), ok = c !== "repos" && c !== "combat" && lireHist().filter(x => x.k === "bx_" + c && x.j >= a && x.j <= b).length >= n;
-      return `<button class="toggle bx-s" aria-pressed="${ok}" data-bxl="${cle(c)}"${c === "repos" ? " disabled" : ""}>${ok ? "✓ " : ""}${lib(c)}</button>`; }).join("") || (j.club ? "" : `<small>${L("Libre", "Free")}</small>`)}</span></li>`).join("")}</ul>
-    <h2 class="sec">${L("Mon profil de boxeur", "My boxer profile")}</h2><div class="carnet bx-prof">
+/* --- L'écran Boxe : configuration lue par le moteur commun (js/sport.js) --- */
+function bxParcours(h) {
+  const P = bxPref(), S = bxSemaine(P), B = BLOCS_BX[S.bloc];
+  h.html(`<div class="etude ech-fiche" style="--accent:#C8283C"><b>${L(B[0], B[1])} · ${S.info}</b><p>${L(B[2], B[3])}</p></div>${S.bloc ? ficheCycle(false) : ficheBases(S.sem === 0)}`);
+  semaineSp(h, S, c => c === "repos" ? L("Repos complet", "Full rest") : c === "combat" ? "🥊 " + L("Combat · échauffement d’avant-combat", "Fight · pre-fight warm-up") : L(...BXS[c].t), c => c === "repos" ? null : c === "combat" ? "avant" : c,
+    k => ["avant", "affutage"].includes(k) || S.f >= 1 ? undefined : S.f);
+  h.html(`<h2 class="sec">${L("Mon profil de boxeur", "My boxer profile")}</h2><div class="carnet bx-prof">
       <span class="champ-titre">${L("Je suis", "I am")}</span>${chips("bxn", [["debutant", "Débutant complet", "Complete beginner"], ["club", "Pratiquant en club", "Club boxer"], ["compet", "Compétiteur amateur", "Amateur competitor"]], P.niv)}
-      <span class="champ-titre">${L("Mes jours de club (entraînement technique, sparring)", "My club days (technique training, sparring)")}</span><div class="chips">${JOURS_BX.map(([f, e], d) => `<button class="toggle" data-bxj="${d}" aria-pressed="${P.jours.includes(d)}">${L(f, e)}</button>`).join("")}</div>
+      <span class="champ-titre">${L("Mes jours de club (entraînement technique, sparring)", "My club days (technique training, sparring)")}</span>${choixJours("bxj", P.jours)}
       <span class="champ-titre">${L("Séances de préparation par semaine", "Prep sessions per week")}</span>${chips("bxk", [2, 3, 4, 5].map(n => [n, n, n]), P.n)}
       <span class="champ-titre">${L("Date de combat (facultatif)", "Fight date (optional)")}</span><div class="favForm"><input class="choixVoix" type="date" id="bxDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="bxDateX">${L("Effacer", "Clear")}</button></div>
       <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours pour finir la semaine du combat : semaine allégée, affûtage à J-2, repos à J-1. Sans date, les blocs s’enchaînent avec une semaine plus légère toutes les 4 semaines. Les séances dures évitent tes jours de club et leur veille.", "With a date, the 3 blocks are placed counting back to end on fight week: lighter week, taper 2 days out, rest the day before. Without a date, blocks follow each other with a lighter week every 4 weeks. Hard sessions avoid your club days and the day before.")}</p>
       ${P.niv === "debutant" && !P.cycle ? `<button class="toggle" id="bxCycle">${L("J’ai fini les Bases : passer au cycle complet", "I’ve finished the Basics: move to the full cycle")}</button>` : ""}
       <button class="toggle" id="bxProg">📅 ${L("Programme 4 semaines : Exceller en cardio · boxe", "4-week programme: Excel at cardio · boxing")}</button>
       <button class="toggle" id="bxRaz">${L("Recommencer le parcours à cette semaine", "Restart the plan from this week")}</button></div>`);
-  if (aFaire.length) aFaire.forEach(c => { const code = cle(c); carte(code, code === "avant" || code === "affutage" ? 1 : S.f < 1 ? S.f : undefined); C.querySelector("#bxAuj").appendChild(C.lastChild); });
-  C.querySelectorAll("[data-bxl]").forEach(x => x.onclick = () => lancerBx(x.dataset.bxl, ["avant", "affutage"].includes(x.dataset.bxl) || S.f >= 1 ? undefined : S.f));
-  const maj = p => { bxGarder(p); rendu(); };
+  const maj = p => { bxGarder(p); h.rendu(); };
   brancherChips("bxn", v => maj({ ...bxPref(), niv: v, cycle: 0, debut: jourCle() }));
   brancherChips("bxk", v => maj({ ...bxPref(), n: +v }));
-  C.querySelectorAll("[data-bxj]").forEach(x => x.onclick = () => { const p = bxPref(), d = +x.dataset.bxj; p.jours = p.jours.includes(d) ? p.jours.filter(y => y !== d) : [...p.jours, d]; maj(p); });
+  brancherJours(h, "bxj", "jours", maj);
   $("bxDate").onchange = e => maj({ ...bxPref(), date: e.target.value });
   $("bxDateX").onclick = () => maj({ ...bxPref(), date: "" });
   if ($("bxCycle")) $("bxCycle").onclick = () => maj({ ...bxPref(), cycle: 1, debut: jourCle() });
   $("bxProg").onclick = () => ouvrirProg("cardioBoxe");
   $("bxRaz").onclick = () => maj({ ...bxPref(), debut: jourCle() });
 }
-
 /* --- Descriptif du programme « Bases du boxeur » (affiché dans Mon parcours pendant les 6 semaines) --- */
 const ficheBases = ouvert => `<details class="prog-info" style="--c:#C8283C"${ouvert ? " open" : ""}><summary>${L("Le programme Bases du boxeur", "The Boxer’s basics programme")}</summary>
   <p>${L("6 semaines pour débuter la boxe anglaise sans se blesser : tu apprends les gestes, tu construis le souffle et la force de base, puis tu enchaînes de vrais rounds. Aucune expérience nécessaire, tout se fait aussi sans matériel.", "6 weeks to start boxing without getting hurt: learn the moves, build base fitness and strength, then put together real rounds. No experience needed, everything also works without equipment.")}</p>
@@ -422,11 +299,7 @@ const SAVOIR_BX = [
   ["🩹", "Prévenir les blessures", "Preventing injuries", "Épaule : renforce l’arrière (tirages, écartements d’élastique) autant que l’avant. Poignet et main : bandages, poing bien fermé, alignement poignet-avant-bras au sac. Dos : charges propres, gainage anti-rotation. Toute douleur articulaire qui augmente pendant l’effort = on arrête l’exercice. Une douleur qui dure plus de quelques jours se montre à un professionnel de santé.", "Shoulder: strengthen the back (rows, band pull-aparts) as much as the front. Wrist and hand: wraps, a tight fist, wrist in line with the forearm on the bag. Back: clean lifting, anti-rotation core work. Any joint pain that gets worse during exercise = stop the exercise. Pain lasting more than a few days should be seen by a health professional."],
   ["⚠️", "Commotion : les signes à ne jamais ignorer", "Concussion: signs never to ignore", "Après un coup à la tête, arrête immédiatement et ne reprends pas le même jour si tu as : mal de tête, vertige, nausée, vision trouble, confusion, trous de mémoire, somnolence ou changement d’humeur. Consulte un médecin avant toute reprise. Appelle les secours (15 ou 112) en cas de perte de connaissance, de vomissements répétés, de convulsions ou d’aggravation. 2 WORK ne propose pas de protocole de reprise : c’est le rôle du médecin.", "After a blow to the head, stop immediately and don’t go back the same day if you have: headache, dizziness, nausea, blurred vision, confusion, memory gaps, drowsiness or mood changes. See a doctor before returning. Call emergency services (112) for loss of consciousness, repeated vomiting, seizures or worsening symptoms. 2 WORK offers no return-to-play protocol: that is the doctor’s job."],
   ["🔄", "Mobilité : pourquoi chaque jour", "Mobility: why every day", "La garde ferme la poitrine et enroule les épaules ; la rotation répétée sollicite le haut du dos et les hanches. Une routine courte (5 à 10 min) avant chaque séance garde l’amplitude nécessaire pour tourner vite sans compenser avec le bas du dos. Travaille autant le côté faible que le fort.", "The guard closes the chest and rounds the shoulders; repeated rotation loads the upper back and hips. A short routine (5 to 10 min) before each session keeps the range you need to rotate fast without compensating with the lower back. Work your weak side as much as your strong side."]];
-const ficheBx = i => { const [ico, fr, en, tf, te] = SAVOIR_BX[i]; return `<details class="prog-info" style="--c:#C8283C"><summary>${ico} ${L(fr, en)}</summary><p>${L(tf, te)}</p></details>`; };
 
-/* --- Branchements : Sports → Boxe ouvre l'écran Boxe (le renfo boxe y est fusionné, onglet Force) --- */
-const vueModeAvantBoxe = vueMode;
-vueMode = grp => grp === "boxe" ? (bxRetour = null, ouvrirBoxe()) : vueModeAvantBoxe(grp);
 // Programmes : le programme « Exceller en cardio · boxe » reste, complété par les deux parcours de l'écran Boxe (Bases 6 semaines, cycle 3 blocs)
 const PARCOURS_BX = [["bases", "Boxe · Bases du boxeur", "Boxing · Boxer’s basics", "6 semaines pour débuter : garde, coups, défense, force de base et souffle, placées autour de tes jours de club.", "6 weeks to start: stance, punches, defence, base strength and fitness, placed around your club days.", "Débutant · 6 semaines · 2 à 5 séances par semaine", "Beginner · 6 weeks · 2 to 5 sessions a week", 6],
   ["cycle", "Boxe · Cycle du boxeur", "Boxing · Boxer’s cycle", "3 blocs de 4 semaines (fondations, force, vitesse), calculés à rebours depuis ta date de combat, avec l’affûtage.", "3 blocks of 4 weeks (foundations, strength, speed), counted back from your fight date, with the taper.", "Club ou compétition · 12 semaines · 2 à 5 séances par semaine", "Club or competition · 12 weeks · 2 to 5 sessions a week", 12]];
@@ -444,3 +317,30 @@ ouvrirProgs = (...a) => {
     if (!base && p.niv === "debutant" && !p.cycle) bxGarder({ ...p, niv: "club", cycle: 1, debut: jourCle() });
     ouvrirBoxe("parcours", () => ouvrirProgs()); });
 };
+
+SP.boxe = { nom: ["Boxe", "Boxing"], sous: ["Ta préparation complète de boxeur : choisis une séance à la carte ou suis ton parcours.", "Your complete boxing preparation: pick any session or follow your plan."],
+  resume: ["Parcours jusqu’au combat, technique, renfo, force, puissance, cardio, récup", "Plan up to your fight, technique, strength, power, cardio, recovery"],
+  c: "#C8283C", cle: "boxe", pre: "bx_", def: { niv: "club", date: "", cycle: 0 }, mat: ["gants", "corde", "elastique", "medecine", "kb", "barre", "box", "traction"],
+  S: BXS, mob: MOB_BX, calme: CALME_BX, mobTxt: ["Haut du dos, hanches, épaules : on prépare la rotation.", "Upper back, hips, shoulders: prepare the rotation."],
+  coreNom: ["Gainage-rotation", "Core-rotation"], core: [[["bxPallof", "planchelat"], 30, 10, "", "30 s"], [["bxLancerGenoux", "russian"], 30, 10, "", "30 s"], ["deadbug", 30, 10, "", "30 s"]],
+  savoir: SAVOIR_BX,
+  onglets: [["parcours", "Mon parcours", "My plan", bxParcours],
+    ["technique", "Technique", "Technique", h => { h.html(`<div class="etude ech-fiche" style="--accent:#C8283C"><b>${L("Numérotation des coups", "Punch numbers")}</b><p>${L("1 jab · 2 direct · 3 crochet avant · 4 crochet arrière · 5 uppercut avant · 6 uppercut arrière · « c » = au corps. Coche « Gants et sac » pour travailler au sac, sinon en shadow.", "1 jab · 2 cross · 3 lead hook · 4 rear hook · 5 lead uppercut · 6 rear uppercut · “b” = to the body. Tick “Gloves and bag” to work on the bag, otherwise shadow boxing.")}</p></div>`);
+      h.titre(L("Rounds techniques guidés", "Guided technique rounds")); h.cartes(Object.keys(THEMES_BX).map(t => "tech_" + t));
+      h.titre(L("Rounds libres à la voix", "Free voice-called rounds")); bouton(h.C(), L("Mode combat", "Fight mode"), L("Minuteur de rounds, cloche, enchaînements annoncés au hasard (simples, avancés, défense, contre)", "Round timer, bell, random called combinations (basic, advanced, defence, counters)"), "#DC2626", () => ouvrirCombat(() => ouvrirBoxe("technique")));
+      h.titre(L("Les gestes", "The moves")); h.gestes(["bxGarde", "bxJab", "bxDirect", "bxCrochetAv", "bxCrochetAr", "bxUpperAv", "bxUpperAr", "bxCorps", "slips", "bxRoule", "bxRetrait", "bxBloc", "bxContre", "bxPivot", "bxEntree", "bxAli"],
+        L("L’appli guide, mais ne corrige pas ton geste : fais-le vérifier par ton coach. Sparring uniquement encadré, avec protège-dents, bandages et casque.", "The app guides you but cannot correct your technique: have your coach check it. Sparring only when supervised, with gum shield, wraps and headguard.")); }],
+    ["force", "Force", "Strength", h => { h.titre(L("Séances de force", "Strength sessions")); h.cartes(["forceA", "forceB", "gainage"]); h.renfo(); h.fiche(1); }],
+    ["puissance", "Puissance", "Power", h => { h.titre(L("Séance de puissance", "Power session")); h.carte("puissance"); h.fiche(2); }],
+    ["cardio", "Cardio", "Cardio", h => h.cardio(["moteur", "tolerance", "sprints", "rsa", "specifique", "base"], 3)],
+    ["recup", "Récup", "Recovery", h => { h.titre(L("Récupérer et rester mobile", "Recover and stay mobile")); h.cartes(["mobilite", "recup"]);
+      bouton(h.C(), L("Étirements et respiration", "Stretching and breathing"), L("Les séances de retour au calme de l’appli", "The app’s cool-down sessions"), "#14B8A6", () => vueCalme()); h.fiche(6); }],
+    ["combat", "Combat", "Fight", h => { h.titre(L("Le jour J et avant", "Fight day and before")); h.cartes(["avant", "affutage"]);
+      bouton(h.C(), L("Mode combat", "Fight mode"), L("Rounds avec cloche, repos et enchaînements annoncés", "Rounds with bell, rest and called combinations"), "#DC2626", () => ouvrirCombat(() => ouvrirBoxe("combat")));
+      bouton(h.C(), L("Ma date de combat", "My fight date"), h.P.date ? L("Combat le ", "Fight on ") + dateCourte(h.P.date) + L(" : ton parcours est calculé à rebours", ": your plan counts back from it") : L("Ajoute-la dans Mon parcours : l’appli place les blocs à rebours", "Add it in My plan: the app places the blocks counting back"), "#7C3AED", () => ouvrirBoxe("parcours"));
+      h.fiche(4); h.fiche(5); }],
+    ["tests", "Tests", "Tests", h => { h.html(`<div class="carnet"><h3>${L("Tes derniers résultats", "Your latest results")}</h3><p>${L("Saut vertical", "Vertical jump")} : <b>${derTest("bxSaut")}</b> cm · ${L("Coups en 30 s", "Punches in 30 s")} : <b>${derTest("bxCoups")}</b> · VMA : <b>${derTest("navette")}</b> km/h</p><p class="sh-aide">${L("Refais-les toutes les 4 semaines (fin de bloc), échauffé, dans les mêmes conditions.", "Repeat them every 4 weeks (end of a block), warmed up, in the same conditions.")}</p></div>`);
+      bouton(h.C(), L("Test navette (VMA)", "Shuttle test (top aerobic speed)"), L("Guidé au bip : il règle ensuite les allures de tes séances de course", "Beep-guided: it then sets the paces of your running sessions"), "#16A34A", ouvrirNavette);
+      bouton(h.C(), L("Noter mes tests", "Log my tests"), L("Saut vertical, coups en 30 s, pompes, gainage… avec leur courbe", "Vertical jump, punches in 30 s, push-ups, plank… with their chart"), "#2563EB", () => ouvrirTests(() => ouvrirBoxe("tests")));
+      bouton(h.C(), L("Test de rounds au sac", "Bag rounds test"), L("Sprints répétés au sac : note ensuite ton effort ressenti", "Repeated sprints on the bag: then rate your perceived effort"), "#BE123C", () => lancerBx("rsa")); }, 1],
+    ["savoir", "Savoir", "Knowledge", h => h.savoir(), 1]] };

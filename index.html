@@ -682,7 +682,7 @@ button:active:not(:disabled) { transform: none; }
 .bx-sem { list-style: none; padding: 4px 14px; } .bx-sem li { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--ligne); } .bx-sem li:last-child { border: 0; }
 .bx-sem li > b { width: 54px; flex: none; font-size: .85rem; padding-top: 7px; } .bx-sem li.auj > b { color: #C8283C; } .bx-sem li > span { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; align-items: center; min-height: 34px; }
 .bx-sem .bx-s { font-size: .8rem; padding: 7px 10px; text-align: left; } .bx-sem small { opacity: .55; } .bx-club { font-style: normal; font-size: .72rem; font-weight: 700; background: #C8283C1F; color: #C8283C; border-radius: 6px; padding: 4px 8px; }
-.bx-gestes { padding: 0 !important; } .bx-prof .chips, .bx-regl .chips { flex-wrap: wrap; } .bx-gestes li { cursor: pointer; } .bx-prof .toggle#bxCycle, .bx-prof .toggle#bxRaz, .bx-prof .toggle#bxProg { width: 100%; margin-top: 8px; }
+.bx-gestes { padding: 0 !important; } .bx-prof .chips, .bx-regl .chips { flex-wrap: wrap; } .bx-gestes li { cursor: pointer; } .bx-prof > .toggle { width: 100%; margin-top: 8px; white-space: normal; height: auto; min-height: 40px; }
 </style>
 <script>/* thème appliqué avant l'affichage pour éviter un flash clair */
 try { const t = localStorage.getItem("theme") || "sombre"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; } catch (e) {}</script>
@@ -995,7 +995,9 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 <script src="js/cardio.js"></script>
 <script src="js/chronos.js"></script>
 <script src="js/sports.js"></script>
+<script src="js/sport.js"></script>
 <script src="js/boxe.js"></script>
+<script src="js/foot.js"></script>
 <script src="js/jeu.js"></script>
 <script src="js/moi.js"></script>
 <script src="js/guide.js"></script>
