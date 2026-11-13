@@ -218,6 +218,41 @@ function parcoursObjectif(h) {
   $("obRaz").onclick = () => maj({ ...spPref(sp), debut: jourCle() });
 }
 
+/* --- Sports à saison (ski, surf) : préparation à rebours du premier jour (moteur à objectif daté), puis la saison autour des jours de pratique.
+   SP[sport].saison = { E (objectif : blocs, sem, dur, longue, taper, jour, ech), prat [[clé, FR, EN]], jk (champ des jours), c, ico, ech (séance du jour J), jourNom, unite [[FR sg, pl], [EN sg, pl]],
+   premier [FR, EN], profil, pratTxt (prat null = pas de choix de pratique), jours, date (libellés), jour(i, P) → séances d'un jour de pratique, dur (séances dures en saison), hors(P) → séances d'entretien, txtSaison, detail, note } */
+const enSaison = P => P.periode === "saison" || (P.date && P.date < jourCle());
+function semaineSaison(sp, P) {
+  const Z = SP[sp].saison, J = P[Z.jk] || [];
+  if (!enSaison(P)) { const S = semaineObjectif(Z.E, { ...P, jours: [] }); return { ...S, info: L("Préparation · ", "Pre-season · ") + S.info.replace("Objectif dans", Z.premier[0] + " dans").replace("Goal in", Z.premier[1] + " in").replace("Semaine de l’objectif", "Semaine du " + Z.premier[0]).replace("Goal week", Z.premier[1] + " week") }; }
+  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => J.includes(((d % 7) + 7) % 7), n = J.length, u = (k, l) => Z.unite[l][n > 1 ? 1 : 0];
+  [...J].sort().forEach((d, i) => jours[d].push(...Z.jour(i, P)));
+  placerSp(Z.hors(P).slice(0, P.n2), jours, club, c => Z.dur.includes(c));
+  return { L0, f: 1, bloc: 0, info: n ? L(`En saison · ${n} ${u(0, 0)}`, `In season · ${n} ${u(0, 1)}`) : L(`En saison · indique tes ${Z.unite[0][1]}`, `In season · set your ${Z.unite[1][1]}`),
+    jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: Z.jourNom, l })) };
+}
+function parcoursSaison(h) {
+  const G = SP[h.sp], Z = G.saison, E = Z.E, P = h.P, sp = h.sp, en = enSaison(P), S = semaineSaison(sp, P), B = !en && S.bloc ? E.blocs[S.bloc - 1] : null;
+  h.html(`<div class="etude ech-fiche" style="--accent:${Z.c}"><b>${B ? L(B[0], B[1]) + " · " : ""}${S.info}</b><p>${en ? L(...Z.txtSaison) : B ? L(B[2], B[3]) : ""}</p></div>
+    <details class="prog-info" style="--c:${Z.c}"><summary>${L("La saison en détail", "The season in detail")}</summary><ul class="prog-obj">${E.blocs.map(b => `<li><b>${L(b[0], b[1])}</b> — ${L(b[2], b[3])}</li>`).join("")}<li><b>${L("En saison", "In season")}</b> — ${L(...Z.detail)}</li></ul><p>${L(...Z.note)}</p></details>`);
+  semaineSp(h, S, c => c === "jourJ" ? E.jour[0] + " " + L(E.jour[1], E.jour[2]) : c === "repos" ? L("Repos ou très facile", "Rest or very easy") : L(...G.S[c].t), c => ["jourJ", "repos"].includes(c) ? null : c);
+  h.C().querySelectorAll(".bx-s[disabled]").forEach(b => b.textContent.startsWith(Z.ico) && (b.disabled = false, b.onclick = () => lancerSp(sp, Z.ech)));
+  h.html(`<h2 class="sec">${L(...Z.profil)}</h2><div class="carnet bx-prof">
+    ${Z.prat ? `<span class="champ-titre">${L(...Z.pratTxt)}</span>${chips("szp", Z.prat, P.prat)}` : ""}
+    <span class="champ-titre">${L("Mon niveau", "My level")}</span>${chips("szn", [["debutant", "Débutant", "Beginner"], ["inter", "Intermédiaire", "Intermediate"], ["confirme", "Confirmé", "Advanced"]], P.niv)}
+    <span class="champ-titre">${L("Ma période", "My period")}</span>${chips("sze", [["prepa", "Préparation", "Pre-season"], ["saison", "En saison ou en séjour", "In season or on a trip"]], en ? "saison" : "prepa")}
+    ${en ? `<span class="champ-titre">${L(...Z.jours)}</span>${choixJours("szj", P[Z.jk] || [])}
+      <span class="champ-titre">${L("Séances d’entretien par semaine", "Maintenance sessions per week")}</span>${chips("szm", [0, 1, 2, 3].map(n => [n, n, n]), P.n2)}`
+    : `<span class="champ-titre">${L("Séances de préparation par semaine", "Pre-season sessions per week")}</span>${chips("szk", [2, 3, 4, 5].map(n => [n, n, n]), P.n)}
+      <span class="champ-titre">${L(...Z.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="szDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="szDateX">${L("Effacer", "Clear")}</button></div>
+      <button class="toggle" id="szRaz">${L("Recommencer la préparation à cette semaine", "Restart pre-season from this week")}</button>`}</div>`);
+  const maj = p => { spGarder(sp, p); h.rendu(); };
+  if (Z.prat) brancherChips("szp", v => maj({ ...spPref(sp), prat: v })); brancherChips("szn", v => maj({ ...spPref(sp), niv: v }));
+  brancherChips("sze", v => maj({ ...spPref(sp), periode: v, ...(v === "prepa" && P.date && P.date < jourCle() ? { date: "" } : {}), debut: v === "prepa" ? jourCle() : spPref(sp).debut }));
+  if (en) { brancherJours(h, "szj", Z.jk, maj); brancherChips("szm", v => maj({ ...spPref(sp), n2: +v })); }
+  else { brancherChips("szk", v => maj({ ...spPref(sp), n: +v })); $("szDate").onchange = e => maj({ ...spPref(sp), date: e.target.value }); $("szDateX").onclick = () => maj({ ...spPref(sp), date: "" }); $("szRaz").onclick = () => maj({ ...spPref(sp), debut: jourCle() }); }
+}
+
 /* --- Sports → un sport complet ouvre son écran ; les autres gardent leur page --- */
 const vueModeAvantSp = vueMode;
 vueMode = grp => SP[grp] ? (spRetour[grp] = null, ouvrirSport(grp)) : vueModeAvantSp(grp);

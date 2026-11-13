@@ -86,38 +86,15 @@ const OBJ_SK = { objs: [], blocs: [["Bloc 1 · Fondations", "Block 1 · Foundati
     fond: [["endurance", "forceJambes", "fondSpe", "proprio", "cardioInter"], ["endurance", "fondSpe", "cardioInter", "forceJambes", "pliometrie"], ["fondSpe", "endurance", "cardioInter", "pliometrie", "forceJambes"]] })[P.prat === "freeride" ? "alpin" : P.prat][b - 1]
     .map(c => c === "pliometrie" && P.niv === "debutant" ? "proprio" : c).filter((c, i, a) => a.indexOf(c) === i),
   dur: ["forceJambes", "excentrique", "pliometrie", "cardioInter", "montee", "fondSpe"], longue: "endurance", taper: () => 1, jour: ["⛷️", "Premier jour de ski · échauffement", "First ski day · warm-up"], ech: "ski" };
-// --- la semaine : préparation (objectif daté) ou saison (autour des jours de ski)
-const saisonSk = P => P.periode === "saison" || (P.date && P.date < jourCle());
-function semaineSk(P) {
-  if (!saisonSk(P)) { const S = semaineObjectif(OBJ_SK, { ...P, jours: [] }); return { ...S, info: L("Préparation · ", "Pre-season · ") + S.info.replace("Objectif dans", "premier jour de ski dans").replace("Goal in", "first ski day in").replace("Semaine de l’objectif", "Semaine du premier jour de ski").replace("Goal week", "First ski week") }; }
-  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.skiJ.includes(((d % 7) + 7) % 7), dur = c => ["entretien", "cardioInter", "endurance"].includes(c);
-  [...P.skiJ].sort().forEach((d, i) => jours[d].push("echPiste", ...(i % 2 ? [] : ["neige"]), "soir"));
-  placerSp(({ alpin: ["entretien", "proprio", "mobilite"], freeride: ["entretien", "proprio", "mobilite"], rando: ["endurance", "entretien", "mobilite"], fond: ["endurance", "entretien", "mobilite"] })[P.prat].slice(0, P.n2), jours, club, dur);
-  return { L0, f: 1, bloc: 0, info: P.skiJ.length ? L(`En saison · ${P.skiJ.length} jour${P.skiJ.length > 1 ? "s" : ""} de ski`, `In season · ${P.skiJ.length} ski day${P.skiJ.length > 1 ? "s" : ""}`) : L("En saison · indique tes jours de ski", "In season · set your ski days"),
-    jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Ski", "Ski"], l })) };
-}
 const PRAT_SK = [["alpin", "Ski alpin (piste)", "Alpine (piste)"], ["freeride", "Hors-piste, freeride", "Off-piste, freeride"], ["rando", "Ski de randonnée", "Ski touring"], ["fond", "Ski de fond", "Cross-country"]];
-function parcoursSk(h) {
-  const P = h.P, sp = h.sp, en = saisonSk(P), S = semaineSk(P), B = !en && S.bloc ? OBJ_SK.blocs[S.bloc - 1] : null;
-  h.html(`<div class="etude ech-fiche" style="--accent:#0369A1"><b>${B ? L(B[0], B[1]) + " · " : ""}${S.info}</b><p>${en ? L("Chaque jour de ski : échauffement au pied des pistes, ateliers techniques un jour sur deux, récup du soir. Les séances d’entretien se placent les autres jours, loin de tes journées de ski.", "Each ski day: warm-up at the slopes, technique drills every other day, evening recovery. Maintenance sessions go on the other days, away from your ski days.") : B ? L(B[2], B[3]) : ""}</p></div>
-    <details class="prog-info" style="--c:#0369A1"><summary>${L("La saison en détail", "The season in detail")}</summary><ul class="prog-obj">${OBJ_SK.blocs.map(b => `<li><b>${L(b[0], b[1])}</b> — ${L(b[2], b[3])}</li>`).join("")}<li><b>${L("En saison", "In season")}</b> — ${L("Échauffement, ateliers sur la neige, récup du soir et 0 à 3 séances d’entretien par semaine.", "Warm-up, on-snow drills, evening recovery and 0 to 3 maintenance sessions a week.")}</li></ul><p>${L("Avec la date de ton premier jour de ski, les 3 blocs sont placés à rebours et l’appli passe toute seule en mode saison le jour venu. Les sauts n’apparaissent qu’à partir du niveau intermédiaire.", "With the date of your first ski day, the 3 blocks are counted back and the app switches to season mode on the day. Jumps only appear from intermediate level.")}</p></details>`);
-  semaineSp(h, S, c => c === "jourJ" ? OBJ_SK.jour[0] + " " + L(OBJ_SK.jour[1], OBJ_SK.jour[2]) : c === "repos" ? L("Repos ou très facile", "Rest or very easy") : L(...SP.ski.S[c].t), c => ["jourJ", "repos"].includes(c) ? null : c);
-  h.C().querySelectorAll(".bx-s[disabled]").forEach(b => b.textContent.startsWith("⛷️") && (b.disabled = false, b.onclick = () => lancerSp("ski", "echPiste")));
-  h.html(`<h2 class="sec">${L("Mon profil de skieur", "My skier profile")}</h2><div class="carnet bx-prof">
-    <span class="champ-titre">${L("Ma pratique", "My skiing")}</span>${chips("skp", PRAT_SK, P.prat)}
-    <span class="champ-titre">${L("Mon niveau", "My level")}</span>${chips("skn", [["debutant", "Débutant", "Beginner"], ["inter", "Intermédiaire", "Intermediate"], ["confirme", "Confirmé", "Advanced"]], P.niv)}
-    <span class="champ-titre">${L("Ma période", "My period")}</span>${chips("ske", [["prepa", "Préparation", "Pre-season"], ["saison", "En saison ou en séjour", "In season or on holiday"]], en ? "saison" : "prepa")}
-    ${en ? `<span class="champ-titre">${L("Mes jours de ski", "My ski days")}</span>${choixJours("skj", P.skiJ)}
-      <span class="champ-titre">${L("Séances d’entretien par semaine", "Maintenance sessions per week")}</span>${chips("skm", [0, 1, 2, 3].map(n => [n, n, n]), P.n2)}`
-    : `<span class="champ-titre">${L("Séances de préparation par semaine", "Pre-season sessions per week")}</span>${chips("skk", [2, 3, 4, 5].map(n => [n, n, n]), P.n)}
-      <span class="champ-titre">${L("Premier jour de ski (facultatif)", "First ski day (optional)")}</span><div class="favForm"><input class="choixVoix" type="date" id="skDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="skDateX">${L("Effacer", "Clear")}</button></div>
-      <button class="toggle" id="skRaz">${L("Recommencer la préparation à cette semaine", "Restart pre-season from this week")}</button>`}</div>`);
-  const maj = p => { spGarder(sp, p); h.rendu(); };
-  brancherChips("skp", v => maj({ ...spPref(sp), prat: v })); brancherChips("skn", v => maj({ ...spPref(sp), niv: v }));
-  brancherChips("ske", v => maj({ ...spPref(sp), periode: v, ...(v === "prepa" && P.date && P.date < jourCle() ? { date: "" } : {}), debut: v === "prepa" ? jourCle() : spPref(sp).debut }));
-  if (en) { brancherJours(h, "skj", "skiJ", maj); brancherChips("skm", v => maj({ ...spPref(sp), n2: +v })); }
-  else { brancherChips("skk", v => maj({ ...spPref(sp), n: +v })); $("skDate").onchange = e => maj({ ...spPref(sp), date: e.target.value }); $("skDateX").onclick = () => maj({ ...spPref(sp), date: "" }); $("skRaz").onclick = () => maj({ ...spPref(sp), debut: jourCle() }); }
-}
+// préparation puis saison (moteur parcoursSaison de js/sport.js)
+const SAISON_SK = { E: OBJ_SK, prat: PRAT_SK, jk: "skiJ", c: "#0369A1", ico: "⛷️", ech: "echPiste", jourNom: ["Ski", "Ski"], unite: [["jour de ski", "jours de ski"], ["ski day", "ski days"]],
+  premier: ["premier jour de ski", "first ski day"], profil: ["Mon profil de skieur", "My skier profile"], pratTxt: ["Ma pratique", "My skiing"], jours: ["Mes jours de ski", "My ski days"], date: ["Premier jour de ski (facultatif)", "First ski day (optional)"],
+  jour: i => ["echPiste", ...(i % 2 ? [] : ["neige"]), "soir"], dur: ["entretien", "cardioInter", "endurance"],
+  hors: P => ({ alpin: ["entretien", "proprio", "mobilite"], freeride: ["entretien", "proprio", "mobilite"], rando: ["endurance", "entretien", "mobilite"], fond: ["endurance", "entretien", "mobilite"] })[P.prat],
+  txtSaison: ["Chaque jour de ski : échauffement au pied des pistes, ateliers techniques un jour sur deux, récup du soir. Les séances d’entretien se placent les autres jours, loin de tes journées de ski.", "Each ski day: warm-up at the slopes, technique drills every other day, evening recovery. Maintenance sessions go on the other days, away from your ski days."],
+  detail: ["Échauffement, ateliers sur la neige, récup du soir et 0 à 3 séances d’entretien par semaine.", "Warm-up, on-snow drills, evening recovery and 0 to 3 maintenance sessions a week."],
+  note: ["Avec la date de ton premier jour de ski, les 3 blocs sont placés à rebours et l’appli passe toute seule en mode saison le jour venu. Les sauts n’apparaissent qu’à partir du niveau intermédiaire.", "With the date of your first ski day, the 3 blocks are counted back and the app switches to season mode on the day. Jumps only appear from intermediate level."] };
 const SAVOIR_SK = [
   ["🦵", "Les genoux, priorité n°1", "Knees, priority number one", "L’entorse du genou (souvent le ligament croisé antérieur) est la blessure grave la plus fréquente au ski. Des ischios et des fessiers forts, un bon équilibre sur une jambe et des fixations bien réglées par un professionnel (selon ton poids et ton niveau) réduisent nettement le risque. Quand tu tombes, ne lutte pas : laisse-toi aller, bras devant.", "Knee sprains (often the ACL) are the most common serious ski injury. Strong hamstrings and glutes, good single-leg balance and bindings set by a professional (for your weight and level) clearly reduce the risk. When you fall, don’t fight it: let yourself go, arms forward."],
   ["🔥", "Des cuisses qui tiennent toute la journée", "Thighs that last all day", "En ski, les cuisses travaillent surtout en freinant (excentrique) et en position tenue (isométrie). C’est pour ça que la préparation mélange force, descentes lentes et chaise. Commencer 6 à 8 semaines avant la saison suffit à sentir la différence dès le premier jour.", "In skiing, your thighs mostly work while braking (eccentric) and in a held position (isometric). That’s why pre-season mixes strength, slow step-downs and wall sits. Starting 6 to 8 weeks before the season is enough to feel the difference from day one."],
@@ -133,7 +110,8 @@ SP.ski = { nom: ["Ski", "Skiing"], sous: ["Alpin, hors-piste, randonnée, fond :
   c: "#0369A1", cle: "sp_ski", pre: "sk_", def: { prat: "alpin", niv: "inter", periode: "prepa", n: 3, n2: 1, date: "", skiJ: [] }, mat: ["kb", "box", "elastique", "barre"],
   S: SKS, mob: MOB_SK, calme: ["quadDebout", "fenteBasse", "ischioCouche", "figure4", "enfantStat"], mobTxt: ["Chevilles, hanches, haut du dos : l’amplitude de la position de ski.", "Ankles, hips, upper back: the range of a skiing stance."],
   coreNom: ["Gainage", "Core"], core: [["planchelat", 30, 10, "", "30 s"], ["deadbug", 30, 10, "", "30 s"], ["bird", 30, 10, "", "30 s"]], savoir: SAVOIR_SK, objectif: OBJ_SK,
-  onglets: [["parcours", "Ma saison", "My season", parcoursSk],
+  saison: SAISON_SK,
+  onglets: [["parcours", "Ma saison", "My season", parcoursSaison],
     ["prepa", "Préparation", "Pre-season", h => { h.titre(L("Force et genoux", "Strength and knees")); h.cartes(["forceJambes", "excentrique", "proprio", "pliometrie"]);
       h.titre(L("Cardio", "Cardio")); h.cartes(["cardioInter", "endurance", "montee", "fondSpe"]); h.gestes(["skDescenteBox", "skSautsSlalom"]); h.fiche(0); h.fiche(1); }],
     ["neige", "Sur la neige", "On the snow", h => { h.titre(L("Pendant ta journée", "During your day")); h.cartes(["echPiste", "neige", "soir"]);
