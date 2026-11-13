@@ -53,7 +53,7 @@ function spPlan(sp, code, k, x) {
   return { plan, blocs, total: Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60) };
 }
 function spSeance(sp, code, o = {}) {
-  const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, x = { mat, dur: o.dur || P.dur, niv: P.niv, P, sac: mat.includes("gants"), court: o.f < 1 }, cible = Math.round(x.dur * (o.f || 1));
+  const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, x = { mat, dur: o.dur || P.dur, niv: P.niv, P, sac: mat.includes("gants"), court: o.f < 1, f: o.f || 1 }, cible = Math.round(x.dur * (o.f || 1));
   let s = spPlan(sp, code, 1, x);
   for (let k = 2; k <= S.max && !S.fixe && S.max > 1; k++) { const t = spPlan(sp, code, k, x); if (t.total > cible + 2) break; s = t; }
   const zr = zoneRouge(), sup = supportDe(sp), dur = S.fixe ? "" : " · " + L("format ", "format ") + x.dur + " min";
