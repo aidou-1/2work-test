@@ -204,7 +204,7 @@ function ongChat(Z, cb) {
         ${m.rep ? `<q><b>${echap(m.rep.pseudo)}</b> ${echap(m.rep.extrait)}</q>` : ""}<p>${m.suppr ? L("Message supprimé", "Message deleted") : echap(m.texte).replace(/\n/g, "<br>")}</p><small>${heure(m.t)}</small>
         ${Object.entries(m.reac || {}).filter(([, u]) => u.length).map(([e, u]) => `<button class="cl-reac${u.includes(CL.u.uid) ? " moi" : ""}" data-r="${e}">${e} ${u.length}</button>`).join("")}</div>`; }).join("")
       : `<p class="vide">${L("Aucun message. Lance la discussion !", "No messages yet. Start the conversation!")}</p>`;
-    if (bas) F.scrollTop = F.scrollHeight; bas = false;
+    if (bas) requestAnimationFrame(() => { F.scrollTop = F.scrollHeight; }); bas = false;
     if (l.length) { stocker("clubLu_" + cb.id, Date.now()); (CL.der = CL.der || {})[cb.id] = l[l.length - 1]; }
   }));
   if (!muet) {
