@@ -5,7 +5,7 @@
 let SV = null, CL = { u: undefined, clubs: [], attente: [], vue: "liste", c: null, onglet: "seances", rep: null }, desab = [], rejoindre = null;
 const echap = t => String(t ?? "").replace(/[&<>"']/g, x => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[x]));
 const couleurPseudo = s => `hsl(${[...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)} 70% ${document.documentElement.dataset.theme === "dark" ? 68 : 38}%)`;
-const ERR = { "auth/email-already-in-use": ["Cet email a déjà un compte : connecte-toi.", "This email already has an account: sign in."], "auth/invalid-email": ["Adresse email invalide.", "Invalid email address."], "auth/weak-password": ["Mot de passe trop faible : 8 caractères minimum, dont une minuscule et un chiffre.", "Password too weak: 8 characters minimum, including a lowercase letter and a digit."], "auth/password-does-not-meet-requirements": ["Mot de passe trop faible : 8 caractères minimum, dont une minuscule et un chiffre.", "Password too weak: 8 characters minimum, including a lowercase letter and a digit."], "auth/invalid-credential": ["Email ou mot de passe incorrect.", "Wrong email or password."], "auth/wrong-password": ["Mot de passe incorrect.", "Wrong password."], "auth/too-many-requests": ["Trop d’essais : réessaie dans quelques minutes.", "Too many attempts: try again in a few minutes."], "auth/network-request-failed": ["Pas de connexion internet.", "No internet connection."], "2work/pseudo-pris": ["Ce pseudo est déjà pris, choisis-en un autre.", "This username is taken, pick another one."], "2work/pseudo-format": ["Pseudo : 3 à 20 caractères, lettres, chiffres, . _ ou -", "Username: 3 to 20 characters, letters, digits, . _ or -"], "permission-denied": ["Action non autorisée.", "Action not allowed."], unavailable: ["Pas de connexion internet.", "No internet connection."] };
+const ERR = { "auth/email-already-in-use": ["Cet email a déjà un compte : connecte-toi.", "This email already has an account: sign in."], "auth/invalid-email": ["Adresse email invalide.", "Invalid email address."], "auth/weak-password": ["Mot de passe trop faible : 8 caractères minimum, dont une minuscule et un chiffre.", "Password too weak: 8 characters minimum, including a lowercase letter and a digit."], "auth/password-does-not-meet-requirements": ["Mot de passe trop faible : 8 caractères minimum, dont une minuscule et un chiffre.", "Password too weak: 8 characters minimum, including a lowercase letter and a digit."], "auth/invalid-credential": ["Email ou mot de passe incorrect.", "Wrong email or password."], "auth/wrong-password": ["Mot de passe incorrect.", "Wrong password."], "auth/too-many-requests": ["Trop d’essais : réessaie dans quelques minutes.", "Too many attempts: try again in a few minutes."], "auth/network-request-failed": ["Pas de connexion internet.", "No internet connection."], "2work/pseudo-pris": ["Ce pseudo est déjà pris, choisis-en un autre.", "This username is taken, pick another one."], "2work/pseudo-format": ["Pseudo : 3 à 20 caractères, lettres, chiffres, . _ ou -", "Username: 3 to 20 characters, letters, digits, . _ or -"], "permission-denied": ["Action non autorisée.", "Action not allowed."], "2work/trop-gros": ["Ton suivi dépasse 1 Mo une fois compressé : utilise la sauvegarde en fichier (Réglages).", "Your progress is over 1 MB compressed: use the file backup (Settings)."], unavailable: ["Pas de connexion internet.", "No internet connection."] };
 const msgErr = e => L(...(ERR[e && e.code] || ["Une erreur est survenue, réessaie.", "Something went wrong, try again."]));
 const ageDe = n => { const a = new Date(n), j = new Date(); return j.getFullYear() - a.getFullYear() - (j < new Date(j.getFullYear(), a.getMonth(), a.getDate()) ? 1 : 0); };
 const club = () => CL.clubs.find(x => x.id === CL.c), staff = () => ["coach", "cocoach"].includes((club() || {}).role);
@@ -16,7 +16,7 @@ function stop() { desab.forEach(f => f()); desab = []; }
 
 async function chargerServeur() {
   if (!SV) { SV = await import("./serveur.js"); SV.langue(LANGUE === "en" ? "en" : "fr");
-    SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); } else { CL.clubs = []; CL.attente = []; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
+    SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
   return SV;
 }
 async function rafraichir() { try { Object.assign(CL, await SV.mesClubs()); } catch (e) {} }
@@ -38,15 +38,57 @@ function rendu() {
   CL.vue = "liste";
   C.innerHTML = `${CL.clubs.length ? "" : `<p class="sh-aide cl-intro">${L("Rejoins le club de ton coach avec son lien ou son QR code, ou crée ton club si c’est toi le coach.", "Join your coach’s club with their link or QR code, or create your club if you are the coach.")}</p>`}
     <div class="choices">${CL.clubs.map(c => `<button class="choice cl-club" style="--c:${couleurPseudo(c.nom)}" data-club="${c.id}"><strong>${echap(c.nom)}${nonLu(c.id) ? ` <i class="cl-point" aria-label="${L("nouveaux messages", "new messages")}"></i>` : ""}</strong><span>${[echap(c.sport), L(...ROLES[c.role])].filter(Boolean).join(" · ")}</span></button>`).join("")}
+      ${(CL.retraits || []).map(c => `<div class="carnet cl-attente">🚫 <b>${echap(c.nom)}</b><small>${L("L’équipe du club t’a retiré du club · motif : ", "The club staff removed you · reason: ")}${echap(motifLisible(c.motif))}</small><button class="lien" data-retrait="${c.id}">${L("J’ai compris", "Got it")}</button></div>`).join("")}
       ${CL.attente.map(c => `<div class="carnet cl-attente">⏳ <b>${echap(c.nom) || L("Club", "Club")}</b><small>${L("Demande envoyée : en attente de validation par le coach.", "Request sent: waiting for the coach to approve.")}</small></div>`).join("")}
       <button class="choice" style="--c:#16A34A" id="clRejoindre"><strong>＋ ${L("Rejoindre un club", "Join a club")}</strong><span>${L("Avec le lien ou le QR code du coach", "With the coach’s link or QR code")}</span></button>
       <button class="choice" style="--c:var(--brand)" id="clCreer"><strong>${L("Créer mon club", "Create my club")}</strong><span>${L("Tu deviens coach : publie des séances, suis ton groupe, discute", "You become the coach: post workouts, follow your group, chat")}</span></button></div>
+    <h2 class="sec">☁️ ${L("Sauvegarde en ligne", "Online backup")}</h2><div class="carnet cl-compte" id="svCarte"><small>…</small></div>
     <h2 class="sec">${L("Mon compte", "My account")}</h2><div class="carnet cl-compte"><p><b style="color:${couleurPseudo(CL.u.pseudo)}">${echap(CL.u.pseudo)}</b><small>${echap(CL.u.email)}</small></p>
       <div class="partage-btns"><button class="toggle contour" id="clDeco">${L("Se déconnecter", "Sign out")}</button><button class="toggle contour cl-danger" id="clSuppr">${L("Supprimer mon compte", "Delete my account")}</button></div></div>`;
   C.querySelectorAll("[data-club]").forEach(b => b.onclick = () => { CL.vue = "club"; CL.c = b.dataset.club; CL.onglet = "seances"; ecran("clubs", rendu); scrollTo(0, 0); });
+  C.querySelectorAll("[data-retrait]").forEach(b => b.onclick = async () => { await SV.lireRetrait(b.dataset.retrait); CL.retraits = CL.retraits.filter(x => x.id !== b.dataset.retrait); rendu(); });
   $("clRejoindre").onclick = feuilleRejoindre; $("clCreer").onclick = feuilleCreer;
   $("clDeco").onclick = async () => { await SV.deconnexion(); try { localStorage.removeItem("clubCompte"); } catch (e) {} };
   $("clSuppr").onclick = feuilleSupprimerCompte;
+  renduSauvegarde();
+}
+
+/* --- Sauvegarde en ligne du suivi (facultative) : le même contenu que le fichier de sauvegarde, envoyé automatiquement après
+   chaque séance et au plus une fois par jour à l'ouverture. Consentement explicite, car le suivi peut contenir des informations
+   de santé (poids, programmes de reprise après blessure). Désactivable à tout moment : la copie en ligne est alors effacée. --- */
+const svActive = () => lire("sauvegardeEnLigne") === "1";
+const fichierSuivi = () => JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: donneesAppli() });
+let svDernier = 0;
+async function sauvegardeAuto(force) {
+  if (!svActive() || !SV || !CL.u || (!force && Date.now() - svDernier < 6e5)) return;
+  svDernier = Date.now(); try { await SV.sauverEnLigne(fichierSuivi()); stocker("sauvegardeEnLigneDate", new Date().toISOString()); } catch (e) {}
+}
+const apresSeance = () => sauvegardeAuto(true);
+async function renduSauvegarde() {
+  const Z = $("svCarte"); if (!Z) return;
+  const ko = t => { Z.querySelector(".cl-erreur").textContent = t; };
+  if (!svActive()) {
+    Z.innerHTML = `<p>${L("Retrouve ton historique, tes trophées, tes programmes et tes réglages sur un nouveau téléphone. Copie privée, visible par toi seul, mise à jour après chaque séance.", "Get your history, trophies, programmes and settings back on a new phone. Private copy, visible only to you, updated after each workout.")}</p>
+      <label class="cl-case"><input type="checkbox" id="svAccord"><span>${L("J’accepte que mon suivi soit sauvegardé en ligne, y compris mon profil (âge, poids) et mes programmes de reprise après blessure. Je peux désactiver et effacer cette copie à tout moment.", "I agree that my progress is backed up online, including my profile (age, weight) and my back-after-injury programmes. I can turn it off and erase the copy at any time.")}</span></label>
+      <p class="cl-erreur"></p><button class="toggle" id="svOn">${L("Activer la sauvegarde en ligne", "Turn on online backup")}</button>`;
+    $("svOn").onclick = async () => { if (!$("svAccord").checked) return ko(L("Coche la case pour activer.", "Tick the box to turn it on."));
+      $("svOn").disabled = true; stocker("sauvegardeEnLigne", "1"); try { await SV.sauverEnLigne(fichierSuivi()); stocker("sauvegardeEnLigneDate", new Date().toISOString()); renduSauvegarde(); } catch (x) { stocker("sauvegardeEnLigne", "0"); ko(msgErr(x)); $("svOn").disabled = false; } };
+    return;
+  }
+  const info = await SV.infoSauvegarde().catch(() => null);
+  Z.innerHTML = `<p>✓ <b>${L("Activée", "On")}</b> · ${info && info.t ? L("dernière copie le ", "last copy on ") + info.t.toLocaleString(LANGUE === "en" ? "en-GB" : "fr-FR", { dateStyle: "medium", timeStyle: "short" }) + ` (${Math.max(1, Math.round(info.taille / 1024))} Ko)` : L("aucune copie pour l’instant", "no copy yet")}</p><p class="cl-erreur"></p>
+    <div class="partage-btns"><button class="toggle" id="svMaint">${L("Sauvegarder maintenant", "Back up now")}</button>${info ? `<button class="toggle contour" id="svRest">${L("Restaurer sur ce téléphone", "Restore on this phone")}</button>` : ""}</div>
+    <button class="lien" id="svOff">${L("Désactiver et effacer la copie en ligne", "Turn off and erase the online copy")}</button>`;
+  $("svMaint").onclick = async () => { $("svMaint").disabled = true; try { await SV.sauverEnLigne(fichierSuivi()); renduSauvegarde(); } catch (x) { ko(x.code === "permission-denied" ? L("Une copie vient d’être faite : réessaie dans une minute.", "A copy was just made: try again in a minute.") : msgErr(x)); $("svMaint").disabled = false; } };
+  if ($("svRest")) $("svRest").onclick = async () => { try { verifierRestauration(await SV.lireSauvegarde(info)); } catch (x) { ko(msgErr(x)); } };
+  $("svOff").onclick = async () => { if (!$("svOff").dataset.conf) { $("svOff").dataset.conf = 1; return $("svOff").textContent = L("Confirmer : effacer la copie en ligne", "Confirm: erase the online copy"); }
+    try { await SV.effacerSauvegarde(); stocker("sauvegardeEnLigne", "0"); renduSauvegarde(); } catch (x) { ko(msgErr(x)); } };
+}
+// nouveau téléphone (aucune séance ici) et copie en ligne trouvée : on propose de la restaurer, une seule fois
+async function proposerRestauration() {
+  if (lireHist().length || lire("svPropose") || !SV || !CL.u) return; stocker("svPropose", "1");
+  const info = await SV.infoSauvegarde().catch(() => null); if (!info) return;
+  stocker("sauvegardeEnLigne", "1"); verifierRestauration(await SV.lireSauvegarde(info));
 }
 
 /* --- Inscription et connexion --- */
@@ -58,13 +100,15 @@ function renduCompte(C, mode) {
       <label class="champ"><span>Email</span><input id="cfEmail" type="email" autocomplete="email" inputmode="email"></label>
       <label class="champ"><span>${L("Mot de passe", "Password")}${ins ? ` <small>${L("(8 caractères minimum, dont une minuscule et un chiffre)", "(8 characters minimum, including a lowercase letter and a digit)")}</small>` : ""}</span><input id="cfMdp" type="password" autocomplete="${ins ? "new-password" : "current-password"}" minlength="8"></label>
       ${ins ? `<label class="champ"><span>${L("Date de naissance", "Date of birth")}</span><input id="cfNais" type="date" max="${jourCle()}"></label>
-        <label class="cl-case hidden" id="cfParentBloc"><input type="checkbox" id="cfParent"><span>${L("J’ai moins de 15 ans : un parent ou mon responsable légal est d’accord pour que j’utilise les clubs.", "I am under 15: a parent or legal guardian agrees that I use clubs.")}</span></label>
-        <label class="cl-case"><input type="checkbox" id="cfAccord"><span>${L("J’accepte que mon pseudo, mes messages et les séances que je fais soient visibles par les membres de mes clubs. Mon email reste privé.", "I agree that my username, my messages and the workouts I do are visible to my club members. My email stays private.")}</span></label>` : ""}
+        <label class="cl-case hidden" id="cfParentBloc"><input type="checkbox" id="cfParent"><span>${L("J’ai moins de 15 ans : j’ai lu ces conditions avec un parent (ou mon responsable légal) et nous sommes d’accord tous les deux pour que j’utilise les clubs.", "I am under 15: I read these terms with a parent (or legal guardian) and we both agree that I use clubs.")}</span></label>
+        <label class="cl-case"><input type="checkbox" id="cfAccord"><span>${L("J’accepte les conditions d’utilisation et la politique de confidentialité : mon pseudo, mes messages et les séances que je coche sont visibles par les membres de mes clubs ; mon email et ma date de naissance restent privés.", "I accept the terms of use and the privacy policy: my username, messages and ticked workouts are visible to my club members; my email and date of birth stay private.")}</span></label>
+        <p class="cl-liens">${[["cgu", "Conditions d’utilisation", "Terms of use"], ["confidentialite", "Confidentialité", "Privacy"]].map(([k, f, e]) => `<button type="button" class="lien" data-pg="${k}">${L(f, e)}</button>`).join(" · ")}</p>` : ""}
       <p class="cl-erreur" id="cfErreur" role="alert"></p>
       <button class="primary" type="submit" id="cfOk">${ins ? L("Créer mon compte", "Create my account") : L("Me connecter", "Sign in")}</button>
       ${ins ? "" : `<button class="lien-discret" type="button" id="cfOubli">${L("Mot de passe oublié ?", "Forgot password?")}</button>`}</form>
     <p class="sh-aide cl-note">${L("Le compte sert seulement aux clubs. Le reste de l’appli marche toujours sans compte, et ton suivi reste sur ton téléphone.", "The account is only for clubs. The rest of the app still works without an account, and your progress stays on your phone.")}</p>`;
   C.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => renduCompte(C, b.dataset.mode));
+  C.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { const [f, e, h] = PAGES[b.dataset.pg]; ouvrirFeuilleInfo(L(f, e), h()); });
   const err = t => { $("cfErreur").textContent = t; }, v = id => ($(id) ? $(id).value.trim() : "");
   if (ins) {
     let tp; $("cfPseudo").oninput = () => { clearTimeout(tp); const p = v("cfPseudo"), I = $("cfPseudoInfo");
@@ -201,23 +245,35 @@ function clubSeanceFinie(r) { if (r && r.club && SV && CL.u) SV.marquerFait(r.cl
 
 /* Chat : pseudo en couleur, réponses citées, réactions, suppression, signalement ; le staff modère */
 const REAC = ["👍", "❤️", "💪", "🔥", "😂"];
+// mêmes contrôles que les règles du serveur (firestore.rules : poli, sansLien), pour prévenir avant l'envoi
+const INSULTES = /^(?:[\s\S]*[^a-z])?(?:connard|connasse|salope|salaud|pute|encul|ntm|nique ta|niquer ta|fdp|fils de pute|batard|bâtard|pédé|negre|nègre|bougnoul|youpin|bitch|fuck|motherf|cunt|nigg|faggot|retardé mental|suicide-toi|va te pendre)/, LIEN = /(https?:\/\/|www[.]|[a-z0-9-]+[.](com|fr|net|org|io|ly|gg|me|xyz)\/)/;
+const poliTexte = t => !INSULTES.test(t.toLowerCase());
+// motifs de modération : toute sanction est motivée et le motif est montré à la personne concernée (DSA art. 17)
+const MOTIFS = { insulte: ["Propos insultants ou harcèlement", "Insults or harassment"], spam: ["Spam ou publicité", "Spam or advertising"], illicite: ["Contenu illégal ou dangereux", "Illegal or dangerous content"], inapproprie: ["Contenu inapproprié", "Inappropriate content"], regles: ["Non-respect des règles du club", "Breaking the club rules"] };
+const motifLisible = k => MOTIFS[k] ? L(...MOTIFS[k]) : k;
+function choisirMotif(titre, fin) {
+  ouvrirFeuilleInfo(titre, `<p class="sh-aide">${L("Choisis le motif : il sera montré à la personne concernée.", "Pick the reason: it will be shown to the person concerned.")}</p><div class="infos-liens">${Object.entries(MOTIFS).map(([k, v]) => `<button class="toggle contour" data-motif="${k}">${L(...v)}</button>`).join("")}</div>`);
+  document.querySelectorAll("[data-motif]").forEach(b => b.onclick = () => { fermerFeuille(); fin(b.dataset.motif); });
+}
 const nonLu = c => { const d = CL.der && CL.der[c]; return !!(d && d.t && d.uid !== (CL.u && CL.u.uid) && d.t.toMillis() > +(lire("clubLu_" + c) || 0)); };
 function ongChat(Z, cb) {
   const muet = cb.muet;
   Z.innerHTML = `<div class="cl-chat" id="chFil"><p class="vide">…</p></div>
-    <form class="cl-saisie" id="chForm">${muet ? `<p class="sh-aide">🔇 ${L("Le coach t’a rendu muet dans ce club.", "The coach has muted you in this club.")}</p>` : `<div class="cl-rep hidden" id="chRep"></div><textarea id="chTxt" rows="1" maxlength="1000" placeholder="${L("Écrire au club…", "Message the club…")}" enterkeyhint="send"></textarea><button class="toggle" id="chEnv" aria-label="${L("Envoyer", "Send")}">➤</button>`}</form>`;
+    <form class="cl-saisie" id="chForm">${muet ? `<p class="sh-aide">🔇 ${L("L’équipe du club t’a rendu muet", "The club staff has muted you")}${cb.motif ? L(" · motif : ", " · reason: ") + echap(motifLisible(cb.motif)) : ""}. ${L("Tu peux en parler au coach.", "You can talk to the coach about it.")}</p>` : `<p class="cl-erreur" id="chErr"></p><div class="cl-rep hidden" id="chRep"></div><textarea id="chTxt" rows="1" maxlength="1000" placeholder="${L("Écrire au club…", "Message the club…")}" enterkeyhint="send"></textarea><button class="toggle" id="chEnv" aria-label="${L("Envoyer", "Send")}">➤</button>`}</form>`;
   let msgs = [], bas = true;
   desab.push(SV.ecouterMessages(cb.id, l => { msgs = l; const F = $("chFil"); if (!F) return; bas = bas || F.scrollTop + F.clientHeight > F.scrollHeight - 80;
     F.innerHTML = l.length ? l.map((m, i) => { const moi = m.uid === CL.u.uid, j = m.t && m.t.toDate ? jourCle(m.t.toDate()) : jourCle(), sep = !i || (l[i - 1].t && l[i - 1].t.toDate && jourCle(l[i - 1].t.toDate()) !== j);
       return `${sep ? `<p class="cl-jour">${dateLisible(j)}</p>` : ""}<div class="cl-msg${moi ? " moi" : ""}${m.suppr ? " efface" : ""}" data-m="${m.id}">${moi ? "" : `<b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}</b>`}
-        ${m.rep ? `<q><b>${echap(m.rep.pseudo)}</b> ${echap(m.rep.extrait)}</q>` : ""}<p>${m.suppr ? L("Message supprimé", "Message deleted") : echap(m.texte).replace(/\n/g, "<br>")}</p><small>${heure(m.t)}</small>
+        ${m.rep ? `<q><b>${echap(m.rep.pseudo)}</b> ${echap(m.rep.extrait)}</q>` : ""}<p>${m.suppr ? (m.motif ? L("Retiré par l’équipe du club · motif : ", "Removed by the club staff · reason: ") + echap(motifLisible(m.motif)) : L("Message supprimé par son auteur", "Message deleted by its author")) : echap(m.texte).replace(/\n/g, "<br>")}</p><small>${heure(m.t)}</small>
         ${Object.entries(m.reac || {}).filter(([, u]) => u.length).map(([e, u]) => `<button class="cl-reac${u.includes(CL.u.uid) ? " moi" : ""}" data-r="${e}">${e} ${u.length}</button>`).join("")}</div>`; }).join("")
       : `<p class="vide">${L("Aucun message. Lance la discussion !", "No messages yet. Start the conversation!")}</p>`;
     if (bas) requestAnimationFrame(() => { F.scrollTop = F.scrollHeight; }); bas = false;
     if (l.length) { stocker("clubLu_" + cb.id, Date.now()); (CL.der = CL.der || {})[cb.id] = l[l.length - 1]; }
   }));
   if (!muet) {
-    const T2 = $("chTxt"), env = async () => { const t = T2.value.trim(); if (!t) return; T2.value = ""; T2.style.height = ""; const rep = CL.rep; CL.rep = null; $("chRep").classList.add("hidden"); bas = true;
+    const T2 = $("chTxt"), env = async () => { const t = T2.value.trim(); if (!t) return;
+      const refus = !poliTexte(t) ? L("Ce message contient un mot interdit par les règles du chat.", "This message contains a word banned by the chat rules.") : cb.role === "membre" && LIEN.test(t.toLowerCase()) ? L("Seuls le coach et les co-coachs peuvent partager des liens.", "Only the coach and co-coaches can share links.") : Date.now() - (CL.envoi || 0) < 2100 ? L("Doucement 🙂 un message toutes les 2 secondes.", "Easy 🙂 one message every 2 seconds.") : "";
+      if (refus) { $("chErr").textContent = refus; return; } $("chErr").textContent = ""; CL.envoi = Date.now(); T2.value = ""; T2.style.height = ""; const rep = CL.rep; CL.rep = null; $("chRep").classList.add("hidden"); bas = true;
       try { await SV.envoyer(cb.id, t.slice(0, 1000), CL.u.pseudo, rep); } catch (x) { T2.value = t; alert(msgErr(x)); } };
     $("chForm").onsubmit = e => { e.preventDefault(); env(); };
     T2.oninput = () => { T2.style.height = ""; T2.style.height = Math.min(120, T2.scrollHeight) + "px"; };
@@ -228,10 +284,10 @@ function ongChat(Z, cb) {
     if (r) return SV.reagir(cb.id, m.id, r.dataset.r, !(m.reac[r.dataset.r] || []).includes(CL.u.uid)).catch(() => {});
     const auteur = m.uid === CL.u.uid;
     ouvrirFeuilleInfo(L("Message", "Message"), `<p class="cl-apercu"><b>${echap(m.pseudo)}</b> ${echap(m.texte.slice(0, 140))}</p><div class="cl-emojis">${REAC.map(e => `<button data-e="${e}">${e}</button>`).join("")}</div>
-      <div class="infos-liens">${muet ? "" : `<button class="toggle" id="mRep">↩ ${L("Répondre", "Reply")}</button>`}${auteur || staff() ? `<button class="toggle contour cl-danger" id="mSup">🗑 ${L("Supprimer le message", "Delete message")}</button>` : ""}${auteur ? "" : `<button class="toggle contour" id="mSig">⚑ ${L("Signaler au coach", "Report to the coach")}</button>`}</div>`);
+      <div class="infos-liens">${muet ? "" : `<button class="toggle" id="mRep">↩ ${L("Répondre", "Reply")}</button>`}${auteur || staff() ? `<button class="toggle contour cl-danger" id="mSup">🗑 ${L("Supprimer le message", "Delete message")}</button>` : ""}${auteur ? "" : `<button class="toggle contour" id="mSig">⚑ ${L("Signaler au coach", "Report to the coach")}</button>`}</div>${auteur ? "" : `<p class="sh-aide">${L("Contenu illégal ou grave ? Écris aussi à ", "Illegal or serious content? Also write to ")}${contactLien()}.</p>`}`);
     document.querySelectorAll(".cl-emojis [data-e]").forEach(b => b.onclick = () => { fermerFeuille(); SV.reagir(cb.id, m.id, b.dataset.e, !(m.reac[b.dataset.e] || []).includes(CL.u.uid)).catch(() => {}); });
     if ($("mRep")) $("mRep").onclick = () => { fermerFeuille(); CL.rep = { m: m.id, pseudo: m.pseudo, extrait: m.texte.slice(0, 80) }; $("chRep").innerHTML = `↩ <b>${echap(m.pseudo)}</b> ${echap(CL.rep.extrait)} <button type="button" id="chRepX" aria-label="${L("Annuler", "Cancel")}">✕</button>`; $("chRep").classList.remove("hidden"); $("chRepX").onclick = () => { CL.rep = null; $("chRep").classList.add("hidden"); }; $("chTxt").focus(); };
-    if ($("mSup")) $("mSup").onclick = () => { fermerFeuille(); SV.effacerMessage(cb.id, m.id).catch(x => alert(msgErr(x))); };
+    if ($("mSup")) $("mSup").onclick = () => { fermerFeuille(); auteur ? SV.effacerMessage(cb.id, m.id).catch(x => alert(msgErr(x))) : choisirMotif(L("Retirer ce message", "Remove this message"), k => SV.effacerMessage(cb.id, m.id, k).catch(x => alert(msgErr(x)))); };
     if ($("mSig")) $("mSig").onclick = async () => { await SV.signaler(cb.id, m.id, m.texte.slice(0, 200), m.pseudo).catch(() => {}); $("mSig").textContent = "✓ " + L("Signalé au coach", "Reported to the coach"); $("mSig").disabled = true; };
   };
 }
@@ -249,8 +305,8 @@ function ongMembres(Z, cb) {
       <button class="toggle contour" id="maMuet">${m.muet ? "🔊 " + L("Lui rendre la parole", "Unmute") : "🔇 " + L("Rendre muet dans le chat", "Mute in the chat")}</button><button class="toggle contour cl-danger" id="maExcl">${L("Exclure du club", "Remove from the club")}</button></div>`);
     const act = p => p.then(fermerFeuille).catch(x => alert(msgErr(x)));
     if ($("maRole")) $("maRole").onclick = () => act(SV.changerMembre(cb.id, m.id, { role: m.role === "cocoach" ? "membre" : "cocoach" }));
-    $("maMuet").onclick = () => act(SV.changerMembre(cb.id, m.id, { muet: !m.muet }));
-    $("maExcl").onclick = () => { if ($("maExcl").dataset.conf) act(SV.exclure(cb.id, m.id)); else { $("maExcl").dataset.conf = 1; $("maExcl").textContent = L("Confirmer l’exclusion", "Confirm removal"); } };
+    $("maMuet").onclick = () => m.muet ? act(SV.changerMembre(cb.id, m.id, { muet: false, motif: "" })) : (fermerFeuille(), choisirMotif(L("Rendre muet", "Mute"), k => SV.changerMembre(cb.id, m.id, { muet: true, motif: k }).catch(x => alert(msgErr(x)))));
+    $("maExcl").onclick = () => { fermerFeuille(); choisirMotif(L("Exclure ", "Remove ") + m.pseudo, k => SV.exclure(cb.id, m.id, k, cb.nom).catch(x => alert(msgErr(x)))); };
   };
   $("mbQuit").onclick = async () => { if (cb.role === "coach") { CL.onglet = "reglages"; return rendu(); }
     if (!$("mbQuit").dataset.conf) { $("mbQuit").dataset.conf = 1; return $("mbQuit").textContent = L("Confirmer : quitter le club", "Confirm: leave the club"); }
@@ -275,7 +331,7 @@ function ongReglages(Z, cb) {
   $("rgSauve").onclick = async () => { const v = { nom: propre($("rgNom").value.trim()).slice(0, 40) || cb.nom, sport: propre($("rgSport").value.trim()), desc: propre($("rgDesc").value.trim()) };
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("rgSauve").textContent = "✓ " + L("Enregistré", "Saved"); $("clTitre").textContent = v.nom; } catch (x) { $("rgSauve").textContent = msgErr(x); } };
   desab.push(SV.ecouterSignalements(cb.id, l => { $("rgSig").innerHTML = l.length ? `<h2 class="sec">⚑ ${L("Messages signalés", "Reported messages")} · ${l.length}</h2><ul class="list">${l.map(r => `<li><div><b>${echap(r.auteur)}</b><small>${echap(r.extrait)}</small></div><button class="toggle contour cl-danger" data-del="${r.m}" data-r="${r.id}">🗑</button><button class="toggle contour" data-ok="${r.id}">${L("Garder", "Keep")}</button></li>`).join("")}</ul>` : "";
-    $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) await SV.effacerMessage(cb.id, b.dataset.del).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r || b.dataset.ok).catch(() => {}); }; }));
+    $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) return choisirMotif(L("Retirer ce message", "Remove this message"), async k => { await SV.effacerMessage(cb.id, b.dataset.del, k).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r).catch(() => {}); }); await SV.classerSignalement(cb.id, b.dataset.ok).catch(() => {}); }; }));
 }
 // QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
