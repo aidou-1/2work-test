@@ -281,7 +281,7 @@ document.addEventListener("click", e => { const b = e.target.closest(".h-part");
 
 /* ============ CONTACT DE L'ÉDITEUR ============
    Adresse dédiée à l'application (jamais l'adresse personnelle) : signalements, données personnelles, demandes des parents. */
-const CONTACT = "";
+const CONTACT = "2workbyaidou@gmail.com";
 const contactLien = () => CONTACT ? `<a href="mailto:${CONTACT}">${CONTACT}</a>` : L("l’adresse de contact (bientôt disponible)", "the contact address (coming soon)");
 
 /* ============ INFORMATIONS LÉGALES ============ */

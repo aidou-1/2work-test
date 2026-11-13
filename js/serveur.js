@@ -47,7 +47,8 @@ export async function mesClubs() {
   let { clubs = [], attente = [] } = c; const nc = [], na = [], nr = [];
   for (const id of attente) {   // acceptée ? refusée ? toujours en attente ?
     if (await lireDoc("clubs", id, "membres", uid)) { clubs.includes(id) || clubs.push(id); continue; }
-    const dm = await lireDoc("clubs", id, "demandes", uid); if (dm) na.push({ id, nom: dm.nom || "" });
+    const dm = await lireDoc("clubs", id, "demandes", uid); if (dm) { na.push({ id, nom: dm.nom || "" }); continue; }
+    const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif });   // accepté puis exclu avant d'avoir rouvert l'appli
   }
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
     if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: m.motif || "" });
