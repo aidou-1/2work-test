@@ -262,7 +262,7 @@ function ouvrirCalculs() {
         <table class="params"><tr><th>${L("Prévision", "Prediction")}</th><th>${L("Temps", "Time")}</th><th>${L("Allure", "Pace")}</th></tr>${[[5, "5 km"], [10, "10 km"], [21.0975, L("Semi", "Half")], [42.195, "Marathon"]].map(([d, n]) => `<tr><td>${n}</td><td>${duree(prev(d))}</td><td>${allure(prev(d) / d)}</td></tr>`).join("")}</table>
         <table class="params"><tr><th>${L("Séance", "Session")}</th><th>${L("Allure repère", "Guide pace")}</th></tr>
           <tr><td>${L("Footing facile", "Easy run")}</td><td>${allure(a10 + 60)} – ${allure(a10 + 90)}${fc(1)}</td></tr><tr><td>${L("Seuil", "Threshold")}</td><td>${allure(prev(21.0975) / 21.0975)}${fc(3)}</td></tr><tr><td>${L("Fractionné", "Intervals")}</td><td>${allure(prev(5) / 5 - 5)}${fc(4)}</td></tr></table>
-        <p class="sh-aide">${L("Prévisions par la formule de Riegel, fiables si tu es entraîné pour la distance visée." + (z ? "" : " Indique ton âge dans Mon profil pour voir les fréquences cardiaques."), "Predictions use Riegel’s formula, reliable if you are trained for the target distance." + (z ? "" : " Add your age in My profile to see heart rates."))}</p>`; };
+        <p class="sh-aide">${L("Prévisions par la formule de Riegel, fiables si tu es entraîné pour la distance visée." + (z ? "" : " Indique ta date de naissance dans Mon profil pour voir les fréquences cardiaques."), "Predictions use Riegel’s formula, reliable if you are trained for the target distance." + (z ? "" : " Add your date of birth in My profile to see heart rates."))}</p>`; };
     ["rmKg", "rmReps"].forEach(i => { $(i).oninput = rm; }); ["alKm", "alT"].forEach(i => { $(i).oninput = al; });
   }, 0);
 }
