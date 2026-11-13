@@ -20,7 +20,8 @@ $("otTitre").textContent = L("Outils", "Tools"); $("otSub").textContent = L("Tou
  ["Tests de forme", "Fitness tests", "VMA, pompes, squats, gainage, souplesse : mesure tes progrès chaque mois", "Top aerobic speed, push-ups, squats, plank, flexibility: measure your progress every month", "#16A34A", () => ouvrirTests(null)],
  ["Suivi du corps", "Body tracking", "Poids et mensurations, avec leur courbe", "Weight and measurements, with their chart", "#DB2777", () => ouvrirCorps()],
  ["Calculateurs", "Calculators", "Charge maximale (1RM), pourcentages de charge, allures de course", "One-rep max (1RM), load percentages, running paces", "#7C3AED", () => ouvrirCalculs()]]
-  .forEach(([f, e, df, de, c, fn]) => bouton($("otListe"), L(f, e), L(df, de).replace("{n}", Object.keys(EXERCICES).length), c, fn));
+  .forEach(([f, e, df, de, c, fn]) => { const b = bouton($("otListe"), L(f, e), L(df, de), c, fn);
+    if (df.includes("{n}")) addEventListener("DOMContentLoaded", () => b.querySelector("span").textContent = L(df, de).replace("{n}", Object.keys(EXERCICES).length)); });   // compté une fois tous les sports chargés (ils ajoutent leurs exercices)
 
 /* --- Matériel : 8 familles ; le besoin d'un exercice est lu dans son texte « muscles · matériel » (virgule = et, « ou » = au choix) --- */
 const FAMILLES_MAT = [["halteres", "Haltères", "Dumbbells", /haltère|dumbbell/i], ["kettlebell", "Kettlebell", "Kettlebell", /kettlebell/i], ["elastique", "Élastique", "Resistance band", /élastique|band/i],

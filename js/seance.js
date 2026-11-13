@@ -461,9 +461,9 @@ function bouton(parent, titre, detail, couleur, fn) {
   b.className = "choice"; b.style.setProperty("--c", couleur);
   b.innerHTML = `<strong>${T(titre)}</strong><span>${T(detail)}</span>`;
   b.onclick = fn;
-  parent.appendChild(b);
+  parent.appendChild(b); return b;
 }
-bouton($("choicesP"), "Sports", "15 sports : renfo, cardio et outils propres à chacun, et la boxe complète", "#7B5EA7", () => vueSCats());
+bouton($("choicesP"), "Sports", "14 sports : ta semaine, les séances, la technique, le renfo et les tests de chacun", "#7B5EA7", () => vueSCats());
 bouton($("choicesP"), "Salle de musculation", "Par objectif : force, prise de muscle, excentrique, isométrie…", "#334E68", () => vueSalle());
 Object.keys(ROUTINES).filter(k => ROUTINES[k].blessure).forEach(k => bouton($("choicesB"), ROUTINES[k].titre, ROUTINES[k].detail + " · " + T("{n} exercices", { n: ROUTINES[k].exercices.length }), ROUTINES[k].couleur, () => ouvrirRoutine(k)));
 bouton($("choicesP"), "Tabata", "7 séances prêtes (cardio, jambes, abdos…) ou minuteur libre", "#D9480F", () => vueTabata());
