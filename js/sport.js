@@ -16,7 +16,7 @@ function exosSp(liste) {
   const EN = LANGUE === "en";
   liste.forEach(([id, duree, m, matFr, matEn, nomFr, nomEn, musFr, musEn, descFr, descEn, pose, vFr, vEn]) => {
     const mat = EN ? matEn : matFr;
-    EXERCICES[id] = { nom: EN ? nomEn : nomFr, nomFr, duree, video: null, description: EN ? descEn : descFr, muscles: (EN ? musEn : musFr) + (mat ? " · " + mat : ""), mat: !!mat };
+    EXERCICES[id] = { nom: EN ? nomEn : nomFr, nomFr, duree, video: VIDEOS.includes(id) ? `videos/${id}.mp4` : null, description: EN ? descEn : descFr, muscles: (EN ? musEn : musFr) + (mat ? " · " + mat : ""), mat: !!mat };
     if (m) { MAT_EX[id] = m; MATOS.push(id); }
     VOIX_SALLE[id] = nomEn; POSES[id] = typeof pose === "string" ? POSES[pose] : pose;
     if (typeof CONSIGNES !== "undefined") CONSIGNES[id] = [vFr, vEn];
