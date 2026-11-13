@@ -178,6 +178,45 @@ const seancesEquipe = (sp, mob) => ({
       ["Circuit de mobilité", "Mobility circuit", "Lent, sans douleur, en respirant.", "Slow, pain-free, breathing.", 1, 0, mob.slice(0, { 20: 4, 35: 6, 50: 8 }[x.dur]).map(id => [id, 45, 10, "", "45 s"])]] },
 });
 
+/* --- Sports à objectif daté (cyclisme, natation, ski…) : 3 blocs de 4 semaines à rebours de la date, affûtage, séance J-2, repos J-1 ; sans date, blocs en boucle avec une semaine allégée.
+   SP[sport].objectif = { objs [[clé, FR, EN]], debut { obj, sem (semaines), txt [FR, EN, texte FR, EN] } facultatif, blocs [[nom FR, EN, texte FR, EN]] × 3, sem(P, bloc, semaine) → séances par priorité,
+   dur (séances dures), longue (séance du week-end), taper(P) → semaines d'affûtage, jour [ico, FR, EN] (jour J), ech, profil [FR, EN], fiche(P, S), date [FR, EN] (libellé de la date) } */
+function semaineObjectif(E, P) {
+  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c), w0 = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5));
+  const cse = P.date ? new Date(P.date + "T12:00") : null, D = E.debut; let bloc = 1, f = 1, info, fixes = {}, liste;
+  if (D && P.obj === D.obj) { bloc = 0; liste = E.sem(P, 0, Math.min(D.sem - 1, w0)); info = w0 < D.sem ? L(`${D.txt[0]} · semaine ${w0 + 1}/${D.sem}`, `${D.txt[1]} · week ${w0 + 1}/${D.sem}`) : L("Bases terminées : choisis un objectif", "Basics done: pick a goal"); }
+  else {
+    if (cse && cse >= L0) { const W = Math.floor((lundi(cse) - L0) / 6048e5), T = E.taper(P); bloc = W >= 8 ? 1 : W >= 4 ? 2 : 3; f = W < T ? (W ? .75 : .55) : 1;
+      info = W ? L(`Objectif dans ${W} semaine${W > 1 ? "s" : ""}`, `Goal in ${W} week${W > 1 ? "s" : ""}`) + (f < 1 ? L(" · affûtage", " · taper") : "") : L("Semaine de l’objectif : affûtage", "Goal week: taper");
+      if (!W) { const j = (cse.getDay() + 6) % 7; fixes[j] = "jourJ"; if (j >= 1) fixes[j - 1] = "repos"; if (j >= 2) fixes[j - 2] = "affutage"; } }
+    else { bloc = Math.floor(w0 / 4) % 3 + 1; if (w0 % 4 === 3) f = .7; info = L(`Semaine ${w0 % 4 + 1}/4`, `Week ${w0 % 4 + 1}/4`) + (f < 1 ? L(" · semaine allégée", " · lighter week") : ""); }
+    liste = E.sem(P, bloc, w0 % 4);
+  }
+  liste = liste.slice(0, P.n); Object.entries(fixes).forEach(([j, c]) => jours[j].push(c));
+  const nf = Object.keys(fixes).length, lim = nf ? Math.min(...Object.keys(fixes).map(Number)) : 7;
+  if (nf) liste = liste.filter(c => c !== E.longue).slice(0, Math.min(3, P.n - 1));
+  if (liste.includes(E.longue)) { const d = [6, 5, 4].find(d => !jours[d].length && !club(d)) ?? 6; jours[d].push(E.longue); liste = liste.filter(c => c !== E.longue); }
+  placerSp(liste, jours, club, dur, lim);
+  return { L0, bloc, f, info, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), l })) };
+}
+function parcoursObjectif(h) {
+  const G = SP[h.sp], E = G.objectif, P = h.P, S = semaineObjectif(E, P), B = S.bloc ? E.blocs[S.bloc - 1] : E.debut.txt.slice(0, 2).concat(E.debut.txt.slice(2)), sp = h.sp;
+  h.html(`<div class="etude ech-fiche" style="--accent:${G.c}"><b>${S.bloc ? L(B[0], B[1]) + " · " : ""}${S.info}</b><p>${L(B[2], B[3])}</p></div>${E.fiche(P, S)}`);
+  semaineSp(h, S, c => c === "jourJ" ? E.jour[0] + " " + L(E.jour[1], E.jour[2]) : c === "repos" ? L("Repos ou très facile", "Rest or very easy") : L(...G.S[c].t), c => ["jourJ", "repos"].includes(c) ? null : c, k => k === "affutage" || S.f >= 1 ? undefined : S.f);
+  h.C().querySelectorAll(".bx-s[disabled]").forEach(b => b.textContent.startsWith(E.jour[0]) && (b.disabled = false, b.onclick = () => vueEch(E.ech)));
+  h.html(`<h2 class="sec">${L(...E.profil)}</h2><div class="carnet bx-prof">
+    <span class="champ-titre">${L("Mon objectif", "My goal")}</span>${chips("obo", E.objs, P.obj)}
+    <span class="champ-titre">${L("Séances par semaine", "Sessions per week")}</span>${chips("obk", [2, 3, 4, 5, 6].map(n => [n, n, n]), P.n)}
+    <span class="champ-titre">${L("Mes jours de club ou d’entraînement collectif (facultatif)", "My club or group training days (optional)")}</span>${choixJours("obj", P.jours)}
+    ${E.debut && P.obj === E.debut.obj ? "" : `<span class="champ-titre">${L(...E.date)}</span><div class="favForm"><input class="choixVoix" type="date" id="obDate" value="${P.date}" min="${jourCle()}"><button class="toggle" id="obDateX">${L("Effacer", "Clear")}</button></div>`}
+    <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours et la fin est allégée (affûtage). La séance longue se place le week-end, les séances dures ne se suivent pas.", "With a date, the 3 blocks are counted back and the end is lighter (taper). The long session goes on the weekend, hard sessions are never back to back.")}</p>
+    <button class="toggle" id="obRaz">${L("Recommencer le parcours à cette semaine", "Restart the plan from this week")}</button></div>`);
+  const maj = p => { spGarder(sp, p); h.rendu(); };
+  brancherChips("obo", v => maj({ ...spPref(sp), obj: v, debut: jourCle() })); brancherChips("obk", v => maj({ ...spPref(sp), n: +v })); brancherJours(h, "obj", "jours", maj);
+  if ($("obDate")) { $("obDate").onchange = e => maj({ ...spPref(sp), date: e.target.value }); $("obDateX").onclick = () => maj({ ...spPref(sp), date: "" }); }
+  $("obRaz").onclick = () => maj({ ...spPref(sp), debut: jourCle() });
+}
+
 /* --- Sports → un sport complet ouvre son écran ; les autres gardent leur page --- */
 const vueModeAvantSp = vueMode;
 vueMode = grp => SP[grp] ? (spRetour[grp] = null, ouvrirSport(grp)) : vueModeAvantSp(grp);
