@@ -32,6 +32,7 @@ async function ouvrirClubs(vue) {
   stop(); if (vue) Object.assign(CL, vue);
   $("clCorps").innerHTML = `<p class="vide">${L("Connexion au serveur…", "Connecting…")}</p>`; ecran("clubs", () => scrollTo(0, 0));
   try { await chargerServeur(); } catch (e) { $("clCorps").innerHTML = `<p class="vide">📡 ${L("Les clubs ont besoin d’internet. Vérifie ta connexion et réessaie.", "Clubs need internet. Check your connection and try again.")}</p><button class="toggle" id="clReessai">${L("Réessayer", "Retry")}</button>`; $("clReessai").onclick = () => ouvrirClubs(); return; }
+  if (CL.u) await rafraichir().catch(() => {});   // sections et rôles à jour (le coach a pu en créer)
   if (CL.u !== undefined) rendu();
 }
 $("clRetour").onclick = () => { stop(); if (CL.vue === "club") { CL.vue = "liste"; CL.c = null; retour(() => rendu()); } else retour(() => ecran("menu")); };
@@ -209,6 +210,7 @@ function ongSeances(Z, cb) {
     $("spChoisirSec").onclick = () => feuilleSections(cb, CL.u.uid, [], async l => { await SV.changerMembre(cb.id, CL.u.uid, { sections: l }); cb.mesSec = l; rendu(); }); }
   if (filtres.length) $("prevZone").insertAdjacentHTML("afterend", `<div class="chips cl-filtre" id="spFiltre">${filtres.map(([k, n]) => `<button class="toggle" data-f="${k}" aria-pressed="${(CL.filtre ?? "*") === k}">${echap(n)}</button>`).join("")}</div>`);
   if ($("spFiltre")) $("spFiltre").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.filtre = b.dataset.f; rendu(); } };
+  let ecoutesFaits = []; desab.push(() => ecoutesFaits.forEach(f => f()));
   desab.push(ecouterSeancesClub(cb, async tout => { const l = tout.filter(s => !filtres.length || (CL.filtre ?? "*") === "*" || s.sec === CL.filtre);
     const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l);
     const carte = s => { const P = s.prog && PROGRAMMES.find(p => p[0] === s.prog);
@@ -223,9 +225,10 @@ function ongSeances(Z, cb) {
       if (d.fait) { const oui = !b.classList.contains("cl-fait"); b.disabled = true; await SV.marquerFait(cb.id, s.id, CL.u.pseudo, oui, s.sec).catch(() => {}); b.disabled = false; b.classList.toggle("cl-fait", oui); b.textContent = oui ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done"); }
       if (d.sup && b.dataset.conf) await SV.supprimerSeance(cb.id, s.id, s.sec); else if (d.sup) { b.dataset.conf = 1; b.textContent = L("Supprimer ?", "Delete?"); }
     };
+    ecoutesFaits.forEach(f => f()); ecoutesFaits = [];
     if (staff()) { const mb = await new Promise(r => { const f = SV.ecouterMembres(cb.id, x => { r(x); f(); }); });
       Z.querySelectorAll("[data-suivi]").forEach(D => { const s = D.dataset.suivi; const sec = (l.find(x => x.id === s) || {}).sec, mbS = sec ? mb.filter(m => (m.sections || []).includes(sec) || ["coach", "cocoach"].includes(m.role)) : mb;
-        desab.push(SV.ecouterFaits(cb.id, s, f => { const ok = new Set(f.map(x => x.id));
+        ecoutesFaits.push(SV.ecouterFaits(cb.id, s, f => { const ok = new Set(f.map(x => x.id));
         $("nb_" + s).textContent = `${ok.size}/${mbS.length}`; $("qui_" + s).innerHTML = mbS.map(m => `<span class="cl-qui${ok.has(m.id) ? " ok" : ""}">${ok.has(m.id) ? "✓" : "✗"} ${echap(m.pseudo)}</span>`).join(""); }, sec)); }); }
   }));
 }
@@ -242,7 +245,7 @@ function feuillePublier() {
     <div class="champ-duo"><label class="champ"><span id="pbDateT">${L("Date", "Date")}</span><input type="date" id="pbDate" value="${jourCle()}" min="${decaler(jourCle(), -30)}"></label><label class="champ"><span>${L("Titre affiché", "Displayed title")}</span><input id="pbTitre" maxlength="60"></label></div>
     ${sectionsDe(club()).length ? `<label class="champ"><span>${L("Pour", "For")}</span><select id="pbSec"><option value="">${L("Tout le club", "The whole club")}</option>${sectionsDe(club()).map(x => `<option value="${x.id}"${CL.filtre === x.id ? " selected" : ""}>${echap(x.nom)}</option>`).join("")}</select></label>` : ""}
     <label class="champ"><span>${L("Consigne pour le groupe (facultatif)", "Note for the group (optional)")}</span><textarea id="pbNote" class="choixVoix" rows="2" maxlength="300" placeholder="${L("ex. À faire avant l’entraînement de jeudi", "e.g. Do it before Thursday’s practice")}"></textarea></label><p class="cl-erreur" id="pbErr"></p>
-    <button class="primary" id="pbOk">${L("Publier pour tout le club", "Post to the whole club")}</button>`);
+    <button class="primary" id="pbOk">${L("Publier", "Post")}</button>`);
   const liste = () => { const q = plat($("pbQ").value.trim());
     if (type === "cat" && !q && !fam) { $("pbListe").innerHTML = FAM.map(f => [f, cats().filter(([, r]) => famDe(r) === f).length]).filter(x => x[1]).map(([f, n]) => `<li data-fam="${f[0]}"><span class="i-ico">${f[1]}</span><div><b>${L(f[2], f[3])}</b><small>${n} ${L("séances", "workouts")}</small></div><span class="duree">›</span></li>`).join(""); return; }
     const F = FAM.find(f => f[0] === fam), l = type === "cat" ? cats().filter(([, r]) => q || famDe(r) === F).map(([k, r]) => [k, T(r.titre), T(r.detail || "") || (q && famDe(r) ? L(famDe(r)[2], famDe(r)[3]) : "")]) : type === "mod" ? MOD.map((m, i) => ["mod:" + i, L(m[0], m[1]), L(m[3], m[4])]) : type === "fav" ? fav.filter(f => ROUTINES[f.base]).map(f => ["fav:" + f.id, propre(f.nom), T("{n} exercices", { n: f.ids.length })]) : progs.map(p => ["prog:" + p[0], L(p[1], p[2]), L(p[3], p[4])]);
@@ -276,11 +279,12 @@ function choisirMotif(titre, fin) {
   ouvrirFeuilleInfo(titre, `<p class="sh-aide">${L("Choisis le motif : il sera montré à la personne concernée.", "Pick the reason: it will be shown to the person concerned.")}</p><div class="infos-liens">${Object.entries(MOTIFS).map(([k, v]) => `<button class="toggle contour" data-motif="${k}">${L(...v)}</button>`).join("")}</div>`);
   document.querySelectorAll("[data-motif]").forEach(b => b.onclick = () => { fermerFeuille(); fin(b.dataset.motif); });
 }
-const nonLu = c => { const d = CL.der && CL.der[c]; return !!(d && d.t && d.uid !== (CL.u && CL.u.uid) && d.t.toMillis() > +(lire("clubLu_" + c) || 0)); };
+const nonLuSal = (c, sal) => { const d = CL.der && CL.der[c + (sal ? "_" + sal : "")]; return !!(d && d.t && d.uid !== (CL.u && CL.u.uid) && d.t.toMillis() > +(lire("clubLu_" + c + (sal ? "_" + sal : "")) || 0)); };
+const nonLu = c => { const cb = CL.clubs.find(x => x.id === c); return nonLuSal(c, "") || (cb ? mesSections(cb) : []).some(sal => nonLuSal(c, sal)); };
 function ongChat(Z, cb) {
   const muet = cb.muet, salons = mesSections(cb); if (!salons.includes(CL.sal)) CL.sal = ""; const sal = CL.sal;
-  Z.innerHTML = `${salons.length ? `<div class="chips cl-filtre" id="chSalons">${[["", L("Club", "Club")], ...salons.map(id => [id, nomSec(cb, id)])].map(([k, n]) => `<button class="toggle" data-sal="${k}" aria-pressed="${sal === k}">${echap(n)}</button>`).join("")}</div>` : ""}<div class="cl-chat" id="chFil"><p class="vide">…</p></div>
-    <form class="cl-saisie" id="chForm">${muet ? `<p class="sh-aide">🔇 ${L("L’équipe du club t’a rendu muet", "The club staff has muted you")}${cb.motif ? L(" · motif : ", " · reason: ") + echap(motifLisible(cb.motif)) : ""}. ${L("Tu peux en parler au coach.", "You can talk to the coach about it.")}</p>` : `<p class="cl-erreur" id="chErr"></p><div class="cl-rep hidden" id="chRep"></div><textarea id="chTxt" rows="1" maxlength="1000" placeholder="${L("Écrire au club…", "Message the club…")}" enterkeyhint="send"></textarea><button class="toggle" id="chEnv" aria-label="${L("Envoyer", "Send")}">➤</button>`}</form>`;
+  Z.innerHTML = `${salons.length ? `<div class="chips cl-filtre" id="chSalons">${[["", L("Club", "Club")], ...salons.map(id => [id, nomSec(cb, id)])].map(([k, n]) => `<button class="toggle" data-sal="${k}" aria-pressed="${sal === k}">${echap(n)}${k !== sal && nonLuSal(cb.id, k) ? ' <i class="cl-point"></i>' : ""}</button>`).join("")}</div>` : ""}<div class="cl-chat" id="chFil"><p class="vide">…</p></div>
+    <form class="cl-saisie" id="chForm">${muet ? `<p class="sh-aide">🔇 ${L("L’équipe du club t’a rendu muet", "The club staff has muted you")}${cb.motif ? L(" · motif : ", " · reason: ") + echap(motifLisible(cb.motif)) : ""}. ${L("Tu peux en parler au coach.", "You can talk to the coach about it.")}</p>` : `<p class="cl-erreur" id="chErr"></p><div class="cl-rep hidden" id="chRep"></div><textarea id="chTxt" rows="1" maxlength="1000" placeholder="${sal ? L("Écrire à la section ", "Message the section ") + echap(nomSec(cb, sal)) + "…" : L("Écrire au club…", "Message the club…")}" enterkeyhint="send"></textarea><button class="toggle" id="chEnv" aria-label="${L("Envoyer", "Send")}">➤</button>`}</form>`;
   let msgs = [], bas = true;
   desab.push(SV.ecouterMessages(cb.id, l => { msgs = l; const F = $("chFil"); if (!F) return; bas = bas || F.scrollTop + F.clientHeight > F.scrollHeight - 80;
     F.innerHTML = l.length ? l.map((m, i) => { const moi = m.uid === CL.u.uid, j = m.t && m.t.toDate ? jourCle(m.t.toDate()) : jourCle(), sep = !i || (l[i - 1].t && l[i - 1].t.toDate && jourCle(l[i - 1].t.toDate()) !== j);
@@ -289,7 +293,7 @@ function ongChat(Z, cb) {
         ${Object.entries(m.reac || {}).filter(([, u]) => u.length).map(([e, u]) => `<button class="cl-reac${u.includes(CL.u.uid) ? " moi" : ""}" data-r="${e}">${e} ${u.length}</button>`).join("")}</div>`; }).join("")
       : `<p class="vide">${L("Aucun message. Lance la discussion !", "No messages yet. Start the conversation!")}</p>`;
     if (bas) requestAnimationFrame(() => { F.scrollTop = F.scrollHeight; }); bas = false;
-    if (l.length && !sal) { stocker("clubLu_" + cb.id, Date.now()); (CL.der = CL.der || {})[cb.id] = l[l.length - 1]; }
+    if (l.length) { stocker("clubLu_" + cb.id + (sal ? "_" + sal : ""), Date.now()); (CL.der = CL.der || {})[cb.id + (sal ? "_" + sal : "")] = l[l.length - 1]; }
   }, sal));
   if ($("chSalons")) $("chSalons").onclick = e => { const b = e.target.closest("[data-sal]"); if (b) { CL.sal = b.dataset.sal; rendu(); } };
   if (!muet) {
@@ -342,7 +346,7 @@ function ongMembres(Z, cb) {
 function feuilleSections(cb, uid, act, garder) {
   const moi = uid === CL.u.uid;
   ouvrirFeuilleInfo(moi ? L("Mes sections", "My sections") : L("Ses sections", "Their sections"), `<p class="sh-aide">${moi ? L("Coche les sections où tu t’entraînes : tu verras leurs séances et leur chat.", "Tick the sections you train in: you will see their workouts and chat.") : L("Le membre voit les séances et le chat des sections cochées.", "The member sees the workouts and chat of the ticked sections.")}</p>
-    <div class="chips" id="fsSec">${sectionsDe(cb).map(x => `<button class="toggle" data-s="${x.id}" aria-pressed="${act.includes(x.id)}">${echap(x.nom)}</button>`).join("")}</div><p class="cl-erreur" id="fsErr"></p><button class="primary" id="fsOk">${L("Enregistrer", "Save")}</button>`);
+    <div class="chips cl-choix-sec" id="fsSec">${sectionsDe(cb).map(x => `<button class="toggle" data-s="${x.id}" aria-pressed="${act.includes(x.id)}">${echap(x.nom)}</button>`).join("")}</div><p class="cl-erreur" id="fsErr"></p><button class="primary" id="fsOk">${L("Enregistrer", "Save")}</button>`);
   $("fsSec").onclick = e => { const b = e.target.closest("[data-s]"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); };
   $("fsOk").onclick = async () => { const l = [...$("fsSec").querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.s).slice(0, 12); $("fsOk").disabled = true;
     try { await garder(l); fermerFeuille(); } catch (x) { $("fsErr").textContent = msgErr(x); $("fsOk").disabled = false; } };
@@ -358,8 +362,8 @@ function reglagesSections(Z, cb) {   // staff : ajouter, renommer ou supprimer u
     garder([...l, { id: (plat(n).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "s") + "-" + Math.random().toString(36).slice(2, 6), nom: n }]); };
   $("secListe").onclick = async e => { const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.ren) { const x = l.find(y => y.id === b.dataset.ren), n = prompt(L("Nouveau nom", "New name"), x.nom); if (n && propre(n.trim())) { x.nom = propre(n.trim()).slice(0, 30); garder(l); } return; }
-    if (!b.dataset.conf) { b.dataset.conf = 1; b.textContent = L("Supprimer ses séances et son chat ?", "Delete its workouts and chat?"); return; }
-    b.disabled = true; b.textContent = "…"; try { await SV.supprimerSection(cb.id, b.dataset.sup); } catch (x) {} garder(l.filter(x => x.id !== b.dataset.sup)); };
+    if (!b.dataset.conf) { b.dataset.conf = 1; b.textContent = L("Confirmer", "Confirm"); $("secErr").textContent = L("Supprimer la section efface ses séances et son chat.", "Deleting the section erases its workouts and chat."); return; }
+    b.disabled = true; b.textContent = "…"; try { await SV.supprimerSection(cb.id, b.dataset.sup); } catch (x) { b.disabled = false; b.textContent = "🗑"; return $("secErr").textContent = L("Suppression interrompue (connexion ?) : la section est gardée, réessaie.", "Deletion interrupted (connection?): the section is kept, try again."); } garder(l.filter(x => x.id !== b.dataset.sup)); };
 }
 
 /* Réglages du club : lien d'invitation + QR code (staff), signalements, nom ; suppression (coach) */
@@ -396,8 +400,8 @@ async function majCarteClubs() {
   const vide = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${L("Clubs", "Clubs")}</strong><small>${L("Rejoins le club de ton coach ou crée le tien", "Join your coach’s club or create your own")}</small></span></button>`;
   if (!lire("clubCompte") || !CL.u) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); if (lire("clubCompte") && CL.u === undefined) chargerServeur().catch(() => {}); return; }
   if (!CL.clubs.length) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); return; }
-  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, mesSections(c)))[0], m: await SV.dernierMessage(c.id) })));
-  CL.der = Object.fromEntries(info.map(x => [x.c.id, x.m]));
+  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, mesSections(c)))[0], m: await SV.dernierMessage(c.id), ms: await Promise.all(mesSections(c).map(async sal => [c.id + "_" + sal, await SV.dernierMessage(c.id, sal)])) })));
+  CL.der = Object.fromEntries(info.flatMap(x => [[x.c.id, x.m], ...x.ms]));
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances" }) : ouvrirClubs({ vue: "liste" });
 }

@@ -115,7 +115,7 @@ export const ecouterSeances = (c, cb, sal) => X.onSnapshot(X.query(col(...B(c, s
 export const ecouterFaits = (c, s, cb, sal) => X.onSnapshot(col(...B(c, sal), "seances", s, "faits"), q => cb(vers(q)), () => cb([]));
 export const ecouterMessages = (c, cb, sal) => X.onSnapshot(X.query(col(...B(c, sal), "messages"), X.orderBy("t", "desc"), X.limit(150)), s => cb(vers(s).reverse()), () => cb([]));
 export const ecouterSignalements = (c, cb) => X.onSnapshot(col("clubs", c, "signalements"), s => cb(vers(s)), () => cb([]));
-export async function dernierMessage(c) { const s = await X.getDocs(X.query(col("clubs", c, "messages"), X.orderBy("t", "desc"), X.limit(1))).catch(() => null); return s && s.docs[0] ? { id: s.docs[0].id, ...s.docs[0].data() } : null; }
+export async function dernierMessage(c, sal) { const s = await X.getDocs(X.query(col(...B(c, sal), "messages"), X.orderBy("t", "desc"), X.limit(1))).catch(() => null); return s && s.docs[0] ? { id: s.docs[0].id, ...s.docs[0].data() } : null; }
 export async function prochaines(c, depuis, secs = []) { const l = await Promise.all(["", ...secs].map(async sal => { const s = await X.getDocs(X.query(col(...B(c, sal), "seances"), X.where("date", ">=", depuis), X.orderBy("date"), X.limit(3))).catch(() => null); return s ? vers(s) : []; })); return l.flat().sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 3); }
 export async function mesFaits(c, l) { const r = {}; await Promise.all(l.map(async s => { r[s.id] = !!(await lireDoc(...B(c, s.sec), "seances", s.id, "faits", moi())); })); return r; }   // l : [{ id, sec }]
 
