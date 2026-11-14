@@ -264,6 +264,9 @@ function afficherEcran(nom) {
    écran verrouillé), les secondes manquantes sont rattrapées d'un coup au retour, sans rafale de bips ; le rattrapage s'arrête à la fin
    de l'exercice en cours (le suivant repart en temps réel), pour ne jamais sauter plusieurs exercices sans les avoir vus. */
 let muet = false, horlogeActive = 0;
+// durée réelle de la séance (secondes), gardée lors d'une reprise : sert à ne compter que les séances vraiment faites (celebrer)
+let debutSeance = 0, dejaFait = 0;
+const tempsSeance = () => Math.round(dejaFait + (debutSeance ? (Date.now() - debutSeance) / 1000 : 0));
 function horloge(fn) {
   const moi = ++horlogeActive; let prevu = Date.now() + 1000;
   return setInterval(() => {
@@ -346,7 +349,7 @@ new MutationObserver(() => {
    le menu propose pendant 6 h de la reprendre à l'exercice en cours. Effacé à la fin de la séance ou quand on la quitte volontairement. */
 let aReprendre = null;
 function noterSeance() {
-  if (routine) stocker("seanceEnCours", JSON.stringify({ quand: Date.now(), cle: routineCle, routine, mode, ids, liste: ["tabata", "souffle"].includes(mode) ? [] : liste, index, tab, i: souf.i, dureeGlobale, repos, reps, recup, cycles, totalPrevu }, (k, v) => k === "listeHtml" ? undefined : v));
+  if (routine) stocker("seanceEnCours", JSON.stringify({ quand: Date.now(), cle: routineCle, routine, mode, ids, liste: ["tabata", "souffle"].includes(mode) ? [] : liste, index, tab, i: souf.i, dureeGlobale, repos, reps, recup, cycles, totalPrevu, fait: tempsSeance() }, (k, v) => k === "listeHtml" ? undefined : v));
 }
 function oublierSeance() { try { localStorage.removeItem("seanceEnCours"); } catch (e) {} }
 function majReprise() {
@@ -357,7 +360,7 @@ function majReprise() {
   Z.firstChild.onclick = () => reprendreSeance(s); Z.lastChild.onclick = () => { oublierSeance(); Z.innerHTML = ""; };
 }
 function reprendreSeance(s) {   // remet l'état en place puis repasse par le décompte « Prépare-toi »
-  ({ mode, ids, dureeGlobale, repos, reps, recup, cycles, totalPrevu } = s);
+  ({ mode, ids, dureeGlobale, repos, reps, recup, cycles, totalPrevu } = s); dejaFait = s.fait || 0;
   routineCle = s.cle; routine = ROUTINES[s.cle] = { ...ROUTINES[s.cle], ...s.routine }; if (s.liste.length) liste = s.liste;
   document.documentElement.style.setProperty("--accent", routine.couleur);
   preparer(s);
@@ -505,7 +508,7 @@ function ouvrirApercu(cle) {
   const total = so ? plan.reduce((t, q) => t + q.sec, 0) : mode === "tabata"
     ? cycles * (reps * dureeGlobale + (reps - 1) * repos) + (cycles - 1) * recup
     : liste.reduce((s, e) => s + e.duree, 0) + (routine.plan ? liste.reduce((s, e) => s + e.r, 0) : mode === "seance" || sa ? repos * Math.max(0, liste.length - 1) : 0);
-  totalPrevu = total;
+  totalPrevu = total; dejaFait = 0; debutSeance = 0;
   $("pTitle").textContent = mode !== "echauffement" || routine.fav ? routine.titre : T("Échauffement {t}", { t: LANGUE === "en" ? routine.titre : routine.titre.toLowerCase() });
   const nb = (n, un, plus, v) => T(n > 1 ? plus : un, { n, ...v });
   const min = String(Math.round(total / 60 * 10) / 10).replace(".", LANGUE === "en" ? "." : ",");
@@ -530,7 +533,7 @@ function ouvrirApercu(cle) {
 
 /* ============ SÉANCE ============ */
 function demarrer() {
-  index = 0; enPause = false; enRepos = false;
+  debutSeance = Date.now(); index = 0; enPause = false; enRepos = false;
   $("name").className = "name"; $("name").style.color = "";
   amorcerVoix();
   $("bars").innerHTML = liste.map(() => "<i><b></b></i>").join("");
@@ -641,6 +644,7 @@ function precedent() { if (enRepos) enRepos = false; else if (index > 0) index--
 let tab = { c: 0, r: 0, ph: "ex" };
 
 function demarrerTab() {
+  debutSeance = Date.now();
   tab = { c: 0, r: 0, ph: "ex" };
   enPause = false; enRepos = false;
   amorcerVoix();
@@ -734,6 +738,7 @@ function planSouf(r, minutes) {
 }
 
 function demarrerSouf() {
+  debutSeance = Date.now();
   souf = { plan: planSouf(routine, dureeGlobale), i: 0 };
   enPause = false; enRepos = false;
   amorcerVoix();
@@ -829,9 +834,9 @@ function terminer() {
     recup: ["Récupération terminée", "Bois un grand verre d’eau et prends soin de ton sommeil ce soir."]
   }[R0.recup ? "recup" : R0.tbt ? "tbt" : (R0.renfoS || R0.grp) && mode === "seance" ? "renfo" : mode] || ["Séance terminée", "Bien joué ! Pense à t’hydrater et à t’étirer."];
   $("fTitre").textContent = T(titre); $("fSub").textContent = T(sous);
-  celebrer();
-  if (routine.ami) { $("fTitre").textContent = L("Défi relevé !", "Challenge completed!"); $("fSub").textContent = L(`Tu as terminé le défi de ${routine.ami}. À ton tour : envoie-lui une séance depuis son aperçu.`, `You finished the challenge from ${routine.ami}. Your turn: send them a workout from its preview.`); }
-  if (routine.defi) { const n = defiReussi(); $("fTitre").textContent = T("Défi réussi !"); $("fSub").textContent = T(n > 1 ? "Série : {n} jours d’affilée. Reviens demain pour un nouveau défi !" : "Reviens demain pour un nouveau défi !", { n }); }
+  const compte = celebrer();
+  if (compte && routine.ami) { $("fTitre").textContent = L("Défi relevé !", "Challenge completed!"); $("fSub").textContent = L(`Tu as terminé le défi de ${routine.ami}. À ton tour : envoie-lui une séance depuis son aperçu.`, `You finished the challenge from ${routine.ami}. Your turn: send them a workout from its preview.`); }
+  if (compte && routine.defi) { const n = defiReussi(); $("fTitre").textContent = T("Défi réussi !"); $("fSub").textContent = T(n > 1 ? "Série : {n} jours d’affilée. Reviens demain pour un nouveau défi !" : "Reviens demain pour un nouveau défi !", { n }); }
   ecran("end");
 }
 

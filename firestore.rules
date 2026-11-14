@@ -32,7 +32,9 @@ service cloud.firestore {
     function seanceOk() { return champs(['titre', 'date', 'note', 'auteur', 'cree'], ['titre', 'date', 'note', 'auteur', 'cree', 'base', 'ids', 'prog'])
       && texte(D().titre, 60) && jour(D().date) && texteVide(D().note, 300) && D().auteur == moi()
       && (!('base' in D()) || id(D().base)) && (!('prog' in D()) || id(D().prog)) && (!('ids' in D()) || (D().ids is list && D().ids.size() <= 60)); }
-    function faitOk() { return champs(['pseudo', 't'], ['pseudo', 't']) && D().pseudo == monPseudo() && maintenant(D().t); }
+    function faitOk() { return champs(['pseudo', 't'], ['pseudo', 't', 'exp']) && D().pseudo == monPseudo() && maintenant(D().t) && expOk(90); }
+    // effacement automatique (règles TTL de Firestore sur le champ exp) : si présent, exp = maintenant + j jours (à un jour près)
+    function expOk(j) { return !('exp' in D()) || (D().exp is timestamp && D().exp > request.time + duration.value(j - 1, 'd') && D().exp < request.time + duration.value(j + 1, 'd')); }
     function dansSection(c, sal) { return staff(c) || (membre(c) && sal in get(membreDoc(c)).data.get('sections', [])); }
     function reac(e) {
       let avant = resource.data.reac.get(e, []);
@@ -40,26 +42,30 @@ service cloud.firestore {
       return D().reac.diff(resource.data.reac).affectedKeys().hasOnly([e]) && apres is list && apres.size() == apres.toSet().size()
         && (apres.toSet() == avant.toSet().union([moi()].toSet()) || apres.toSet() == avant.toSet().difference([moi()].toSet()));
     }
-    function msgCreeOk(c) { return membre(c) && get(membreDoc(c)).data.muet != true && champs(['uid', 'pseudo', 'texte', 't', 'reac'], ['uid', 'pseudo', 'texte', 't', 'reac', 'rep'])
+    function msgCreeOk(c) { return membre(c) && get(membreDoc(c)).data.muet != true && champs(['uid', 'pseudo', 'texte', 't', 'reac'], ['uid', 'pseudo', 'texte', 't', 'reac', 'rep', 'exp']) && expOk(365)
       && D().uid == moi() && D().pseudo == monPseudo() && texte(D().texte, 1000) && maintenant(D().t) && D().reac == {}
       && pasTropVite(c) && sansLien(c, D().texte) && poli(D().texte)
       && (!('rep' in D()) || (D().rep is map && D().rep.keys().hasOnly(['m', 'pseudo', 'extrait']) && texteVide(D().rep.extrait, 80) && texteVide(D().rep.pseudo, 20))); }
     // réactions : chacun ajoute ou retire seulement la sienne, parmi 5 emojis ; suppression (texte effacé) : l'auteur ou le staff
     function msgMajOk(c) { return membre(c) && ((seulement(['reac']) && (reac('👍') || reac('❤️') || reac('💪') || reac('🔥') || reac('😂')))
-      || (resource.data.uid == moi() && seulement(['suppr', 'texte']) && D().suppr == true && D().texte == '')
-      || (staff(c) && seulement(['suppr', 'texte', 'motif']) && D().suppr == true && D().texte == '' && texte(D().motif, 60))); }
+      || (resource.data.uid == moi() && seulement(['suppr', 'texte', 'reac', 'rep', 'pseudo']) && msgVide() && (D().pseudo == resource.data.pseudo || D().pseudo == ''))   // effacé, ou anonymisé (compte supprimé)
+      || (staff(c) && seulement(['suppr', 'texte', 'motif', 'reac', 'rep']) && msgVide() && (!('motif' in D()) || texte(D().motif, 60)))); }
+    // message effacé : texte vide ; réactions et citation gardées telles quelles (anciennes versions de l'appli) ou vidées
+    function msgVide() { return D().suppr == true && D().texte == '' && (D().get('reac', {}) == {} || D().get('reac', {}) == resource.data.get('reac', {}))
+      && (!('rep' in D()) || D().rep == resource.data.get('rep', null)); }
 
     // compte privé : seulement soi (date de naissance, accord parental, liste de ses clubs)
     match /comptes/{uid} {
       allow read, delete: if connecte() && moi() == uid;
       allow create: if connecte() && moi() == uid && champs(['naissance', 'parental', 'cree', 'clubs', 'attente'], ['naissance', 'parental', 'cree', 'clubs', 'attente'])
         && jour(D().naissance) && D().parental is bool && maintenant(D().cree) && D().clubs == [] && D().attente == [];
-      allow update: if connecte() && moi() == uid && seulement(['clubs', 'attente'])
-        && D().clubs is list && D().clubs.size() <= 50 && D().attente is list && D().attente.size() <= 50;
+      allow update: if connecte() && moi() == uid && ((seulement(['clubs', 'attente'])
+        && D().clubs is list && D().clubs.size() <= 50 && D().attente is list && D().attente.size() <= 50)
+        || (seulement(['sauvegarde']) && D().sauvegarde is bool));   // accord à la sauvegarde en ligne, valable pour tous ses téléphones
     }
     // profil public : pseudo affiché dans les clubs et le chat (pas modifiable ensuite)
     match /profils/{uid} {
-      allow read: if connecte();
+      allow get: if connecte() && moi() == uid;
       allow create: if connecte() && moi() == uid && champs(['pseudo'], ['pseudo']) && D().pseudo.matches('^[A-Za-z0-9_.-]{3,20}$')
         && getAfter(/databases/$(db)/documents/pseudos/$(D().pseudo.lower())).data.uid == uid;
       allow delete: if connecte() && moi() == uid;
@@ -76,7 +82,8 @@ service cloud.firestore {
     match /sauvegardes/{uid} {
       allow read, delete: if connecte() && moi() == uid;
       allow create, update: if connecte() && moi() == uid && champs(['z', 'n', 't'], ['z', 'n', 't']) && D().z is bytes && D().z.size() <= 1000000
-        && D().n is int && maintenant(D().t) && (resource == null || request.time > resource.data.t + duration.value(60, 's'));
+        && D().n is int && maintenant(D().t) && (resource == null || request.time > resource.data.t + duration.value(60, 's'))
+        && get(/databases/$(db)/documents/comptes/$(uid)).data.get('sauvegarde', true) == true;   // pas de copie après un retrait (même depuis un autre téléphone)
     }
 
     match /clubs/{c} {
@@ -97,7 +104,7 @@ service cloud.firestore {
       }
       match /demandes/{uid} {
         allow read: if staff(c) || (connecte() && moi() == uid);
-        allow create: if connecte() && moi() == uid && !exists(membreDoc(c)) && champs(['pseudo', 'code', 'nom', 't'], ['pseudo', 'code', 'nom', 't'])
+        allow create: if connecte() && moi() == uid && !exists(membreDoc(c)) && champs(['pseudo', 'code', 'nom', 't'], ['pseudo', 'code', 'nom', 't', 'exp']) && expOk(90)
           && D().pseudo == monPseudo() && texteVide(D().nom, 40) && maintenant(D().t) && id(D().code)
           && exists(/databases/$(db)/documents/clubs/$(c)/invits/$(D().code));
         allow delete: if staff(c) || (connecte() && moi() == uid);
@@ -124,7 +131,7 @@ service cloud.firestore {
       // notice d'exclusion : le membre exclu lit le motif, puis l'efface (exposé des motifs, DSA art. 17)
       match /exclus/{uid} {
         allow read: if (connecte() && moi() == uid) || staff(c);
-        allow create: if staff(c) && uid != moi() && champs(['motif', 'nom', 't'], ['motif', 'nom', 't']) && texte(D().motif, 60) && texteVide(D().nom, 40) && maintenant(D().t)
+        allow create: if staff(c) && uid != moi() && champs(['motif', 'nom', 't'], ['motif', 'nom', 't', 'exp']) && expOk(90) && texte(D().motif, 60) && texteVide(D().nom, 40) && maintenant(D().t)
           && get(/databases/$(db)/documents/clubs/$(c)/membres/$(uid)).data.role != 'coach';
         allow delete: if (connecte() && moi() == uid) || staff(c);
       }
@@ -167,7 +174,7 @@ service cloud.firestore {
       match /prev/{p} {
         allow read: if (connecte() && resource.data.uid == moi())
           || (staff(c) && get(/databases/$(db)/documents/clubs/$(c)).data.get('prev', {}).get('vue', 'total') == 'noms');
-        allow create: if membre(c) && champs(['uid', 'pseudo', 's', 'n', 't'], ['uid', 'pseudo', 's', 'n', 't']) && D().uid == moi() && jour(D().s)
+        allow create: if membre(c) && champs(['uid', 'pseudo', 's', 'n', 't'], ['uid', 'pseudo', 's', 'n', 't', 'exp']) && expOk(56) && D().uid == moi() && jour(D().s)
           && p == D().s + '_' + moi() && D().pseudo == monPseudo() && D().n == 1 && maintenant(D().t);
         allow update: if membre(c) && resource.data.uid == moi() && seulement(['n', 't']) && D().n == resource.data.n + 1 && D().n <= 14 && maintenant(D().t);
         allow delete: if coach(c) || (connecte() && resource.data.uid == moi());
@@ -179,9 +186,15 @@ service cloud.firestore {
         allow update: if membre(c) && D().keys().hasOnly(['n', 'j']) && D().n == resource.data.n + 1 && (D().j == resource.data.j || D().j == resource.data.j + 1);
         allow delete: if coach(c);
       }
+      match /sanctions/{uid} {
+        allow read: if staff(c) || (connecte() && moi() == uid);
+        allow create, update: if staff(c) && uid != moi() && champs(['motif'], ['motif']) && texte(D().motif, 60)
+          && get(/databases/$(db)/documents/clubs/$(c)/membres/$(uid)).data.role != 'coach';
+        allow delete: if staff(c) || (connecte() && moi() == uid);
+      }
       match /signalements/{r} {
         allow read, delete: if staff(c);
-        allow create: if membre(c) && champs(['m', 'extrait', 'auteur', 'par', 't'], ['m', 'extrait', 'auteur', 'par', 't', 'sal']) && D().par == moi()
+        allow create: if membre(c) && champs(['m', 'extrait', 'auteur', 't'], ['m', 'extrait', 'auteur', 't', 'sal', 'exp', 'par']) && expOk(180) && (!('par' in D()) || D().par == moi())   // par : anciennes versions seulement
           && (!('sal' in D()) || id(D().sal)) && id(D().m) && texteVide(D().extrait, 200) && texteVide(D().auteur, 20) && maintenant(D().t);
       }
     }

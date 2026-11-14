@@ -151,10 +151,16 @@ function compteur(el, fin, suffixe = "") {
   const t0 = performance.now(), d = 1100;
   (function f(t) { const k = Math.min(1, (t - t0) / d), v = Math.round(fin * (1 - Math.pow(1 - k, 3))); el.textContent = v + suffixe; if (k < 1) requestAnimationFrame(f); })(t0);
 }
-function celebrer() {
-  const mn = Math.max(1, Math.round(totalPrevu / 60)), n = mode === "souffle" ? (routine.blocs || []).length : mode === "tabata" ? cycles : new Set(ids).size;
-  const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: routineCle, t: routine.titre, m: mode, s: totalPrevu, n, c: routine.cat || routine.grp || "", b: routine.blessure ? 1 : 0, p: routine.prog ? 1 : 0, g: routine.gym || routine.salle ? 1 : 0, tb: routine.tbt ? 1 : 0, nv: routine.niv || "", e: mode === "tabata" || mode === "souffle" ? [] : ids.slice(0, 30), ...(fc.n && { fc: Math.round(fc.somme / fc.n), fcMax: fc.max }) });
-  stocker("historique", JSON.stringify(h.slice(-3000)));
+function celebrer() {   // renvoie false si la séance est écourtée (moins de 60 % du temps prévu) : rien n'est alors compté
+  const fait = tempsSeance(), sReel = Math.round(Math.min(totalPrevu, fait));
+  if (totalPrevu >= 90 && fait < .6 * totalPrevu) {
+    $("fTitre").textContent = L("Séance écourtée", "Workout cut short");
+    $("fSub").textContent = L(`${Math.max(1, Math.round(fait / 60))} min sur ${Math.round(totalPrevu / 60)} prévues : elle n’est pas comptée (trophées, séries, club), il faut en faire au moins 60 %. La prochaine sera la bonne !`, `${Math.max(1, Math.round(fait / 60))} min out of ${Math.round(totalPrevu / 60)} planned: it doesn’t count (trophies, streaks, club), you need to do at least 60%. Next one will be it!`);
+    ["fBilan", "fTrophees", "fRessenti", "fCharges", "fPartage"].forEach(id => $(id).innerHTML = ""); if (typeof finClub === "function") finClub(routine); return false;
+  }
+  const mn = Math.max(1, Math.round(sReel / 60)), n = mode === "souffle" ? (routine.blocs || []).length : mode === "tabata" ? cycles : new Set(ids).size;
+  const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: routineCle, t: routine.titre, m: mode, s: sReel, n, c: routine.cat || routine.grp || "", b: routine.blessure ? 1 : 0, p: routine.prog ? 1 : 0, g: routine.gym || routine.salle ? 1 : 0, tb: routine.tbt ? 1 : 0, nv: routine.niv || "", e: mode === "tabata" || mode === "souffle" ? [] : ids.slice(0, 30), ...(fc.n && { fc: Math.round(fc.somme / fc.n), fcMax: fc.max }) });
+  if (!stocker("historique", JSON.stringify(h.slice(-3000)))) setTimeout(() => alert(L("⚠️ Mémoire du téléphone pleine : cette séance n’a pas pu être enregistrée. Sauvegarde ton suivi (Réglages → Mes données) puis libère de la place.", "⚠️ Phone storage full: this workout could not be saved. Back up your progress (Settings → My data) then free some space.")), 1500);
   if (routine.prog) progTerminer(routine.prog, routine.progI);
   if (typeof compter === "function") { if (routine.s1) s1Valider(routine.s1); compter("seance", "seance_" + (mode === "tabata" ? "tabata" : routine.cat || routine.grp || routineCle)); }
   if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
@@ -175,6 +181,7 @@ function celebrer() {
   confettis(); majRappelSW();
   [523, 659, 784, 1047].forEach((f, i) => bip(f, i === 3 ? 600 : 160, .18, "triangle", .35 + i * .13)); vibrer([90, 60, 90, 60, 260]);
   if (neufs.length) { [1319, 1568, 2093].forEach((f, i) => bip(f, 220, .12, "sine", 1.5 + i * .1)); setTimeout(() => vibrer([40, 50, 40, 50, 40]), 1500); }
+  return true;
 }
 
 /* --- Mes progrès : série, chiffres clés, calendrier d'activité, semaine, historique, trophées --- */

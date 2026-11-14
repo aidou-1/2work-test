@@ -37,13 +37,13 @@ async function prevCarte(Z, cb) {
 /* --- Prévention : réglages (coach seul) dans l'onglet Club --- */
 function prevReglages(Z, cb) {
   if (!Z || cb.role !== "coach") return;
-  const p = cb.prev || { on: false, sp: sportClub(cb) || PREV_SP()[0], obj: 2, vue: "noms" };
+  const p = cb.prev || { on: false, sp: sportClub(cb) || PREV_SP()[0], obj: 2, vue: "total" };   // par défaut, le staff ne voit que le total (protection des données par défaut)
   Z.innerHTML = `<h2 class="sec">🛡️ ${L("Prévention des blessures", "Injury prevention")}</h2><div class="carnet cl-form">
     <p class="sh-aide">${L("Un échauffement complet ciblé sur les blessures de ton sport, à faire avant chaque entraînement et match. Chaque joueur le lance depuis l’onglet Séances ; tu suis la régularité de l’équipe.", "A full warm-up targeting the injuries of your sport, to do before every practice and match. Each player starts it from the Workouts tab; you track the team’s consistency.")}</p>
     <label class="cl-case"><input type="checkbox" id="pvOn"${p.on ? " checked" : ""}><span>${L("Activer pour le club", "Turn on for the club")}</span></label>
     <div class="champ-duo"><label class="champ"><span>${L("Sport", "Sport")}</span><select id="pvSp">${PREV_SP().map(k => `<option value="${k}"${k === p.sp ? " selected" : ""}>${T(ROUTINES[k].titre)}</option>`).join("")}</select></label>
-    <label class="champ"><span>${L("Objectif", "Goal")}</span><select id="pvObj">${[1, 2, 3].map(n => `<option value="${n}"${n === p.obj ? " selected" : ""}>${L(`${n}× par semaine`, `${n}× a week`)}</option>`).join("")}</select></label></div>
-    <span class="sh-aide">${L("Ce que le staff voit (les joueurs en sont informés sur la carte)", "What staff can see (players are told on the card)")}</span>
+    <label class="champ"><span>${L("Objectif", "Goal")}</span><select id="pvObj">${[2, 3].map(n => `<option value="${n}"${n === p.obj ? " selected" : ""}>${L(`${n}× par semaine`, `${n}× a week`)}</option>`).join("")}</select></label></div>
+    <span class="sh-aide">${L("Ce que le staff voit (les joueurs en sont informés sur la carte). Passer à « nom par nom » rend aussi visibles les semaines passées : préviens ton équipe avant.", "What staff can see (players are told on the card). Switching to “name by name” also shows past weeks: tell your team first.")}</span>
     <div class="chips" id="pvVue">${[["noms", "Nom par nom", "Name by name"], ["total", "Total de l’équipe seulement", "Team total only"]].map(([k, f, e]) => `<button class="toggle" data-v="${k}" aria-pressed="${p.vue === k}">${L(f, e)}</button>`).join("")}</div>
     <button class="toggle" id="pvSauve">${L("Enregistrer", "Save")}</button></div>`;
   let vue = p.vue; $("pvVue").onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; vue = b.dataset.v; $("pvVue").querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-pressed", x === b)); };

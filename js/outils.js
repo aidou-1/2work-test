@@ -225,7 +225,7 @@ const MESURES = [["poids", "Poids", "Weight", "kg"], ["taille", "Tour de taille"
 const lireCorps = () => lireJSON("corps", []);
 function ouvrirCorps() {
   const C = lireCorps(), der = C[C.length - 1] || {}, pds = C.filter(x => x.poids), p0 = pds[0], p1 = pds[pds.length - 1];
-  outil(L("Suivi du corps", "Body tracking"), L("Mesure-toi toujours au même moment (le matin à jeun, par exemple). Ces données restent sur ton téléphone.", "Always measure at the same time (in the morning before eating, for instance). This data stays on your phone."),
+  outil(L("Suivi du corps", "Body tracking"), L("Mesure-toi toujours au même moment (le matin à jeun, par exemple). Ces données restent sur ton téléphone (et dans ta sauvegarde en ligne si tu l’as activée).", "Always measure at the same time (in the morning before eating, for instance). This data stays on your phone (and in your online backup if you turned it on)."),
     `<div class="carnet"><h3>${L("Nouvelle mesure", "New entry")}</h3><p>${L("Remplis seulement ce que tu veux suivre.", "Fill in only what you want to track.")}</p>
       <div class="champ-duo">${MESURES.map(([k, f, e, u]) => `<label class="champ"><span>${L(f, e)} (${u})</span><input type="number" inputmode="decimal" step="0.1" data-mes="${k}" placeholder="${der[k] || "—"}"></label>`).join("")}</div>
       <button class="primary" id="coOk">${L("Enregistrer la mesure du jour", "Save today’s entry")}</button><p class="pf-ok" id="coEtat"></p></div>
@@ -428,7 +428,7 @@ addEventListener("popstate", ev => {
   const plein = document.querySelector(".schema-carte.plein"), b = $(ecranCourant) && $(ecranCourant).querySelector(".back");
   try {
     if ($("feuille")) fermerFeuille(); else if (plein) plein.click(); else if (ecranCourant === "recap") $("rcFermer").click();
-    else if (ecranCourant === "bienvenue") $("bvPasser").click(); else if (ecranCourant === "end") $("restart").click();
+    else if (ecranCourant === "bienvenue") { if (bienvenue.etape > 1) bienvenue(bienvenue.etape - 1); }   // retour = étape précédente, jamais « Passer » (le questionnaire ne reviendrait plus) else if (ecranCourant === "end") $("restart").click();
     else if (b) b.click(); else if (!["menu", "accueil"].includes(ecranCourant)) $("quitBtn").click();
   } finally { sansAnim = false; }
   if (!["menu", "accueil"].includes(ecranCourant)) history.forward();   // encore hors du menu : l'entrée piège existe toujours, on y retourne (une entrée reposée sans appui serait ignorée par le navigateur)

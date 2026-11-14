@@ -10,6 +10,8 @@ const d = (...p) => X.doc(db, ...p), col = (...p) => X.collection(db, ...p), moi
 // sections d'un club (ex. MMA, JJB) : leurs séances et leur chat vivent dans clubs/<c>/salons/<section>/… ; sal vide = tout le club
 const B = (c, sal) => sal ? ["clubs", c, "salons", sal] : ["clubs", c];
 const lireDoc = async (...p) => { try { const s = await X.getDoc(d(...p)); return s.exists() ? { id: s.id, ...s.data() } : null; } catch (e) { if (e.code === "permission-denied") return null; throw e; } };
+// durée de conservation : champ « exp » lu par les règles d'effacement automatique (TTL) de Firestore
+const exp = jours => X.Timestamp.fromMillis(Date.now() + jours * 864e5), DUREES = { messages: 365, faits: 90, prev: 56, signalements: 180, demandes: 90, exclus: 90 };
 const code = () => Array.from(crypto.getRandomValues(new Uint8Array(9)), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
 export const PSEUDO_OK = /^[A-Za-z0-9_.-]{3,20}$/;
 
@@ -33,15 +35,17 @@ export async function inscription({ email, mdp, pseudo, naissance, parental }) {
 export const connexion = (email, mdp) => F.signInWithEmailAndPassword(auth, email, mdp);
 export const deconnexion = () => F.signOut(auth);
 export const motDePasseOublie = email => F.sendPasswordResetEmail(auth, email);
-export async function supprimerCompte(mdp) {
+export async function supprimerCompte(mdp) {   // tout est effacé ; le pseudo reste réservé (personne ne pourra se faire passer pour l'auteur des anciens messages, devenus vides)
   const u = auth.currentUser; await F.reauthenticateWithCredential(u, F.EmailAuthProvider.credential(u.email, mdp));
-  const c = await lireDoc("comptes", u.uid), p = await lireDoc("profils", u.uid);
-  for (const id of c ? c.clubs : []) { const m = await lireDoc("clubs", id, "membres", u.uid); if (m && m.role === "coach") await supprimerClub(id); else if (m) { await mesPrevEffacer(id); await X.deleteDoc(d("clubs", id, "membres", u.uid)); } }
+  const c = await lireDoc("comptes", u.uid);
+  for (const id of c ? c.clubs : []) { const m = await lireDoc("clubs", id, "membres", u.uid); if (m && m.role === "coach") await supprimerClub(id); else if (m) await quitter(id, true); }
   for (const id of c ? c.attente : []) await X.deleteDoc(d("clubs", id, "demandes", u.uid)).catch(() => {});
-  if (p) await X.deleteDoc(d("pseudos", p.pseudo.toLowerCase())).catch(() => {});
   await Promise.all([X.deleteDoc(d("profils", u.uid)), X.deleteDoc(d("comptes", u.uid)), X.deleteDoc(d("sauvegardes", u.uid))]);
   await F.deleteUser(u);
 }
+// accord à la sauvegarde en ligne, gardé dans le compte : un retrait vaut pour tous les téléphones (règle : pas de copie sans accord)
+export const accordSauvegarde = async () => { const c = await lireDoc("comptes", moi()); return c ? c.sauvegarde : undefined; };
+export const changerAccordSauvegarde = b => X.updateDoc(d("comptes", moi()), { sauvegarde: !!b });
 
 /* --- Mes clubs : liste tenue dans mon compte (clubs, et demandes en attente vérifiées à chaque ouverture) --- */
 export async function mesClubs() {
@@ -53,7 +57,8 @@ export async function mesClubs() {
     const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif });   // accepté puis exclu avant d'avoir rouvert l'appli
   }
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
-    if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
+    const sa = cl && m && m.muet ? await lireDoc("clubs", id, "sanctions", uid) : null;
+    if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
   return { clubs: nc, attente: na, retraits: nr };
@@ -75,7 +80,7 @@ export async function supprimerSection(c, sal) {   // séances (et leurs coches)
 }
 export async function supprimerClub(c) {   // le coach efface tout le contenu, puis le club, puis sa propre fiche de membre
   await purgerPrev(c); for (const x of ((await lireDoc("clubs", c)) || {}).sections || []) await supprimerSection(c, x.id);
-  for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
+  for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem", "sanctions"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
   for (const x of (await X.getDocs(col("clubs", c, "seances"))).docs) { for (const f of (await X.getDocs(col("clubs", c, "seances", x.id, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(x.ref); }
   for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) if (x.id !== moi()) await X.deleteDoc(x.ref);
   await X.deleteDoc(d("clubs", c)); await X.deleteDoc(d("clubs", c, "membres", moi()));
@@ -90,7 +95,7 @@ export async function nouvelleInvitation(c, nom) {
 }
 export const lireInvitation = (c, k) => lireDoc("clubs", c, "invits", k);
 export async function demander(c, k, pseudo, nom) {
-  await X.setDoc(d("clubs", c, "demandes", moi()), { pseudo, code: k, nom, t: X.serverTimestamp() });
+  await X.setDoc(d("clubs", c, "demandes", moi()), { pseudo, code: k, nom, t: X.serverTimestamp(), exp: exp(DUREES.demandes) });
   await X.updateDoc(d("comptes", moi()), { attente: X.arrayUnion(c) });
 }
 export async function accepter(c, uid, pseudo) {
@@ -100,12 +105,29 @@ export async function accepter(c, uid, pseudo) {
 }
 export const refuser = (c, uid) => X.deleteDoc(d("clubs", c, "demandes", uid));
 export const changerMembre = (c, uid, v) => X.updateDoc(d("clubs", c, "membres", uid), v);
+export async function rendreMuet(c, uid, oui, motif) {
+  const b = X.writeBatch(db); b.update(d("clubs", c, "membres", uid), { muet: !!oui, motif: X.deleteField() });
+  if (oui) b.set(d("clubs", c, "sanctions", uid), { motif }); else b.delete(d("clubs", c, "sanctions", uid)); await b.commit();
+}
 export async function exclure(c, uid, motif, nom) {   // le membre exclu garde une notice avec le motif (exposé des motifs, DSA art. 17)
-  await X.setDoc(d("clubs", c, "exclus", uid), { motif, nom, t: X.serverTimestamp() });
+  await X.setDoc(d("clubs", c, "exclus", uid), { motif, nom, t: X.serverTimestamp(), exp: exp(DUREES.exclus) });
+  const cl = await lireDoc("clubs", c);
+  for (const sal of ["", ...((cl && cl.sections) || []).map(x => x.id)]) { const se = await X.getDocs(col(...B(c, sal), "seances")).catch(() => null); for (const x of se ? se.docs : []) await X.deleteDoc(d(...B(c, sal), "seances", x.id, "faits", uid)).catch(() => {}); }
+  await X.deleteDoc(d("clubs", c, "sanctions", uid)).catch(() => {});
   await X.deleteDoc(d("clubs", c, "membres", uid));
   await purgerPrev(c, uid).catch(() => {});
 }
-export async function quitter(c) { await mesPrevEffacer(c); await X.deleteDoc(d("clubs", c, "membres", moi())); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }); }
+async function mesTracesEffacer(c, anonyme) {   // mes messages (club et sections) vidés, mes coches et fiches de prévention effacées
+  const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
+  for (const sal of sals) {
+    const q = await X.getDocs(X.query(col(...B(c, sal), "messages"), X.where("uid", "==", moi()))).catch(() => null);
+    for (const x of q ? q.docs : []) await X.updateDoc(x.ref, { suppr: true, texte: "", reac: {}, rep: X.deleteField(), ...(anonyme ? { pseudo: "" } : {}) }).catch(() => {});
+    const se = await X.getDocs(col(...B(c, sal), "seances")).catch(() => null);
+    for (const x of se ? se.docs : []) await X.deleteDoc(d(...B(c, sal), "seances", x.id, "faits", moi())).catch(() => {});
+  }
+  await mesPrevEffacer(c); await X.deleteDoc(d("clubs", c, "sanctions", moi())).catch(() => {});
+}
+export async function quitter(c, anonyme) { await mesTracesEffacer(c, anonyme); await X.deleteDoc(d("clubs", c, "membres", moi())); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }).catch(() => {}); }
 
 /* --- Lecture en direct : membres, demandes, séances, messages --- */
 const vers = s => s.docs.map(x => ({ id: x.id, ...x.data({ serverTimestamps: "estimate" }) }));
@@ -122,7 +144,7 @@ export async function mesFaits(c, l) { const r = {}; await Promise.all(l.map(asy
 /* --- Séances du club --- */
 export const publier = (c, v, sal) => X.addDoc(col(...B(c, sal), "seances"), { ...v, auteur: moi(), cree: X.serverTimestamp() });
 export async function supprimerSeance(c, s, sal) { for (const f of (await X.getDocs(col(...B(c, sal), "seances", s, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(d(...B(c, sal), "seances", s)); }
-export const marquerFait = (c, s, pseudo, fait, sal) => fait ? X.setDoc(d(...B(c, sal), "seances", s, "faits", moi()), { pseudo, t: X.serverTimestamp() }) : X.deleteDoc(d(...B(c, sal), "seances", s, "faits", moi()));
+export const marquerFait = (c, s, pseudo, fait, sal) => fait ? X.setDoc(d(...B(c, sal), "seances", s, "faits", moi()), { pseudo, t: X.serverTimestamp(), exp: exp(DUREES.faits) }) : X.deleteDoc(d(...B(c, sal), "seances", s, "faits", moi()));
 
 /* --- Prévention des blessures (activée par le coach) : une fiche par joueur et par semaine (« 2026-11-09_<uid> » : n fois),
    plus un total d'équipe par semaine (« prevSem/2026-11-09 » : n séances, j joueurs). Le détail par joueur n'est lisible par le staff
@@ -131,7 +153,7 @@ const lundis = depuis => { const l = [], j = new Date(); j.setUTCHours(12, 0, 0,
   for (let k = 0; k < 160 && j.toISOString().slice(0, 10) >= depuis; k++, j.setUTCDate(j.getUTCDate() - 7)) l.push(j.toISOString().slice(0, 10)); return l; };
 export async function prevFait(c, s, pseudo) {   // s : lundi de la semaine ; renvoie le nombre de fois cette semaine
   const id = s + "_" + moi(), a = await lireDoc("clubs", c, "prev", id), b = X.writeBatch(db); if (a && a.n >= 14) return a.n;
-  if (a) b.update(d("clubs", c, "prev", id), { n: X.increment(1), t: X.serverTimestamp() }); else b.set(d("clubs", c, "prev", id), { uid: moi(), pseudo, s, n: 1, t: X.serverTimestamp() });
+  if (a) b.update(d("clubs", c, "prev", id), { n: X.increment(1), t: X.serverTimestamp() }); else b.set(d("clubs", c, "prev", id), { uid: moi(), pseudo, s, n: 1, t: X.serverTimestamp(), exp: exp(DUREES.prev) });
   b.set(d("clubs", c, "prevSem", s), { n: X.increment(1), j: X.increment(a ? 0 : 1) }, { merge: true });
   await b.commit(); return (a ? a.n : 0) + 1;
 }
@@ -152,13 +174,13 @@ export async function faitsDe(c, l) { const r = {}; await Promise.all(l.map(asyn
 /* --- Chat --- */
 export async function envoyer(c, texte, pseudo, rep, sal) {   // le message et l'horodatage anti-spam partent ensemble (règle : 1 message / 2 s)
   const b = X.writeBatch(db);
-  b.set(X.doc(col(...B(c, sal), "messages")), { uid: moi(), pseudo, texte, t: X.serverTimestamp(), ...(rep ? { rep } : {}), reac: {} });
+  b.set(X.doc(col(...B(c, sal), "messages")), { uid: moi(), pseudo, texte, t: X.serverTimestamp(), ...(rep ? { rep } : {}), reac: {}, exp: exp(DUREES.messages) });
   b.update(d("clubs", c, "membres", moi()), { dernier: X.serverTimestamp() });
   await b.commit();
 }
 export const reagir = (c, m, e, oui, sal) => X.updateDoc(d(...B(c, sal), "messages", m), new X.FieldPath("reac", e), oui ? X.arrayUnion(moi()) : X.arrayRemove(moi()));
-export const effacerMessage = (c, m, motif, sal) => X.updateDoc(d(...B(c, sal), "messages", m), motif ? { suppr: true, texte: "", motif } : { suppr: true, texte: "" });
-export const signaler = (c, m, extrait, auteur, sal) => X.addDoc(col("clubs", c, "signalements"), { m, extrait, auteur, par: moi(), t: X.serverTimestamp(), ...(sal ? { sal } : {}) });
+export const effacerMessage = (c, m, motif, sal) => X.updateDoc(d(...B(c, sal), "messages", m), { suppr: true, texte: "", reac: {}, rep: X.deleteField(), ...(motif ? { motif } : {}) });
+export const signaler = (c, m, extrait, auteur, sal) => X.addDoc(col("clubs", c, "signalements"), { m, extrait, auteur, t: X.serverTimestamp(), exp: exp(DUREES.signalements), ...(sal ? { sal } : {}) });   // anonyme : le staff ne sait pas qui a signalé
 export const classerSignalement = (c, r) => X.deleteDoc(d("clubs", c, "signalements", r));
 export const uid = moi;
 
