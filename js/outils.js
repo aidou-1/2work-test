@@ -81,9 +81,17 @@ function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal" }) {
   const paniers = z === "tout" ? ZONES.slice(1).map(x => hasard(pool.filter(id => zoneQuick(id) === x[0]))) : [hasard(pool)], choix = [], [effort, pause, f, e] = INTENSITES[int];
   for (let k = 0; choix.length < Math.min(8, pool.length) && k < 60; k++) { const id = paniers[k % paniers.length].shift(); if (id && !choix.includes(id)) choix.push(id); }
   try { localStorage.removeItem("routine_express"); } catch (err) {}
-  ROUTINES.express = { type: "seance", retour: () => ouvrirExpress(), titre: "Quick start · " + min + " min" + (int === "normal" ? "" : " · " + L(f, e).toLowerCase()), detail: "", couleur: int === "intense" ? "#DC2626" : "#0EA5E9",
-    exercices: Array.from({ length: Math.max(3, Math.round(min * 60 / (effort + pause))) }, (_, i) => choix[i % choix.length]) };
-  CONSEILLES.express = pool; ouvrirRoutine("express"); dureeGlobale = effort; repos = pause; ouvrirApercu("express");   // effort et repos de l'intensité choisie (toujours réglables dans l'aperçu)
+  // échauffement (2 à 3 exercices) et retour au calme (1 à 2 étirements) compris dans la durée ; sauts jamais en premier et au plus 1 exercice sur 4
+  const ok = l => l.filter(x => EXERCICES[x]), E = ECHS.complet, long = min >= 8,
+    ech = ok([...E[0], ...E[1]]).filter(x => int !== "calme" || !dyn(x)).slice(0, long ? 3 : 2).map(x => [x, 40]), cal = ok(RECUPS.find(r => r[0] === "complet")[7]).slice(0, long ? 2 : 1).map(x => [x, unilat(x) ? 60 : 30]),
+    reste = min * 60 - ech.reduce((t, [, d]) => t + d + 5, 0) - cal.reduce((t, [, d]) => t + d + 5, 0), nb = Math.max(3, Math.round(reste / (effort + pause))), main = [];
+  const calmes = choix.filter(x => !dyn(x)), dyns = choix.filter(dyn);
+  for (let i = 0, a = 0, b = 0; i < nb; i++) main.push(i > 0 && dyns.length && (main.filter(dyn).length + 1) <= nb / 4 && i % 4 === 3 ? dyns[b++ % dyns.length] : calmes.length ? calmes[a++ % calmes.length] : dyns[b++ % dyns.length]);
+  ROUTINES.express = { ...seanceBlocs({ couleur: int === "intense" ? "#DC2626" : "#0EA5E9", rpe: int === "calme" ? "4–5" : int === "intense" ? "8–9" : "6–7", titre: "Quick start · " + min + " min" + (int === "normal" ? "" : " · " + L(f, e).toLowerCase()),
+    intro: L(`${effort} s d’effort / ${pause} s de repos. Arrête un exercice qui fait mal.`, `${effort} s work / ${pause} s rest. Stop any exercise that hurts.`),
+    blocs: [[L("Échauffement", "Warm-up"), L("Monte en température doucement.", "Warm up gently."), ech, 5], [L("Circuit", "Circuit"), L("À ton rythme, sans sacrifier la technique.", "At your pace, without sacrificing technique."), main.map(x => [x, effort]), pause],
+      [L("Retour au calme", "Cool-down"), L("Étirements doux, respiration lente.", "Gentle stretches, slow breathing."), cal, 5]] }), retour: () => ouvrirExpress() };
+  CONSEILLES.express = pool; ouvrirRoutine("express"); ouvrirApercu("express");
   return true;
 }
 /* Accueil : « Tu ne sais pas quoi faire ? » — on choisit son temps et le Quick start s'ouvre déjà réglé (ce temps et les derniers choix), prêt à lancer */

@@ -405,6 +405,15 @@ const NIV_RENFO = [["debutant", "Débutant", "Beginner", 2, 30, 30, 60, "5–6",
   ["avance", "Avancé", "Advanced", 4, 45, 15, 90, "7–8", 8, "4 tours de 8 exercices, 45 s d’effort et 15 s de repos.", "4 rounds of 8 exercises, 45 s work and 15 s rest."]];
 const exHtml = l => l.map(([x, a]) => `<li class="bloc-ex">${vignette(x)}<div><b>${EXERCICES[x].nom}</b><small>${EXERCICES[x].muscles}</small></div><span class="duree">${a}</span></li>`).join("");
 const blocHtml = ([n, l, d]) => `<li class="bloc-titre"><div><b>${n}</b><small>${d}</small></div></li>` + exHtml(l);
+// séance à blocs (prévention des clubs, Quick start) : blocs = [[nom, description, [[id, secondes], …], repos entre exercices], …]
+function seanceBlocs({ blocs, couleur, titre, intro, rpe = "3–6", cat = "", ...plus }) {
+  const plan = [], aff = [];
+  blocs.forEach(([n, desc, l, r]) => { l = l.filter(([x]) => EXERCICES[x]); if (!l.length) return;
+    l.forEach(([x, d], k) => plan.push({ id: x, d, r, bn: n, lab: `${n} · ${k + 1}/${l.length}` })); aff.push([n, l.map(([x, d]) => [x, unilat(x) ? `2 × ${Math.round(d / 2)} s` : d + " s"]), desc]); });
+  if (plan.length) plan[plan.length - 1].r = 0;
+  return { type: "seance", fixe: true, couleur, plan, exercices: plan.map(q => q.id), total: Math.round(plan.reduce((t, q) => t + q.d + q.r, 0) / 60), rpe, titre, titreFr: titre, detail: "", cat,
+    listeHtml: `<li class="etude prog-carte-jour" style="--accent:${couleur}"><div><small>${intro}</small></div></li>` + aff.map(blocHtml).join(""), ...plus };
+}
 function seanceRenfo(grp, mat, niv, choix) {
   const cle = SEANCE(grp) + (mat ? "Mat" : ""), R = ROUTINES[cle], F = RENFOS[grp], E = ECHS[grp], ok = l => l.filter(e => EXERCICES[e]);
   const [, nFr, nEn, tours, eff, rep0, rt0, rpe, nb] = NIV_RENFO.find(n => n[0] === niv), plan = [], blocs = [];

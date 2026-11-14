@@ -12,9 +12,30 @@ const barre = (v, max) => `<span class="cl-barre"><i style="width:${max ? Math.r
 const pctTxt = (a, b) => b ? Math.round(100 * a / b) + " %" : "–";
 
 /* --- Prévention : carte en tête de l'onglet Séances --- */
+/* Programme de prévention, sur le modèle des programmes neuromusculaires qui ont fait leurs preuves (FIFA 11+ en foot ; épaule en handball ;
+   genou en sports de saut) : 1. course progressive, 2. force, pliométrie et équilibre (3 niveaux, un de plus toutes les 4 semaines depuis l'activation),
+   3. zone propre au sport, 4. course rapide. Environ 15 à 18 min, au moins 2 fois par semaine, avant l'entraînement ou le match. */
+const PREV_NIV = [
+  [["planche", 30], ["planchelat", 60], ["nordique", 30], ["copenhague", 40], ["equilibre", 60], ["squat", 40], ["receptionSaut", 30]],
+  [["planche", 40], ["planchelat", 60], ["nordique", 40], ["copenhague", 50], ["equilibre", 60], ["squatUni", 60], ["receptionSaut", 40], ["sautsRebond", 30]],
+  [["planchetouch", 45], ["planchelat", 60], ["nordique", 45], ["copenhague", 60], ["equilibre", 80], ["squatUni", 80], ["fenteSautee", 40], ["bkSautUni", 40]]];
+const PREV_ZONE = { epaule: [["Épaule", "Shoulder"], [["bandRotExt", 60], ["bandPullApart", 40], ["rotEpaule", 30], ["scap", 30]]], genou: [["Genou (tendon rotulien)", "Knee (patellar tendon)"], [["squatFreine", 40], ["chaise", 45]]],
+  mollet: [["Mollets et tendon d’Achille", "Calves and Achilles"], [["mollet1", 60], ["soleaire", 60]]], hanche: [["Hanches et fessiers", "Hips and glutes"], [["pontuni", 60], ["bandWalk", 40]]] };
+const PREV_SP_ZONES = { foot: [], handball: ["epaule"], basket: ["genou", "mollet"], volley: ["genou", "epaule"], tennis: ["epaule", "mollet"], padel: ["epaule", "mollet"], course: ["mollet", "hanche"],
+  natation: ["epaule"], escalade: ["epaule"], boxe: ["epaule"], cyclisme: ["hanche"], ski: ["hanche"], surf: ["epaule"] };
+const prevOk = l => l.filter(([x]) => EXERCICES[x] && faisable(x, monMatos()));   // sans élastique, on garde les exercices sans matériel
+const prevNiveau = p => Math.min(3, 1 + Math.floor(Math.max(0, (new Date(jourCle()) - new Date(p.depuis || jourCle())) / 864e5) / 28));
+function seancePrev(p) {
+  const n = prevNiveau(p), nom = T(ROUTINES[p.sp].titre), zones = PREV_SP_ZONES[p.sp] || ["hanche"];
+  return seanceBlocs({ couleur: "#16A34A", rpe: "4–7", cat: "prevention", titre: L("Prévention", "Injury prevention") + " · " + nom + " · " + L("niveau", "level") + " " + n,
+    intro: `<b>${p.sp === "foot" ? L("Construit sur le FIFA 11+, le programme de prévention de la FIFA.", "Built on the FIFA 11+, FIFA’s prevention programme.") : L("Sur le modèle des programmes de prévention qui ont fait leurs preuves (FIFA 11+, épaule du handball, genou des sports de saut).", "Modelled on proven prevention programmes (FIFA 11+, handball shoulder, jumping-sport knee).")}</b> ${L(`Niveau ${n}/3 : un de plus toutes les 4 semaines. Au moins 2 fois par semaine, juste avant l’entraînement ou le match ; la technique avant la vitesse.`, `Level ${n}/3: one more every 4 weeks. At least twice a week, right before practice or the match; technique before speed.`)}`,
+    blocs: [[L("Course progressive", "Progressive running"), L("Du footing aux gammes : le cœur monte doucement.", "From jogging to drills: the heart rate rises gently."), [["kneeup", 40], ["heelkick", 40], ["askip", 40], ["lateral", 60], ["pasChasse", 30], ["rnLignes", 30]], 5],
+      [L("Force, sauts et équilibre", "Strength, jumps and balance"), L("Genoux dans l’axe, réceptions souples et silencieuses. Arrête un exercice qui fait mal.", "Knees in line, soft and quiet landings. Stop any exercise that hurts."), prevOk(PREV_NIV[n - 1]), 15],
+      ...zones.map(z => [L(...PREV_ZONE[z][0]), L("La zone la plus exposée dans ton sport.", "The most exposed area in your sport."), prevOk(PREV_ZONE[z][1]), 10]),
+      [L("Course rapide", "Fast running"), L("Accélérations progressives jusqu’à 90 %, retour en marchant.", "Gradual accelerations up to 90%, walk back."), n === 1 ? [["rnLignes", 30], ["rnLignes", 30]] : [["rnLignes", 30], ["sprintNavette", 30]], 30]].map((b, i) => [`${i + 1}. ${b[0]}`, ...b.slice(1)]) });
+}
 function prevLancer(cb) {
-  const p = prevCfg(cb), s = seanceEch(p.sp, "complet"), t = L("Prévention", "Injury prevention") + " · " + T(ROUTINES[p.sp].titre);
-  ROUTINES.prev = { ...s, titre: t, titreFr: "Prévention · " + (ROUTINES[p.sp].titreFr || ROUTINES[p.sp].titre), prevClub: { c: cb.id } }; CONSEILLES.prev = ROUTINES.prev.exercices; ouvrirRoutine("prev");
+  ROUTINES.prev = { ...seancePrev(prevCfg(cb)), prevClub: { c: cb.id } }; CONSEILLES.prev = ROUTINES.prev.exercices; ouvrirRoutine("prev");
 }
 async function prevFinie(x) {   // appelé par celebrer() (js/progres.js)
   if (!x) return; if (typeof compter === "function") compter("prevention");
@@ -22,13 +43,13 @@ async function prevFinie(x) {   // appelé par celebrer() (js/progres.js)
 }
 async function prevCarte(Z, cb) {
   const p = prevCfg(cb); if (!Z || !p) return;
-  const s = lundiCle(jourCle()), mine = await SV.maPrev(cb.id, s).catch(() => null), n = mine ? mine.n : 0, E = ECHS[p.sp], d = seanceEch(p.sp, "complet").total;
+  const s = lundiCle(jourCle()), mine = await SV.maPrev(cb.id, s).catch(() => null), n = mine ? mine.n : 0, E = ECHS[p.sp], d = seancePrev(p).total;
   Z.innerHTML = `<div class="carnet cl-seance cl-prev"><div class="cl-s-haut"><small>🛡️ ${L("Prévention des blessures", "Injury prevention")} · ${L(`${p.obj} fois par semaine`, `${p.obj} times a week`)}</small></div>
-    <b>${L("Échauffement complet", "Full warm-up")} · ${T(ROUTINES[p.sp].titre)}</b>
+    <b>${L("Programme de prévention", "Prevention programme")} · ${T(ROUTINES[p.sp].titre)} · ${L("niveau", "level")} ${prevNiveau(p)}/3</b>
     <div class="bv-points s1-points">${Array.from({ length: p.obj }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</div>
     <p>${n >= p.obj ? "✓ " + L("Objectif de la semaine atteint, bravo !", "This week’s goal reached, well done!") : L(`Toi cette semaine : ${n} sur ${p.obj}.`, `You this week: ${n} of ${p.obj}.`)} <span id="prevEq"></span></p>
     <div class="partage-btns"><button class="toggle" id="prevGo">▶ ${L("Lancer", "Start")} · ${d} min</button>${staff() ? `<button class="toggle contour" id="prevSuivi">📊 ${L("Suivi", "Tracking")}</button>` : ""}</div>
-    <details class="cl-suivi"><summary>${L("Pourquoi ?", "Why?")}</summary><p>${L(...E[5])}</p><p>${L("Fait avant chaque entraînement et chaque match, un échauffement de prévention complet réduit nettement les blessures ; l’effet se perd en dessous de 2 fois par semaine.", "Done before every practice and match, a full prevention warm-up clearly reduces injuries; the effect fades below twice a week.")}</p></details>
+    <details class="cl-suivi"><summary>${L("Pourquoi ?", "Why?")}</summary><p>${L(...E[5])}</p><p>${L("Les programmes de ce type (course, force, sauts, équilibre, faits en entier) réduisent nettement les blessures dans les études, à condition d’être faits au moins 2 fois par semaine, toute la saison. Ce programme en reprend la structure ; il ne remplace pas l’avis d’un professionnel de santé en cas de douleur.", "Programmes of this kind (running, strength, jumps, balance, done in full) clearly reduce injuries in studies, provided they are done at least twice a week, all season. This programme follows their structure; it does not replace a health professional’s advice if you are in pain.")}</p></details>
     <small class="sh-aide">${p.vue === "noms" ? L("Le staff du club voit qui l’a fait et combien de fois.", "Club staff can see who did it and how many times.") : L("Le staff du club ne voit que le total de l’équipe, pas les noms.", "Club staff only sees the team total, not names.")}</small></div>`;
   $("prevGo").onclick = () => prevLancer(cb); if ($("prevSuivi")) $("prevSuivi").onclick = () => { CL.onglet = "suivi"; rendu(); };
   desab.push(SV.ecouterPrevSem(cb.id, s, a => { const X = $("prevEq"); if (X) X.textContent = a ? L(`Équipe : ${a.n} séance${a.n > 1 ? "s" : ""}, ${a.j} joueur${a.j > 1 ? "s" : ""}.`, `Team: ${a.n} session${a.n > 1 ? "s" : ""}, ${a.j} player${a.j > 1 ? "s" : ""}.`) : L("Personne encore dans l’équipe : lance-toi !", "Nobody on the team yet: go first!"); }));
@@ -39,7 +60,7 @@ function prevReglages(Z, cb) {
   if (!Z || cb.role !== "coach") return;
   const p = cb.prev || { on: false, sp: sportClub(cb) || PREV_SP()[0], obj: 2, vue: "total" };   // par défaut, le staff ne voit que le total (protection des données par défaut)
   Z.innerHTML = `<h2 class="sec">🛡️ ${L("Prévention des blessures", "Injury prevention")}</h2><div class="carnet cl-form">
-    <p class="sh-aide">${L("Un échauffement complet ciblé sur les blessures de ton sport, à faire avant chaque entraînement et match. Chaque joueur le lance depuis l’onglet Séances ; tu suis la régularité de l’équipe.", "A full warm-up targeting the injuries of your sport, to do before every practice and match. Each player starts it from the Workouts tab; you track the team’s consistency.")}</p>
+    <p class="sh-aide">${L("Un programme de prévention (échauffement complet) ciblé sur les blessures de ton sport, à faire avant chaque entraînement et match. Chaque joueur le lance depuis l’onglet Séances ; tu suis la régularité de l’équipe.", "A prevention programme (full warm-up) targeting the injuries of your sport, to do before every practice and match. Each player starts it from the Workouts tab; you track the team’s consistency.")}</p>
     <label class="cl-case"><input type="checkbox" id="pvOn"${p.on ? " checked" : ""}><span>${L("Activer pour le club", "Turn on for the club")}</span></label>
     <div class="champ-duo"><label class="champ"><span>${L("Sport", "Sport")}</span><select id="pvSp">${PREV_SP().map(k => `<option value="${k}"${k === p.sp ? " selected" : ""}>${T(ROUTINES[k].titre)}</option>`).join("")}</select></label>
     <label class="champ"><span>${L("Objectif", "Goal")}</span><select id="pvObj">${[...(p.obj === 1 ? [1] : []), 2, 3].map(n => `<option value="${n}"${n === p.obj ? " selected" : ""}>${L(`${n}× par semaine`, `${n}× a week`)}</option>`).join("")}</select></label></div>
@@ -47,7 +68,7 @@ function prevReglages(Z, cb) {
     <div class="chips" id="pvVue">${[["noms", "Nom par nom", "Name by name"], ["total", "Total de l’équipe seulement", "Team total only"]].map(([k, f, e]) => `<button class="toggle" data-v="${k}" aria-pressed="${p.vue === k}">${L(f, e)}</button>`).join("")}</div>
     <button class="toggle" id="pvSauve">${L("Enregistrer", "Save")}</button></div>`;
   let vue = p.vue; $("pvVue").onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; vue = b.dataset.v; $("pvVue").querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-pressed", x === b)); };
-  $("pvSauve").onclick = async () => { const v = { prev: { on: $("pvOn").checked, sp: $("pvSp").value, obj: +$("pvObj").value, vue, depuis: (cb.prev && cb.prev.depuis) || jourCle() } };
+  $("pvSauve").onclick = async () => { const v = { prev: { on: $("pvOn").checked, sp: $("pvSp").value, obj: +$("pvObj").value, vue, depuis: cb.prev && cb.prev.on && cb.prev.sp === $("pvSp").value && cb.prev.depuis || jourCle() } };   // niveau 1 au changement de sport ou à la réactivation
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("pvSauve").textContent = "✓ " + L("Enregistré", "Saved"); } catch (x) { $("pvSauve").textContent = msgErr(x); } };
 }
 
