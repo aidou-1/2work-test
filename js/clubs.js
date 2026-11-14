@@ -15,7 +15,7 @@ const heure = t => t && t.toDate ? t.toDate().toLocaleTimeString(LANGUE === "en"
 function stop() { desab.forEach(f => f()); desab = []; }
 
 async function chargerServeur() {
-  if (!SV) { SV = await import("./serveur.js"); SV.langue(LANGUE === "en" ? "en" : "fr");
+  if (!SV) { SV = await import("./serveur.js?v=" + VER); SV.langue(LANGUE === "en" ? "en" : "fr");
     SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
   return SV;
 }
@@ -340,7 +340,7 @@ function ongReglages(Z, cb) {
 }
 // QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
-  if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/qrcode.js"; s.onload = ok; s.onerror = ko; document.head.append(s); });
+  if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/qrcode.js?v=" + VER; s.onload = ok; s.onerror = ko; document.head.append(s); });
   const q = qrcode(0, "M"); q.addData(t); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
 }
 

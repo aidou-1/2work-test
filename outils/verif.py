@@ -22,11 +22,14 @@ for f in glob.glob("js/*.js"):
 html, sw = open("index.html").read(), open("sw.js").read()
 scripts = re.findall(r'<script src="([^"]+)"', html)
 coquille = re.findall(r'"\./([^"]*)"', sw.split("COQUILLE")[1].split("];")[0])
+ver = re.search(r'const V = "2work-v([^"]+)"', sw).group(1)
 for s in scripts:
-    if not os.path.exists(s): pb.append(f"index.html charge {s}, introuvable")
-    if s.startswith("js/") and s not in coquille: pb.append(f"{s} absent du cache hors ligne (COQUILLE de sw.js)")
+    f = s.split("?")[0]
+    if not os.path.exists(f): pb.append(f"index.html charge {f}, introuvable")
+    if s.startswith("js/") and s not in coquille: pb.append(f"{s} absent du cache hors ligne (COQUILLE de sw.js), ou numéro de version différent")
+    if (s.startswith("js/") or s.startswith("consignes")) and not s.endswith("?v=" + ver): pb.append(f"{s} : pas au numéro de version {ver} (lancer outils/version.py)")
 for c in coquille:
-    if c and not os.path.exists(c): pb.append(f"sw.js met en cache {c}, introuvable")
+    if c and not os.path.exists(c.split("?")[0]): pb.append(f"sw.js met en cache {c}, introuvable")
 
 # 3. vidéos déclarées
 vids = re.findall(r'"([A-Za-z0-9]+)"', open("js/seance.js").read().split("const VIDEOS = [")[1].split("]")[0])

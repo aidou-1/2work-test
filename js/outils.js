@@ -411,8 +411,7 @@ $("rgAvis").onclick = ouvrirAvis;
 /* Réglages → « Mettre à jour l'appli » : vide la copie hors ligne des pages et scripts (jamais les données, vidéos ni vignettes), puis recharge depuis le serveur */
 async function forcerMiseAJour() {
   $("rgMaj").textContent = L("Mise à jour…", "Updating…");
-  try { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); await Promise.all((await caches.keys()).filter(n => /^2work-v/.test(n)).map(n => caches.delete(n))); } catch (e) {}
-  location.reload();
+  reparer2work();   // même nettoyage que le garde-fou du démarrage (index.html)
 }
 $("reglages").querySelector(".infos-liens").insertAdjacentHTML("beforeend", `<button class="toggle" id="rgMaj">🔄 ${L("Mettre à jour l’appli", "Update the app")}</button><small class="sh-aide" id="rgVersion"></small>`);
 $("rgMaj").onclick = forcerMiseAJour;

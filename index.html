@@ -143,6 +143,7 @@ background: var(--surface); border: 1px solid var(--ligne); border-radius: var(-
 
 /* ----- Écran d'accueil ----- */
 body:has(#accueil:not(.hidden)) { background: #000; }
+.bloque { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: #fff; font-size: .95rem; } .bloque button { padding: 12px 22px; border-radius: 999px; background: #fff; color: #000; font-weight: 700; } .bloque small { opacity: .7; }
 .accueil { cursor: pointer; min-height: calc(100vh - 120px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; color: #fff; }
 .logo { width: min(250px, 66vw); }
 .logo img { display: block; width: 100%; height: auto; filter: drop-shadow(0 14px 30px rgba(0,0,0,.55)); animation: logoEntre .9s cubic-bezier(.3, 1.5, .5, 1) both; }
@@ -708,6 +709,23 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 <div class="charge" role="progressbar" aria-label="Chargement"><i></i></div>
 </section>
 
+<script>/* Garde-fou du démarrage : si l'appli n'est pas ouverte 7 s après le chargement (fichiers mélangés pendant une mise en ligne,
+   réseau coupé au mauvais moment…), un bouton recharge proprement. reparer2work() sert aussi à Réglages → « Mettre à jour l'appli ».
+   Ne touche jamais aux données (localStorage), ni aux vidéos, vignettes et rappels : seulement à la copie hors ligne des pages et scripts. */
+if (/[?&]maj=/.test(location.search)) history.replaceState(null, "", location.pathname);
+window.reparer2work = async () => {
+  try {
+    await Promise.all((await caches.keys()).filter(n => /^2work-v/.test(n)).map(n => caches.delete(n)));
+    const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.update().catch(() => {});
+    await Promise.all([location.pathname, ...[...document.scripts].filter(s => s.src).map(s => s.src)].map(u => fetch(u, { cache: "reload" }).catch(() => {})));
+  } catch (e) {}
+  location.replace(location.pathname + "?maj=" + Date.now());
+};
+addEventListener("load", () => setTimeout(() => { const a = document.getElementById("accueil"); if (!a || a.classList.contains("hidden") || document.getElementById("bloque")) return;
+  let en = false; try { en = localStorage.getItem("langue") === "en"; } catch (e) {}
+  a.insertAdjacentHTML("beforeend", `<p class="bloque" id="bloque">${en ? "2 WORK is taking a while to open." : "2 WORK met du temps à s’ouvrir."}<button id="bloqueBtn">${en ? "Reload properly" : "Recharger proprement"}</button><small>${en ? "Your progress is kept." : "Ton suivi est conservé."}</small></p>`);
+  document.getElementById("bloqueBtn").onclick = e => { e.stopPropagation(); e.target.textContent = "…"; reparer2work(); }; }, 7000));
+</script>
 <section id="menu" class="hidden">
 <div class="entete"><h1>On s’y met ?</h1><button class="info-btn" id="infoBtn" aria-label="Infos et aide"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg></button></div>
 <p class="sub">Échauffe-toi, entraîne-toi, puis récupère.</p>
@@ -992,38 +1010,38 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js"></script>
-<script src="js/donnees.js"></script>
-<script src="js/seance.js"></script>
-<script src="js/progres.js"></script>
-<script src="js/catalogue.js"></script>
-<script src="js/profil.js"></script>
-<script src="js/anatomie.js"></script>
-<script src="js/evenements.js"></script>
-<script src="js/outils.js"></script>
-<script src="js/cardio.js"></script>
-<script src="js/chronos.js"></script>
-<script src="js/sports.js"></script>
-<script src="js/sport.js"></script>
-<script src="js/boxe.js"></script>
-<script src="js/foot.js"></script>
-<script src="js/course.js"></script>
-<script src="js/basket.js"></script>
-<script src="js/tennis.js"></script>
-<script src="js/padel.js"></script>
-<script src="js/handball.js"></script>
-<script src="js/volley.js"></script>
-<script src="js/cyclisme.js"></script>
-<script src="js/natation.js"></script>
-<script src="js/escalade.js"></script>
-<script src="js/ski.js"></script>
-<script src="js/surf.js"></script>
-<script src="js/pilates.js"></script>
-<script src="js/jeu.js"></script>
-<script src="js/moi.js"></script>
-<script src="js/guide.js"></script>
-<script src="js/clubs.js"></script>
-<script src="js/coach.js"></script>
-<script src="js/semaine1.js"></script>
+<script src="consignes.js?v=2026-11-14e"></script>
+<script src="js/donnees.js?v=2026-11-14e"></script>
+<script src="js/seance.js?v=2026-11-14e"></script>
+<script src="js/progres.js?v=2026-11-14e"></script>
+<script src="js/catalogue.js?v=2026-11-14e"></script>
+<script src="js/profil.js?v=2026-11-14e"></script>
+<script src="js/anatomie.js?v=2026-11-14e"></script>
+<script src="js/evenements.js?v=2026-11-14e"></script>
+<script src="js/outils.js?v=2026-11-14e"></script>
+<script src="js/cardio.js?v=2026-11-14e"></script>
+<script src="js/chronos.js?v=2026-11-14e"></script>
+<script src="js/sports.js?v=2026-11-14e"></script>
+<script src="js/sport.js?v=2026-11-14e"></script>
+<script src="js/boxe.js?v=2026-11-14e"></script>
+<script src="js/foot.js?v=2026-11-14e"></script>
+<script src="js/course.js?v=2026-11-14e"></script>
+<script src="js/basket.js?v=2026-11-14e"></script>
+<script src="js/tennis.js?v=2026-11-14e"></script>
+<script src="js/padel.js?v=2026-11-14e"></script>
+<script src="js/handball.js?v=2026-11-14e"></script>
+<script src="js/volley.js?v=2026-11-14e"></script>
+<script src="js/cyclisme.js?v=2026-11-14e"></script>
+<script src="js/natation.js?v=2026-11-14e"></script>
+<script src="js/escalade.js?v=2026-11-14e"></script>
+<script src="js/ski.js?v=2026-11-14e"></script>
+<script src="js/surf.js?v=2026-11-14e"></script>
+<script src="js/pilates.js?v=2026-11-14e"></script>
+<script src="js/jeu.js?v=2026-11-14e"></script>
+<script src="js/moi.js?v=2026-11-14e"></script>
+<script src="js/guide.js?v=2026-11-14e"></script>
+<script src="js/clubs.js?v=2026-11-14e"></script>
+<script src="js/coach.js?v=2026-11-14e"></script>
+<script src="js/semaine1.js?v=2026-11-14e"></script>
 </body>
 </html>

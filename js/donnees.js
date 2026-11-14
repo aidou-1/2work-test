@@ -1,6 +1,7 @@
 /* ============ LANGUE ============
    T(texte français, variables) renvoie le texte dans la langue de l'appli (réglage « langue », fr par défaut). */
 function stocker(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }   // le stockage peut être refusé (navigation privée) : jamais bloquant
+const VER = (() => { try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; } })();   // numéro de version (outils/version.py), pour les fichiers chargés plus tard
 const propre = t => String(t).replace(/[<>]/g, "");
 /* Icônes d'interface : un seul jeu au trait (même dessin que la barre de navigation), à la place des emojis */
 const ICONES = { reprise: '<path d="M5 4v16l9-8z"/><path d="M17 5v14M21 5v14"/>', agenda: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>', lecture: '<path d="M7 4v16l13-8z"/>', eclair: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
