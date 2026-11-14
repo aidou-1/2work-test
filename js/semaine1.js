@@ -5,14 +5,16 @@
    envoyés à Firestore par son API REST (sans charger le SDK) ; les règles n'acceptent que des hausses de 1 à 20. Voir ?stats pour les lire. */
 const STATS_DB = "projects/app-2work/databases/(default)/documents", STATS_API = "https://firestore.googleapis.com/v1/";
 const STATS_CLE = "AIzaSyC9nhsZoxp84rfkaFIFdMK0CwoUPejHLoo";   // clé web publique, limitée aux adresses de 2 WORK
-const statsOk = () => lire("statsAccord") === "1";
+// site test (et copies locales) : jamais de compteurs, pour ne pas fausser les chiffres du vrai site
+const STATS_TEST = /\/2work-test\//.test(location.pathname) || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const statsOk = () => !STATS_TEST && lire("statsAccord") === "1";
 const nomStat = s => String(s).toLowerCase().normalize("NFD").replace(/[^a-z0-9_]/g, "").slice(0, 40) || "autre";
 function compter(...cles) {
   if (!statsOk()) return; const j = jourCle(), q = lireJSON("statsFile", {});
   cles.forEach(c => { const id = j + "_" + nomStat(c); q[id] = Math.min(20, (q[id] || 0) + 1); }); stocker("statsFile", JSON.stringify(q)); envoyerStats();
 }
 async function envoyerStats() {
-  const q = lireJSON("statsFile", {}), ids = Object.keys(q); if (!ids.length || !navigator.onLine || envoyerStats.en) return; envoyerStats.en = 1;
+  if (STATS_TEST) return; const q = lireJSON("statsFile", {}), ids = Object.keys(q); if (!ids.length || !navigator.onLine || envoyerStats.en) return; envoyerStats.en = 1;
   try {
     const r = await fetch(`${STATS_API}${STATS_DB}:commit?key=${STATS_CLE}`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ writes: ids.map(id => ({ transform: { document: `${STATS_DB}/stats/${id}`, fieldTransforms: [{ fieldPath: "n", increment: { integerValue: String(q[id]) } }] } })) }) });
@@ -21,6 +23,7 @@ async function envoyerStats() {
   envoyerStats.en = 0;
 }
 function accordStats(oui) {
+  if (STATS_TEST) return;
   stocker("statsAccord", oui ? "1" : "0"); [$("rgStats"), $("bvStats")].forEach(c => c && (c.checked = oui)); if (!oui) return stocker("statsFile", "{}");
   if (!lire("statsInstall")) { stocker("statsInstall", jourCle()); compter("install"); } jourStats();
 }
@@ -29,9 +32,9 @@ function jourStats() {   // une fois par jour : « actif », et les retours aux 
   const d = Math.round((new Date(jourCle()) - new Date(lire("statsInstall") || jourCle())) / 864e5); compter("actif", ...([1, 3, 7, 14, 30].includes(d) ? ["retour_j" + d] : []));
 }
 addEventListener("online", envoyerStats); addEventListener("DOMContentLoaded", () => { $("rgStats").checked = statsOk(); jourStats(); envoyerStats(); if (/[?&]stats\b/.test(location.search)) setTimeout(ouvrirStats, 600); });
-const TXT_STATS = () => L("Aider à améliorer 2 WORK : compter anonymement l’utilisation (installations, séances faites, retours dans l’appli). Aucun nom, aucun identifiant, aucune donnée de santé ; tu peux l’arrêter dans Réglages.",
+const TXT_STATS = () => (STATS_TEST ? L("<b>Site test : aucun compteur n’est envoyé d’ici.</b> ", "<b>Test site: no counters are sent from here.</b> ") : "") + L("Aider à améliorer 2 WORK : compter anonymement l’utilisation (installations, séances faites, retours dans l’appli). Aucun nom, aucun identifiant, aucune donnée de santé ; tu peux l’arrêter dans Réglages.",
   "Help improve 2 WORK: count usage anonymously (installs, workouts done, returns to the app). No name, no identifier, no health data; you can turn it off in Settings.");
-$("reglages").querySelector(".infos-liens").insertAdjacentHTML("beforebegin", `<label class="cl-case"><input type="checkbox" id="rgStats"><span>${TXT_STATS()}</span></label>`);
+$("reglages").querySelector(".infos-liens").insertAdjacentHTML("beforebegin", `<label class="cl-case"><input type="checkbox" id="rgStats"${STATS_TEST ? " disabled" : ""}><span>${TXT_STATS()}</span></label>`);
 $("rgStats").onchange = e => accordStats(e.target.checked);
 async function ouvrirStats() {   // lecture des compteurs des 14 derniers jours (lisibles par tous : ce ne sont que des totaux)
   ouvrirFeuilleInfo(L("Compteurs anonymes", "Anonymous counters"), `<p class="sh-aide" id="stTxt">${L("Chargement…", "Loading…")}</p><div id="stTab"></div>`);

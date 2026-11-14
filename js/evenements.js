@@ -74,7 +74,7 @@ const vueK = (cat, titre, sous) => sousListe("choicesK", cat, "kcat", titre, sou
 
 function ouvrirListe(type) { type === "seance" ? vuePlan() : vueCats(); }
 /* Écran de démarrage : le logo s'anime, la barre se remplit, puis l'appli s'ouvre seule (un toucher l'ouvre tout de suite) */
-const entrer = () => { if (!$("accueil").classList.contains("hidden")) rejoindreEnAttente() ? ouvrirClubs() : besoinInstallGuide() ? ecran("bienvenue", guideInstall) : suiteBienvenue(); };
+const entrer = () => { if (!$("accueil").classList.contains("hidden")) typeof rejoindreEnAttente === "function" && rejoindreEnAttente() ? ouvrirClubs() : besoinInstallGuide() ? ecran("bienvenue", guideInstall) : suiteBienvenue(); };
 const suiteBienvenue = () => besoinBienvenue() ? ecran("bienvenue", () => bienvenue(1)) : ecran("menu");
 document.addEventListener("click", entrer); setTimeout(entrer, 2400);
 $("mEch").onclick = () => ouvrirListe("echauffement");

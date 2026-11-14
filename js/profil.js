@@ -616,7 +616,7 @@ function bienvenue(etape = 1) {
       <div class="carnet bv-seance" style="--c:${j1.c}"><small>${fini ? L("Recommandée pour toi", "Recommended for you") : L("Jour", "Day") + " " + n}</small><b>${j1.t}</b><span>${j1.s}</span></div>
       <button class="primary" id="bvGo">${L("C’est parti !", "Let’s go!")}</button>
       <div class="partage-btns bv-autres">${fini ? "" : `<button class="toggle contour" id="bvReco" title="${s.t}">💪 ${L("Autre séance", "Other workout")}</button>`}<button class="toggle contour" id="bvPlan">📅 ${L("Planifier ma semaine", "Plan my week")}</button></div>
-      <label class="cl-case bv-accord"><input type="checkbox" id="bvStats"${statsOk() ? " checked" : ""}><span>${TXT_STATS()}</span></label>
+      <label class="cl-case bv-accord"><input type="checkbox" id="bvStats"${statsOk() ? " checked" : ""}${STATS_TEST ? " disabled" : ""}><span>${TXT_STATS()}</span></label>
       ${installee() ? "" : `<button class="toggle contour bv-installer" id="bvInstaller">📲 ${L("Installer 2 WORK sur mon téléphone", "Install 2 WORK on my phone")}</button>`}
       <button class="lien-discret" id="bvMenu">${L("Découvrir l’appli", "Explore the app")} ›</button>`;
     $("bvGo").onclick = fini ? s.go : st ? () => s1Lancer(n) : s1Commencer; if ($("bvReco")) $("bvReco").onclick = s.go; $("bvPlan").onclick = () => ouvrirPlanning("menu"); $("bvMenu").onclick = () => ecran("menu"); if ($("bvInstaller")) $("bvInstaller").onclick = installer;
