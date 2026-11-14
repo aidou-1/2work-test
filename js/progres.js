@@ -158,6 +158,7 @@ function celebrer() {
   if (routine.prog) progTerminer(routine.prog, routine.progI);
   if (typeof compter === "function") { if (routine.s1) s1Valider(routine.s1); compter("seance", "seance_" + (mode === "tabata" ? "tabata" : routine.cat || routine.grp || routineCle)); }
   if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
+  if (routine.prevClub && typeof prevFinie === "function") prevFinie(routine.prevClub);
   if (typeof apresSeance === "function") apresSeance();
   if (routine.reprise) repTerminer(routine.reprise, routine.repI);
   const S = statsGlobales(), neufs = verifierTrophees();

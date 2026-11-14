@@ -588,6 +588,10 @@ div.zones b { display: block; font-family: var(--titre); font-size: 1.1rem; } di
 #bienvenue { position: relative; padding-top: 30px; } #bvCorps .chips { flex-wrap: wrap; overflow: visible; } #bvCorps .profil-form { margin-bottom: 12px; } .bv-passer { position: absolute; top: -34px; right: 0; margin: 0; }
 .bv-points { display: flex; gap: 6px; margin-bottom: 18px; } .bv-points i { flex: 1; height: 5px; border-radius: 5px; background: var(--soft); } .bv-points i.on { background: var(--brand); }
 #s1Carte .quick-corps { border-left-color: #16A34A; } .s1-points { margin: 6px 0 2px; } .s1-points i.on { background: #16A34A; } #menu .s1-seance { width: 100%; margin: 4px 0 0; min-height: 0; padding: 14px 16px; border-radius: 16px; } #menu .s1-seance strong { font-size: 1.2rem; } #menu .s1-seance span { font-size: .85rem; opacity: .92; } #s1Carte .lien-discret { margin-top: 4px; padding: 6px; font-size: .82rem; } .bv-accord { margin-top: 14px; text-align: left; } #s1Carte .partage-btns { flex-wrap: nowrap; } #s1Carte .partage-btns .toggle { flex: 1; min-width: 0; padding-inline: 6px; }
+.semaine-carte .sc-planb { width: 52px; background: #64748B; font-size: 1.05rem; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; } .pl-plan { margin: 10px 0 0; font-size: .88rem; color: var(--muted); } .pl-plan:empty { display: none; } .rs-adapt .lien { margin-left: 6px; }
+.cl-barre { display: block; height: 6px; margin: 5px 0 3px; border-radius: 6px; background: var(--soft); overflow: hidden; } .cl-barre i { display: block; height: 100%; border-radius: 6px; background: var(--brand); }
+.cl-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; } .cl-stats .carnet { margin: 0; padding: 10px; text-align: center; } .cl-stats b { display: block; font-family: var(--titre); font-size: 1.5rem; } .cl-stats small { color: var(--muted); font-size: .75rem; }
+.cl-sem > div { margin-bottom: 8px; } .cl-sem small { color: var(--muted); font-size: .78rem; } .cl-assid li > div { flex: 1; min-width: 0; } .cl-prev { border-left: 4px solid #16A34A; } .cl-prev .s1-points { margin: 8px 0 4px; }
 .bv-objectifs .choice { padding-top: 16px; padding-bottom: 16px; } .bv-objectifs .choice strong { font-size: 1.3rem; margin: 0; } .bv-sport { margin-top: 16px; }
 .bv-pret { font-size: 3.2rem; text-align: center; animation: smZoom .5s; } .bv-seance { border-left: 4px solid var(--c); } .bv-seance small { display: block; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
 .bv-seance b { display: block; font-family: var(--titre); font-size: 1.5rem; } .bv-seance span { color: var(--muted); font-size: .9rem; } .bv-autres { margin-top: 10px; }
@@ -1018,6 +1022,7 @@ try { const t = localStorage.getItem("theme") || "sombre"; document.documentElem
 <script src="js/moi.js"></script>
 <script src="js/guide.js"></script>
 <script src="js/clubs.js"></script>
+<script src="js/coach.js"></script>
 <script src="js/semaine1.js"></script>
 </body>
 </html>

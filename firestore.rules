@@ -25,6 +25,8 @@ service cloud.firestore {
     // anti-spam du chat : 1 message toutes les 2 secondes au plus, pas de liens pour les simples membres, pas d'insultes
     function pasTropVite(c) { let avant = get(membreDoc(c)).data.get('dernier', null); return getAfter(membreDoc(c)).data.get('dernier', null) == request.time && (avant == null || request.time > avant + duration.value(2, 's')); }
     function sansLien(c, t) { return role(c) != 'membre' || !t.lower().matches('(?s).*(https?://|www[.]|[a-z0-9-]+[.](com|fr|net|org|io|ly|gg|me|xyz)/).*'); }
+    function prevOk(p) { return p is map && p.keys().hasOnly(['on', 'sp', 'obj', 'vue', 'depuis']) && p.on is bool && p.sp is string && p.sp.matches('^[a-z]{2,12}$')
+      && p.obj is int && p.obj >= 1 && p.obj <= 3 && p.vue in ['noms', 'total'] && jour(p.depuis); }
     function poli(t) { return !t.lower().matches('(?s)(.*[^a-z])?(connard|connasse|salope|salaud|pute|encul|ntm|nique ta|niquer ta|fdp|fils de pute|batard|bâtard|pédé|negre|nègre|bougnoul|youpin|bitch|fuck|motherf|cunt|nigg|faggot|retardé mental|suicide-toi|va te pendre).*'); }
 
     // compte privé : seulement soi (date de naissance, accord parental, liste de ses clubs)
@@ -62,7 +64,8 @@ service cloud.firestore {
       allow create: if connecte() && champs(['nom', 'sport', 'desc', 'coach', 'cree'], ['nom', 'sport', 'desc', 'coach', 'cree'])
         && D().coach == moi() && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300) && maintenant(D().cree)
         && getAfter(/databases/$(db)/documents/clubs/$(c)/membres/$(moi())).data.role == 'coach';
-      allow update: if staff(c) && seulement(['nom', 'sport', 'desc']) && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300);
+      allow update: if staff(c) && seulement(['nom', 'sport', 'desc']) && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300)
+        || (coach(c) && seulement(['prev']) && prevOk(D().prev));   // prévention des blessures : réglée par le coach seul (dont qui voit le détail)
       allow delete: if coach(c);
 
       // lien d'invitation : connaître le code (9 caractères aléatoires) suffit pour lire le nom du club et demander à entrer
@@ -129,6 +132,22 @@ service cloud.firestore {
           || (resource.data.uid == moi() && seulement(['suppr', 'texte']) && D().suppr == true && D().texte == '')
           || (staff(c) && seulement(['suppr', 'texte', 'motif']) && D().suppr == true && D().texte == '' && texte(D().motif, 60)));
         allow delete: if coach(c);   // seulement pour supprimer le club entier
+      }
+      // prévention : chacun écrit sa propre fiche de la semaine (+1 à chaque fois) ; le staff ne la lit que si le coach a choisi « nom par nom »
+      match /prev/{p} {
+        allow read: if (connecte() && resource.data.uid == moi())
+          || (staff(c) && get(/databases/$(db)/documents/clubs/$(c)).data.get('prev', {}).get('vue', 'total') == 'noms');
+        allow create: if membre(c) && champs(['uid', 'pseudo', 's', 'n', 't'], ['uid', 'pseudo', 's', 'n', 't']) && D().uid == moi() && jour(D().s)
+          && p == D().s + '_' + moi() && D().pseudo == monPseudo() && D().n == 1 && maintenant(D().t);
+        allow update: if membre(c) && resource.data.uid == moi() && seulement(['n', 't']) && D().n == resource.data.n + 1 && D().n <= 14 && maintenant(D().t);
+        allow delete: if coach(c) || (connecte() && resource.data.uid == moi());
+      }
+      // total de l'équipe par semaine (lisible par tous les membres) : +1 séance, et +1 joueur à sa première fois de la semaine
+      match /prevSem/{s} {
+        allow read: if membre(c);
+        allow create: if membre(c) && jour(s) && D().keys().hasOnly(['n', 'j']) && D().n == 1 && D().j == 1;
+        allow update: if membre(c) && D().keys().hasOnly(['n', 'j']) && D().n == resource.data.n + 1 && (D().j == resource.data.j || D().j == resource.data.j + 1);
+        allow delete: if coach(c);
       }
       match /signalements/{r} {
         allow read, delete: if staff(c);

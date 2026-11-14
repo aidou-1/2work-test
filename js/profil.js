@@ -199,10 +199,15 @@ function renduPlanning() {
   C.innerHTML = `<div class="carnet"><span class="champ-titre">${L("Mes jours d’entraînement", "My training days")}</span>
       <div class="jours-choix">${J.map((x, i) => `<button class="toggle" data-j="${i}" aria-pressed="${P.jours.includes(i)}" aria-label="${JOURS_LONGS()[i]}">${x}</button>`).join("")}</div>
       <div class="champ-duo"><label class="champ"><span>${L("Heure du rappel", "Reminder time")}</span><input id="plHeure" type="time" value="${P.heure}"></label>
-      <div class="champ"><span>${L("Objectif", "Goal")}</span><button class="toggle contour" id="plObj">${obj ? L(obj[1], obj[2]) : L("À choisir", "To choose")} ›</button></div></div></div><div id="plSemaine"></div>`;
-  const maj = () => { stocker("planning", JSON.stringify(P)); listeSemaine(); };
+      <div class="champ"><span>${L("Objectif", "Goal")}</span><button class="toggle contour" id="plObj">${obj ? L(obj[1], obj[2]) : L("À choisir", "To choose")} ›</button></div></div>
+      <label class="champ"><span>${L("Où ? (facultatif)", "Where? (optional)")}</span><input id="plLieu" maxlength="40" value="${echap(P.lieu || "")}" placeholder="${L("ex. à la maison, au parc, à la salle", "e.g. at home, at the park, at the gym")}"></label>
+      <p class="pl-plan" id="plPlan"></p></div><div id="plSemaine"></div>`;
+  const phrase = () => { const j = [...P.jours].sort().map(i => JOURS_LONGS()[i]), et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "";
+      $("plPlan").innerHTML = j.length ? `📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(j)} à ${P.heure}`, `${et(j)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}` : ""; },
+    maj = () => { stocker("planning", JSON.stringify(P)); phrase(); listeSemaine(); };
   C.querySelectorAll("[data-j]").forEach(b => b.onclick = () => { const j = +b.dataset.j; P.jours = P.jours.includes(j) ? P.jours.filter(x => x !== j) : [...P.jours, j].sort(); b.setAttribute("aria-pressed", P.jours.includes(j)); maj(); });
   $("plHeure").onchange = e => { P.heure = e.target.value || "18:00"; maj(); };
+  $("plLieu").onchange = e => { P.lieu = propre(e.target.value.trim()).slice(0, 40); maj(); }; phrase();
   $("plObj").onclick = () => ouvrirProfil("planning");
   listeSemaine();
 }
@@ -220,8 +225,8 @@ function exporterIcs() {
   const f = d => `${cleDate(d).replace(/-/g, "")}T${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}00`, pli = l => l.match(/.{1,73}/g).join("\r\n ");
   const esc = s => String(s).replace(/[\\,;]/g, m => "\\" + m), now = new Date().toISOString().replace(/[-:]|\.\d{3}/g, "");
   const ev = S.map(({ j, s }) => { const d = dateDuJour(j); d.setHours(hh, mm); if (d < new Date()) d.setDate(d.getDate() + 7);
-    return ["BEGIN:VEVENT", `UID:2work-${JJ[j]}-${now}@aidou-1.github.io`, `DTSTAMP:${now}`, `DTSTART:${f(d)}`, `DURATION:PT${Math.max(10, s.d || 30)}M`, `RRULE:FREQ=WEEKLY;BYDAY=${JJ[j]}`,
-      pli(`SUMMARY:2 WORK · ${esc(s.t)}`), pli(`DESCRIPTION:${esc(s.s + " — " + L("Ouvre 2 WORK pour lancer ta séance", "Open 2 WORK to start your workout"))}`), "URL:https://aidou-1.github.io/2work/",
+    return ["BEGIN:VEVENT", `UID:2work-${JJ[j]}-${now}@aidou-1.github.io`, `DTSTAMP:${now}`, `DTSTART:${f(d)}`, `DURATION:PT${Math.max(10, s.d || 30)}M`, `RRULE:FREQ=WEEKLY;BYDAY=${JJ[j]}`, ...(P.lieu ? [pli(`LOCATION:${esc(P.lieu)}`)] : []),
+      pli(`SUMMARY:2 WORK · ${esc(s.t)}`), pli(`DESCRIPTION:${esc(s.s + " — " + L("Ouvre 2 WORK pour lancer ta séance. Imprévu ? Plan B : 7 min de Quick start.", "Open 2 WORK to start your workout. Something came up? Plan B: 7 min of Quick start."))}`), "URL:https://aidou-1.github.io/2work/",
       "BEGIN:VALARM", "TRIGGER:-PT15M", "ACTION:DISPLAY", pli(`DESCRIPTION:2 WORK · ${esc(s.t)}`), "END:VALARM", "END:VEVENT"].join("\r\n"); });
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//2 WORK//Planning//FR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", ...ev, "END:VCALENDAR"].join("\r\n");
   envoyer(new Blob([ics], { type: "text/calendar" }), "2work-planning.ics", "text/calendar", L("Mon planning 2 WORK", "My 2 WORK plan")).then(r => {
@@ -238,6 +243,11 @@ function majSemaine() {   // carte « Aujourd'hui » du menu et salutation
   const D = !fait && seanceDuJour(x);   // proposition du jour : récupération si la fatigue monte, sinon programme en cours, planning, ou séance choisie d'après les derniers jours
   if (D) { Z.innerHTML = `<button class="sc-corps" id="scOuvrir" style="--c:${D.c}"><span class="sc-ico">${D.ico || "🎯"}</span><span><strong>${L("Aujourd’hui", "Today")} · ${D.t}</strong><small>${D.r || D.s}</small></span></button><button class="sc-go" id="scGo" aria-label="${L("Lancer", "Start")}">${ico("lecture")}</button>`; $("scGo").onclick = e => { e.stopPropagation(); D.go(); }; }
   $("scOuvrir").onclick = () => ouvrirPlanning("menu");
+  if (x && !fait) {   // plan B : une version courte plutôt que rien, et le lieu prévu pour rappel
+    const P = lirePlanning(); if (P.lieu) $("scOuvrir").querySelector("small").textContent += " · 📍 " + P.lieu;
+    Z.insertAdjacentHTML("beforeend", `<button class="sc-go sc-planb" id="scB" aria-label="${L("Plan B : 7 minutes de Quick start", "Plan B: 7 minutes of Quick start")}"><small>${L("Plan B", "Plan B")}</small>7′</button>`);
+    $("scB").onclick = () => composerExpress({ ...quickPrefs(), min: 7 }) || composerExpress({ min: 7, m: "sans", z: "tout", int: "normal" });
+  }
 }
 
 /* ============ PROGRESSION AUTOMATIQUE ============
@@ -251,13 +261,25 @@ function blocRessenti() {
     .map(([v, e, f, en]) => `<button class="toggle" data-rs="${v}">${e} ${L(f, en)}</button>`).join("")}</div><div id="rsRes"></div></div>`;
 }
 function brancherRessenti() {
+  const base = { cle: routineCle, int: quickPrefs().int, id: routine.reposId, rep: routine.repos, prop: routine.reposProp };   // état d'avant, pour recalculer si on change d'avis
   document.querySelectorAll("[data-rs]").forEach(b => b.onclick = () => {
     const v = +b.dataset.rs, h = lireHist(), x = h[h.length - 1]; if (!x) return;
     x.rs = v; stocker("historique", JSON.stringify(h));
     document.querySelectorAll("[data-rs]").forEach(y => y.setAttribute("aria-pressed", y === b));
-    $("rsRes").innerHTML = conseilProgression(h, x);
+    const ad = adapter(v, base); $("rsRes").innerHTML = conseilProgression(h, x) + (ad ? `<p class="sh-ok rs-adapt">⚙️ ${ad} <button class="lien" id="rsAnnul">${L("Annuler", "Undo")}</button></p>` : "");
+    if ($("rsAnnul")) $("rsAnnul").onclick = () => { adapter(2, base); $("rsAnnul").parentNode.textContent = "↩︎ " + L("Réglage d’origine gardé.", "Original setting kept."); };
     const g = $("rsNiv"); if (g) g.onclick = () => { ecrireProfil("niveau", g.dataset.n); $("rsRes").innerHTML = `<p class="sh-ok">✓ ${L("C’est noté : tes prochaines séances de renfo seront en", "Got it: your next strength sessions will be")} ${L(...NIV_RENFO.find(n => n[0] === g.dataset.n).slice(1, 3))}.</p>`; };
   });
+}
+/* Séance adaptative : le ressenti règle tout seul la prochaine séance du même type (le niveau de renfo, lui, reste une proposition à accepter).
+   Quick start : intensité un cran plus bas (trop dur) ou plus haut (facile). Séances au repos réglable (renfo, salle, programmes…) : +10 s (trop dur), −5 s (facile),
+   entre la moitié et le double du repos conseillé. « Juste bien » remet le réglage d'avant la séance ; tout est annulable. */
+function adapter(v, b) {
+  if (b.cle === "express") { const o = ["calme", "normal", "intense"], n = o[Math.max(0, Math.min(2, o.indexOf(b.int) + (v === 1) - (v === 3)))];
+    stocker("quickPrefs", JSON.stringify({ ...quickPrefs(), int: n })); return n === b.int ? "" : L(`Prochain Quick start en intensité « ${INTENSITES[n][2].toLowerCase()} ».`, `Next Quick start at “${INTENSITES[n][3].toLowerCase()}” intensity.`); }
+  if (!b.id || !b.prop || !Number.isFinite(b.rep)) return "";
+  const n = v === 3 ? Math.min(b.prop * 2, b.rep + 10) : v === 1 ? Math.max(Math.round(b.prop / 2), b.rep - 5) : b.rep; reposGarder(b.id, n);
+  return n === b.rep ? "" : L(`Repos ${n > b.rep ? "allongé" : "raccourci"} à ${n} s pour la prochaine fois.`, `Rest ${n > b.rep ? "lengthened" : "shortened"} to ${n} s for next time.`);
 }
 function conseilProgression(h, x) {
   const ordre = NIV_RENFO.map(n => n[0]), i = ordre.indexOf(x.nv);
@@ -319,7 +341,7 @@ const PAGES = {
     <h3>Vidéos hors ligne et sauvegarde</h3><p>Les vidéos téléchargées pour le hors ligne sont stockées sur ton téléphone. Le fichier de sauvegarde est créé à ta demande et reste là où tu choisis de le ranger.</p>
     <h3>Partage et export</h3><p>Une carte image, un fichier d’activité ou un fichier d’agenda ne sont créés que lorsque tu le demandes, et envoyés uniquement vers l’application que tu choisis (Instagram, Strava, Garmin Connect, ton agenda…), selon les règles de celle-ci.</p>
     <h3>Clubs (facultatif, avec compte)</h3><p>Si tu crées un compte pour les clubs, ces données sont enregistrées en ligne : ton <b>email</b> et ton <b>mot de passe</b> (chiffré, géré par Firebase Authentication, jamais visible par 2 WORK), ton <b>pseudo</b>, ta <b>date de naissance</b> et, sous 15 ans, l’accord parental (privés, visibles par toi seul), les clubs que tu rejoins, tes <b>messages</b> et réactions, et les séances de club que tu coches.</p>
-    <p>Ton pseudo, tes messages et les séances cochées sont visibles uniquement par les membres de tes clubs ; ton email et ta date de naissance ne sont montrés à personne. Ton historique, ton profil et tes progrès restent sur ton téléphone, même avec un compte.</p>
+    <p>Ton pseudo, tes messages et les séances cochées sont visibles uniquement par les membres de tes clubs ; ton email et ta date de naissance ne sont montrés à personne. Ton historique, ton profil et tes progrès restent sur ton téléphone, même avec un compte.</p><p><b>Suivi dans le club :</b> le coach et les co-coachs voient, pour les 4 dernières semaines, quelles séances du club chaque membre a cochées. Si le coach active la <b>prévention des blessures</b>, chaque échauffement de prévention terminé ajoute +1 à ta fiche de la semaine (pseudo et nombre de fois) et au total de l’équipe. Le coach choisit si le staff voit ce détail <b>nom par nom</b> ou seulement le <b>total de l’équipe</b> ; la carte de prévention te l’indique. Ces fiches sont effacées quand tu quittes le club, en es retiré, ou quand il est supprimé.</p>
     <p><b>Sauvegarde en ligne (facultative) :</b> seulement si tu l’actives (Clubs → Mon compte, avec une case de consentement), une copie compressée de ton suivi (historique, trophées, programmes, profil dont âge et poids, réglages) est enregistrée dans la même base européenne, visible par toi seul, et mise à jour après chaque séance. Tu peux la désactiver à tout moment : la copie en ligne est alors effacée.</p>
     <p><b>Responsable du traitement :</b> l’éditeur de 2 WORK (voir les mentions légales). <b>Sous-traitant :</b> Google Ireland Limited (Firebase), lié par les conditions de traitement des données de Firebase. <b>Où :</b> les clubs, séances et messages sont stockés dans une base Cloud Firestore située dans l’Union européenne. L’email, le mot de passe chiffré et les journaux de connexion (adresse IP, gardée quelques semaines par sécurité) sont gérés par Firebase Authentication, qui peut les traiter hors de l’Union européenne, notamment aux États-Unis : Google LLC est certifiée au cadre de protection des données UE–États-Unis (décision d’adéquation de la Commission européenne) et applique les clauses contractuelles types. Les échanges sont chiffrés (HTTPS) et des règles de sécurité vérifient chaque lecture et chaque écriture.</p>
     <p><b>Pourquoi :</b> faire fonctionner les clubs, sur la base de ton consentement donné à l’inscription (et, sous 15 ans, de celui d’un parent : consentement conjoint, art. 45 de la loi Informatique et Libertés). <b>Durée :</b> tant que ton compte existe ; après sa suppression, Google efface aussi ses copies de sauvegarde (au plus 180 jours). La date de naissance sert uniquement à vérifier l’âge. Le coach et les co-coachs peuvent retirer un message, rendre muet ou exclure un membre, toujours avec un motif montré à la personne concernée ; un message signalé est montré au coach et aux co-coachs.</p>
@@ -334,7 +356,7 @@ const PAGES = {
     <h3>Offline videos and backup</h3><p>Videos downloaded for offline use are stored on your phone. The backup file is created when you ask and stays wherever you choose to keep it.</p>
     <h3>Sharing and export</h3><p>An image card, activity file or calendar file is only created when you ask for it, and only sent to the app you choose (Instagram, Strava, Garmin Connect, your calendar…), under that app’s rules.</p>
     <h3>Clubs (optional, with an account)</h3><p>If you create an account for clubs, this data is stored online: your <b>email</b> and <b>password</b> (encrypted, handled by Firebase Authentication, never visible to 2 WORK), your <b>username</b>, your <b>date of birth</b> and, under 15, parental consent (private, visible only to you), the clubs you join, your <b>messages</b> and reactions, and the club workouts you tick.</p>
-    <p>Your username, messages and ticked workouts are visible only to members of your clubs; your email and date of birth are shown to no one. Your history, profile and progress stay on your phone, even with an account.</p>
+    <p>Your username, messages and ticked workouts are visible only to members of your clubs; your email and date of birth are shown to no one. Your history, profile and progress stay on your phone, even with an account.</p><p><b>Tracking in the club:</b> the coach and co-coaches can see, for the last 4 weeks, which club workouts each member ticked. If the coach turns on <b>injury prevention</b>, each finished prevention warm-up adds +1 to your record for the week (username and number of times) and to the team total. The coach chooses whether staff see this detail <b>name by name</b> or only the <b>team total</b>; the prevention card tells you which. These records are deleted when you leave the club, are removed from it, or when it is deleted.</p>
     <p><b>Online backup (optional):</b> only if you turn it on (Clubs → My account, with a consent box), a compressed copy of your progress (history, trophies, programmes, profile including age and weight, settings) is stored in the same European database, visible only to you, and updated after each workout. You can turn it off at any time: the online copy is then erased.</p>
     <p><b>Controller:</b> the publisher of 2 WORK (see the legal notice). <b>Processor:</b> Google Ireland Limited (Firebase), bound by the Firebase data processing terms. <b>Where:</b> clubs, workouts and messages are stored in a Cloud Firestore database located in the European Union. Your email, encrypted password and sign-in logs (IP address, kept a few weeks for security) are handled by Firebase Authentication, which may process them outside the European Union, including in the United States: Google LLC is certified under the EU–US Data Privacy Framework (European Commission adequacy decision) and applies standard contractual clauses. Traffic is encrypted (HTTPS) and security rules check every read and write.</p>
     <p><b>Why:</b> to run clubs, based on your consent given at sign-up (and, under 15, a parent’s consent too: joint consent, art. 45 of the French Data Protection Act). <b>How long:</b> as long as your account exists; after deletion, Google also erases its backup copies (within 180 days). Your date of birth is only used to check your age. The coach and co-coaches can remove a message, mute or remove a member, always with a reason shown to the person concerned; a reported message is shown to the coach and co-coaches.</p>

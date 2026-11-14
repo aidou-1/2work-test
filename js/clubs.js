@@ -177,11 +177,12 @@ async function renduRejoindre(C) {
 
 /* --- Un club : onglets Séances · Chat · Membres · Réglages --- */
 function renduClub(C) {
-  const cb = club(), O = [["seances", "Séances", "Workouts"], ["chat", "Chat", "Chat"], ["membres", "Membres", "Members"], ["reglages", "Club", "Club"]];
+  const cb = club(), O = [["seances", "Séances", "Workouts"], ["chat", "Chat", "Chat"], ["membres", "Membres", "Members"], ...(staff() ? [["suivi", "Suivi", "Tracking"]] : []), ["reglages", "Club", "Club"]];
+  if (CL.onglet === "suivi" && !staff()) CL.onglet = "seances";
   C.innerHTML = `<div class="chips cl-onglets">${O.map(([k, f, e]) => `<button class="toggle" data-ong="${k}" aria-pressed="${CL.onglet === k}">${L(f, e)}${k === "chat" && nonLu(cb.id) ? ' <i class="cl-point"></i>' : ""}<span class="cl-badge hidden" id="badge_${k}"></span></button>`).join("")}</div><div id="clOng"></div>`;
   C.querySelectorAll("[data-ong]").forEach(b => b.onclick = () => { CL.onglet = b.dataset.ong; rendu(); });
   if (staff()) desab.push(SV.ecouterDemandes(cb.id, l => { const B = $("badge_membres"); if (B) { B.textContent = l.length; B.classList.toggle("hidden", !l.length); } }));
-  ({ seances: ongSeances, chat: ongChat, membres: ongMembres, reglages: ongReglages })[CL.onglet]($("clOng"), cb);
+  ({ seances: ongSeances, chat: ongChat, membres: ongMembres, suivi: ongSuivi, reglages: ongReglages })[CL.onglet]($("clOng"), cb);
 }
 
 /* Séances : le staff publie (catalogue, séances enregistrées, programme), chacun lance et coche ; le staff voit qui a fait quoi */
@@ -192,8 +193,8 @@ function routineClub(s) {   // séance du club → routine locale « club_<id> �
   if (typeof CONSEILLES !== "undefined") CONSEILLES[k] = CONSEILLES[s.base] || ROUTINES[k].exercices; return k;
 }
 function ongSeances(Z, cb) {
-  Z.innerHTML = `${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="spListe"><p class="vide">…</p></div>`;
-  if (staff()) $("spNouv").onclick = () => feuillePublier();
+  Z.innerHTML = `${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="prevZone"></div><div id="spListe"><p class="vide">…</p></div>`;
+  if (staff()) $("spNouv").onclick = () => feuillePublier(); prevCarte($("prevZone"), cb);
   desab.push(SV.ecouterSeances(cb.id, async l => {
     const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l.map(s => s.id));
     const carte = s => { const P = s.prog && PROGRAMMES.find(p => p[0] === s.prog);
@@ -214,31 +215,31 @@ function ongSeances(Z, cb) {
   }));
 }
 function feuillePublier() {
-  let type = "cat", choix = null, fam = null; const fav = lireFav ? lireFav() : [];
+  let type = "cat", choix = null, fam = null; const fav = lireFav ? lireFav() : [], MOD = modeles(club());
   // « Parcourir » : le catalogue rangé comme dans l'appli, famille par famille
   const FAM = [["ech", "🔥", "Échauffements par sport", "Warm-ups by sport", r => modeDe(r) === "echauffement"], ["sport", "💪", "Sports", "Sports", r => modeDe(r) === "seance" && r.grp && !["haut", "bas", "complet"].includes(r.grp)],
     ["corps", "🧍", "Renfo du corps", "Body strength", r => modeDe(r) === "seance" && ["haut", "bas", "complet"].includes(r.grp)], ["salle", "🏋️", "Salle de musculation", "Gym", r => modeDe(r) === "salle"], ["tabata", "⏱️", "Tabata", "Tabata", r => modeDe(r) === "tabata"],
     ["etir", "🧘", "Étirements", "Stretching", r => r.cat === "etir"], ["souffle", "🌬️", "Respiration", "Breathing", r => r.cat === "coherence"], ["rep", "🩹", "Retour après blessure", "Back after injury", r => r.blessure]];
   const famDe = r => FAM.find(f => f[4](r));
   const cats = () => Object.entries(ROUTINES).filter(([k, r]) => r.titre && !/^(club_|fav_|perso$)/.test(k)), progs = PROGRAMMES.filter(p => p[0] !== "perso");
-  ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Parcourir", "Browse"], ["fav", "Mes séances", "My workouts"], ["prog", "Programmes", "Programmes"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
+  ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Parcourir", "Browse"], ["mod", "Modèles", "Templates"], ["fav", "Mes séances", "My workouts"], ["prog", "Programmes", "Programmes"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
     <label class="recherche"><input id="pbQ" type="search" placeholder="${L("Rechercher", "Search")}" autocomplete="off"></label><ul class="list cl-choix" id="pbListe"></ul>
     <div class="champ-duo"><label class="champ"><span id="pbDateT">${L("Date", "Date")}</span><input type="date" id="pbDate" value="${jourCle()}" min="${decaler(jourCle(), -30)}"></label><label class="champ"><span>${L("Titre affiché", "Displayed title")}</span><input id="pbTitre" maxlength="60"></label></div>
     <label class="champ"><span>${L("Consigne pour le groupe (facultatif)", "Note for the group (optional)")}</span><textarea id="pbNote" class="choixVoix" rows="2" maxlength="300" placeholder="${L("ex. À faire avant l’entraînement de jeudi", "e.g. Do it before Thursday’s practice")}"></textarea></label><p class="cl-erreur" id="pbErr"></p>
     <button class="primary" id="pbOk">${L("Publier pour tout le club", "Post to the whole club")}</button>`);
   const liste = () => { const q = plat($("pbQ").value.trim());
     if (type === "cat" && !q && !fam) { $("pbListe").innerHTML = FAM.map(f => [f, cats().filter(([, r]) => famDe(r) === f).length]).filter(x => x[1]).map(([f, n]) => `<li data-fam="${f[0]}"><span class="i-ico">${f[1]}</span><div><b>${L(f[2], f[3])}</b><small>${n} ${L("séances", "workouts")}</small></div><span class="duree">›</span></li>`).join(""); return; }
-    const F = FAM.find(f => f[0] === fam), l = type === "cat" ? cats().filter(([, r]) => q || famDe(r) === F).map(([k, r]) => [k, T(r.titre), T(r.detail || "") || (q && famDe(r) ? L(famDe(r)[2], famDe(r)[3]) : "")]) : type === "fav" ? fav.filter(f => ROUTINES[f.base]).map(f => ["fav:" + f.id, propre(f.nom), T("{n} exercices", { n: f.ids.length })]) : progs.map(p => ["prog:" + p[0], L(p[1], p[2]), L(p[3], p[4])]);
+    const F = FAM.find(f => f[0] === fam), l = type === "cat" ? cats().filter(([, r]) => q || famDe(r) === F).map(([k, r]) => [k, T(r.titre), T(r.detail || "") || (q && famDe(r) ? L(famDe(r)[2], famDe(r)[3]) : "")]) : type === "mod" ? MOD.map((m, i) => ["mod:" + i, L(m[0], m[1]), L(m[3], m[4])]) : type === "fav" ? fav.filter(f => ROUTINES[f.base]).map(f => ["fav:" + f.id, propre(f.nom), T("{n} exercices", { n: f.ids.length })]) : progs.map(p => ["prog:" + p[0], L(p[1], p[2]), L(p[3], p[4])]);
     $("pbListe").innerHTML = (type === "cat" && F && !q ? `<li data-fam="" class="bloc-titre"><b>‹ ${F[1]} ${L(F[2], F[3])}</b></li>` : "") + l.filter(x => !q || plat(x[1] + " " + x[2]).includes(q)).slice(0, q ? 40 : 200).map(x => `<li data-k="${x[0]}" class="${choix === x[0] ? "cl-sel" : ""}"><div><b>${echap(x[1])}</b><small>${echap(x[2])}</small></div><span class="duree">${choix === x[0] ? "✓" : ""}</span></li>`).join("") || `<li><small>${type === "fav" ? L("Aucune séance enregistrée : crée-la d’abord dans Entraînement → Planifier ma séance.", "No saved workout: create it first in Training → Plan my workout.") : L("Aucun résultat.", "No results.")}</small></li>`;
     $("pbDateT").textContent = type === "prog" ? L("Début du programme", "Programme start") : L("Date", "Date"); };
   $("pbType").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; type = b.dataset.t; choix = null; fam = null; $("pbType").querySelectorAll("[data-t]").forEach(x => x.setAttribute("aria-pressed", x === b)); liste(); };
   $("pbQ").oninput = liste;
-  $("pbListe").onclick = e => { const f = e.target.closest("[data-fam]"); if (f) { fam = f.dataset.fam || null; liste(); $("pbListe").scrollTop = 0; return; } const li = e.target.closest("[data-k]"); if (!li) return; choix = li.dataset.k; $("pbTitre").value = li.querySelector("b").textContent; liste(); };
+  $("pbListe").onclick = e => { const f = e.target.closest("[data-fam]"); if (f) { fam = f.dataset.fam || null; liste(); $("pbListe").scrollTop = 0; return; } const li = e.target.closest("[data-k]"); if (!li) return; choix = li.dataset.k; $("pbTitre").value = li.querySelector("b").textContent; if (choix.startsWith("mod:") && !$("pbNote").value.trim()) $("pbNote").value = li.querySelector("small").textContent; liste(); };
   liste();
   $("pbOk").onclick = async () => {
     if (!choix) return $("pbErr").textContent = L("Choisis une séance dans la liste.", "Pick a workout from the list.");
     const v = { titre: propre($("pbTitre").value.trim()).slice(0, 60) || "?", date: $("pbDate").value || jourCle(), note: propre($("pbNote").value.trim()) };
-    if (choix.startsWith("prog:")) v.prog = choix.slice(5); else if (choix.startsWith("fav:")) { const f = fav.find(x => x.id === choix.slice(4)); v.base = f.base; v.ids = f.ids; } else v.base = choix;
+    if (choix.startsWith("prog:")) v.prog = choix.slice(5); else if (choix.startsWith("mod:")) v.base = MOD[+choix.slice(4)][2]; else if (choix.startsWith("fav:")) { const f = fav.find(x => x.id === choix.slice(4)); v.base = f.base; v.ids = f.ids; } else v.base = choix;
     $("pbOk").disabled = true; try { await SV.publier(CL.c, v); fermerFeuille(); } catch (x) { $("pbErr").textContent = msgErr(x); $("pbOk").disabled = false; }
   };
 }
@@ -278,6 +279,7 @@ function ongChat(Z, cb) {
       if (refus) { $("chErr").textContent = refus; return; } $("chErr").textContent = ""; CL.envoi = Date.now(); T2.value = ""; T2.style.height = ""; const rep = CL.rep; CL.rep = null; $("chRep").classList.add("hidden"); bas = true;
       try { await SV.envoyer(cb.id, t.slice(0, 1000), CL.u.pseudo, rep); } catch (x) { T2.value = t; alert(msgErr(x)); } };
     $("chForm").onsubmit = e => { e.preventDefault(); env(); };
+    if (CL.brouillon) { T2.value = CL.brouillon; CL.brouillon = null; T2.focus(); T2.dispatchEvent(new Event("input")); }
     T2.oninput = () => { T2.style.height = ""; T2.style.height = Math.min(120, T2.scrollHeight) + "px"; };
     T2.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); env(); } };
   }
@@ -320,10 +322,11 @@ function ongReglages(Z, cb) {
   Z.innerHTML = `${cb.desc ? `<p class="cl-desc">${echap(cb.desc)}</p>` : ""}${staff() ? `<h2 class="sec">${L("Inviter des membres", "Invite members")}</h2><div class="carnet cl-inv"><div id="rgQr" class="cl-qr"></div><p class="sh-aide">${L("Montre ce QR code ou envoie le lien. Chaque demande arrive dans l’onglet Membres, à valider.", "Show this QR code or send the link. Each request arrives in the Members tab for approval.")}</p><input id="rgLien" readonly>
       <div class="partage-btns"><button class="toggle" id="rgPart">${L("Partager le lien", "Share the link")}</button><button class="toggle contour" id="rgNeuf">${L("Nouveau lien", "New link")}</button></div></div>
     <div id="rgSig"></div><h2 class="sec">${L("Infos du club", "Club info")}</h2><div class="carnet cl-form"><label class="champ"><span>${L("Nom", "Name")}</span><input id="rgNom" maxlength="40" value="${echap(cb.nom)}"></label><label class="champ"><span>${L("Sport", "Sport")}</span><input id="rgSport" maxlength="30" value="${echap(cb.sport)}"></label><label class="champ"><span>${L("Description", "Description")}</span><textarea id="rgDesc" class="choixVoix" rows="2" maxlength="300">${echap(cb.desc)}</textarea></label><button class="toggle" id="rgSauve">${L("Enregistrer", "Save")}</button></div>` : ""}
-    ${cb.role === "coach" ? `<button class="toggle contour cl-danger" id="rgSuppr">${L("Supprimer le club", "Delete the club")}</button><p class="sh-aide">${L("Supprime le club, ses séances et tous ses messages, pour tous les membres.", "Deletes the club, its workouts and all its messages, for every member.")}</p>` : `<button class="toggle contour cl-danger" id="rgQuit">${L("Quitter le club", "Leave the club")}</button>`}`;
+    <div id="rgPrev"></div>${cb.role === "coach" ? `<button class="toggle contour cl-danger" id="rgSuppr">${L("Supprimer le club", "Delete the club")}</button><p class="sh-aide">${L("Supprime le club, ses séances et tous ses messages, pour tous les membres.", "Deletes the club, its workouts and all its messages, for every member.")}</p>` : `<button class="toggle contour cl-danger" id="rgQuit">${L("Quitter le club", "Leave the club")}</button>`}`;
   if ($("rgQuit")) $("rgQuit").onclick = () => { CL.onglet = "membres"; rendu(); setTimeout(() => $("mbQuit").click(), 300); };
   if ($("rgSuppr")) $("rgSuppr").onclick = async () => { const b = $("rgSuppr"); if (!b.dataset.conf) { b.dataset.conf = 1; return b.textContent = L("Confirmer la suppression définitive", "Confirm permanent deletion"); }
     b.disabled = true; b.textContent = L("Suppression…", "Deleting…"); try { await SV.supprimerClub(cb.id); await rafraichir(); CL.vue = "liste"; rendu(); } catch (x) { b.textContent = msgErr(x); } };
+  prevReglages($("rgPrev"), cb);
   if (!staff()) return;
   const lien = k => `${location.origin}${location.pathname}?club=${cb.id}&code=${k}`;
   const montrer = async k => { $("rgLien").value = lien(k); $("rgQr").innerHTML = await qrSvg(lien(k)).catch(() => ""); };

@@ -34,7 +34,7 @@ export const motDePasseOublie = email => F.sendPasswordResetEmail(auth, email);
 export async function supprimerCompte(mdp) {
   const u = auth.currentUser; await F.reauthenticateWithCredential(u, F.EmailAuthProvider.credential(u.email, mdp));
   const c = await lireDoc("comptes", u.uid), p = await lireDoc("profils", u.uid);
-  for (const id of c ? c.clubs : []) { const m = await lireDoc("clubs", id, "membres", u.uid); if (m && m.role === "coach") await supprimerClub(id); else if (m) await X.deleteDoc(d("clubs", id, "membres", u.uid)); }
+  for (const id of c ? c.clubs : []) { const m = await lireDoc("clubs", id, "membres", u.uid); if (m && m.role === "coach") await supprimerClub(id); else if (m) { await mesPrevEffacer(id); await X.deleteDoc(d("clubs", id, "membres", u.uid)); } }
   for (const id of c ? c.attente : []) await X.deleteDoc(d("clubs", id, "demandes", u.uid)).catch(() => {});
   if (p) await X.deleteDoc(d("pseudos", p.pseudo.toLowerCase())).catch(() => {});
   await Promise.all([X.deleteDoc(d("profils", u.uid)), X.deleteDoc(d("comptes", u.uid)), X.deleteDoc(d("sauvegardes", u.uid))]);
@@ -68,7 +68,8 @@ export async function creerClub({ nom, sport, desc, pseudo }) {
 }
 export const modifierClub = (c, v) => X.updateDoc(d("clubs", c), v);
 export async function supprimerClub(c) {   // le coach efface tout le contenu, puis le club, puis sa propre fiche de membre
-  for (const s of ["messages", "signalements", "invits", "demandes", "exclus"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
+  await purgerPrev(c);
+  for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
   for (const x of (await X.getDocs(col("clubs", c, "seances"))).docs) { for (const f of (await X.getDocs(col("clubs", c, "seances", x.id, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(x.ref); }
   for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) if (x.id !== moi()) await X.deleteDoc(x.ref);
   await X.deleteDoc(d("clubs", c)); await X.deleteDoc(d("clubs", c, "membres", moi()));
@@ -96,8 +97,9 @@ export const changerMembre = (c, uid, v) => X.updateDoc(d("clubs", c, "membres",
 export async function exclure(c, uid, motif, nom) {   // le membre exclu garde une notice avec le motif (exposé des motifs, DSA art. 17)
   await X.setDoc(d("clubs", c, "exclus", uid), { motif, nom, t: X.serverTimestamp() });
   await X.deleteDoc(d("clubs", c, "membres", uid));
+  await purgerPrev(c, uid).catch(() => {});
 }
-export async function quitter(c) { await X.deleteDoc(d("clubs", c, "membres", moi())); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }); }
+export async function quitter(c) { await mesPrevEffacer(c); await X.deleteDoc(d("clubs", c, "membres", moi())); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }); }
 
 /* --- Lecture en direct : membres, demandes, séances, messages --- */
 const vers = s => s.docs.map(x => ({ id: x.id, ...x.data({ serverTimestamps: "estimate" }) }));
@@ -116,6 +118,31 @@ export const publier = (c, v) => X.addDoc(col("clubs", c, "seances"), { ...v, au
 export const modifierSeance = (c, s, v) => X.updateDoc(d("clubs", c, "seances", s), v);
 export async function supprimerSeance(c, s) { for (const f of (await X.getDocs(col("clubs", c, "seances", s, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(d("clubs", c, "seances", s)); }
 export const marquerFait = (c, s, pseudo, fait) => fait ? X.setDoc(d("clubs", c, "seances", s, "faits", moi()), { pseudo, t: X.serverTimestamp() }) : X.deleteDoc(d("clubs", c, "seances", s, "faits", moi()));
+
+/* --- Prévention des blessures (activée par le coach) : une fiche par joueur et par semaine (« 2026-11-09_<uid> » : n fois),
+   plus un total d'équipe par semaine (« prevSem/2026-11-09 » : n séances, j joueurs). Le détail par joueur n'est lisible par le staff
+   que si le coach a choisi « nom par nom » ; sinon seulement le total (règles : firestore.rules). */
+const lundis = depuis => { const l = [], j = new Date(); j.setUTCHours(12, 0, 0, 0); j.setUTCDate(j.getUTCDate() - (j.getUTCDay() + 6) % 7);
+  for (let k = 0; k < 160 && j.toISOString().slice(0, 10) >= depuis; k++, j.setUTCDate(j.getUTCDate() - 7)) l.push(j.toISOString().slice(0, 10)); return l; };
+export async function prevFait(c, s, pseudo) {   // s : lundi de la semaine ; renvoie le nombre de fois cette semaine
+  const id = s + "_" + moi(), a = await lireDoc("clubs", c, "prev", id), b = X.writeBatch(db); if (a && a.n >= 14) return a.n;
+  if (a) b.update(d("clubs", c, "prev", id), { n: X.increment(1), t: X.serverTimestamp() }); else b.set(d("clubs", c, "prev", id), { uid: moi(), pseudo, s, n: 1, t: X.serverTimestamp() });
+  b.set(d("clubs", c, "prevSem", s), { n: X.increment(1), j: X.increment(a ? 0 : 1) }, { merge: true });
+  await b.commit(); return (a ? a.n : 0) + 1;
+}
+export const maPrev = (c, s) => lireDoc("clubs", c, "prev", s + "_" + moi());
+export const ecouterPrevSem = (c, s, cb) => X.onSnapshot(d("clubs", c, "prevSem", s), x => cb(x.exists() ? x.data() : null), () => cb(null));
+export async function prevSemaines(c, sems) { return Object.fromEntries(await Promise.all(sems.map(async s => [s, await lireDoc("clubs", c, "prevSem", s)]))); }
+export async function prevNoms(c, depuis) { const q = await X.getDocs(X.query(col("clubs", c, "prev"), X.where("s", ">=", depuis))).catch(() => null); return q ? vers(q) : null; }   // null : vue « total »
+async function mesPrevEffacer(c) { const q = await X.getDocs(X.query(col("clubs", c, "prev"), X.where("uid", "==", moi()))).catch(() => null); for (const x of q ? q.docs : []) await X.deleteDoc(x.ref).catch(() => {}); }
+async function purgerPrev(c, seul) {   // le coach efface les fiches (d'un joueur exclu, ou de tous) semaine par semaine depuis l'activation, sans avoir à les lire
+  const cl = await lireDoc("clubs", c), p = cl && cl.prev; if (!p || !p.depuis) return;
+  const uids = seul ? [seul] : (await X.getDocs(col("clubs", c, "membres"))).docs.map(x => x.id);
+  await Promise.all(lundis(p.depuis).flatMap(s => uids.map(u => X.deleteDoc(d("clubs", c, "prev", s + "_" + u)).catch(() => {}))));
+}
+
+/* --- Suivi du coach : qui a coché quoi sur une liste de séances --- */
+export async function faitsDe(c, ids) { const r = {}; await Promise.all(ids.map(async s => { r[s] = ((await X.getDocs(col("clubs", c, "seances", s, "faits")).catch(() => null)) || { docs: [] }).docs.map(x => x.id); })); return r; }
 
 /* --- Chat --- */
 export async function envoyer(c, texte, pseudo, rep) {   // le message et l'horodatage anti-spam partent ensemble (règle : 1 message / 2 s)
