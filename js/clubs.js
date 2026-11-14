@@ -20,11 +20,17 @@ const JEUNES = () => `<div class="carnet cl-jeunes"><b>👋 ${L("En bref, pour l
 const club = () => CL.clubs.find(x => x.id === CL.c), staff = () => ["coach", "cocoach"].includes((club() || {}).role);
 /* Sections d'un club (ex. club de boxe : boxe anglaise, MMA, JJB…) : cb.sections = [{ id, nom }], tenues par le staff ;
    chaque membre les demande (secDem, cb.mesDem), le staff valide (sections, cb.mesSec) ; un membre peut seulement en quitter une. Une séance ou un chat de section n'est visible que de ses membres et du staff. */
-const sectionsDe = cb => (cb && cb.sections) || [], nomSec = (cb, id) => (sectionsDe(cb).find(x => x.id === id) || { nom: "?" }).nom;
+const sectionsDe = cb => (cb && cb.sections) || [], nomSec = (cb, id) => /^u_/.test(id || "") ? "👤 " + (CL.u && id === "u_" + CL.u.uid ? L("Pour toi", "For you") : (CL.pseudos || {})[id.slice(2)] || "?") : (sectionsDe(cb).find(x => x.id === id) || { nom: "?" }).nom;
 const mesSections = cb => ["coach", "cocoach"].includes(cb.role) ? sectionsDe(cb).map(x => x.id) : (cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id));
-function ecouterSeancesClub(cb, f) {   // séances du club entier + de mes sections, fusionnées par date (plus récentes d'abord)
-  const parts = {}, ids = ["", ...mesSections(cb)], tout = () => f(ids.flatMap(k => parts[k] || []).sort((a, b) => a.date < b.date ? 1 : -1));
-  const stops = ids.map(k => SV.ecouterSeances(cb.id, l => { parts[k] = l; if (ids.every(x => parts[x])) tout(); }, k)); return () => stops.forEach(x => x());
+// séances du club entier + de mes sections + celles publiées pour moi seul (salon « u_<uid> ») ; le staff voit celles de chaque membre
+function ecouterSeancesClub(cb, f) {
+  let stops = [], ids = [], parts = {}, cle = null;
+  const tout = () => f(ids.flatMap(k => parts[k] || []).sort((a, b) => a.date < b.date ? 1 : -1));
+  const brancher = perso => { stops.forEach(x => x()); parts = {}; ids = ["", ...mesSections(cb), ...perso]; stops = ids.map(k => SV.ecouterSeances(cb.id, l => { parts[k] = l; if (ids.every(x => parts[x])) tout(); }, k)); };
+  if (!["coach", "cocoach"].includes(cb.role)) { brancher(CL.u ? ["u_" + CL.u.uid] : []); return () => stops.forEach(x => x()); }
+  const fm = SV.ecouterMembres(cb.id, l => { CL.mbListe = l.filter(m => !["coach", "cocoach"].includes(m.role)); CL.pseudos = Object.fromEntries(l.map(m => [m.id, m.pseudo]));
+    const p = CL.mbListe.slice(0, 80).map(m => "u_" + m.id), k = p.join(); if (k !== cle) { cle = k; brancher(p); } });   // l'heure du dernier message change souvent : on ne rebranche que si les membres changent
+  return () => { fm(); stops.forEach(x => x()); };
 }
 const ROLES = { coach: ["Coach", "Coach"], cocoach: ["Co-coach", "Co-coach"], membre: ["Membre", "Member"] };
 const dateLisible = j => { const a = jourCle(), dm = decaler(a, 1); return j === a ? L("Aujourd’hui", "Today") : j === dm ? L("Demain", "Tomorrow") : new Date(j + "T12:00").toLocaleDateString(LANGUE === "en" ? "en-GB" : "fr-FR", { weekday: "short", day: "numeric", month: "short" }); };
@@ -282,7 +288,7 @@ function ongSeances(Z, cb) {
     };
     ecoutesFaits.forEach(f => f()); ecoutesFaits = [];
     if (staff()) { const mb = await new Promise(r => { const f = SV.ecouterMembres(cb.id, x => { r(x); f(); }); });
-      Z.querySelectorAll("[data-suivi]").forEach(D => { const s = D.dataset.suivi; const sec = (l.find(x => x.id === s) || {}).sec, mbS = sec ? mb.filter(m => (m.sections || []).includes(sec) || ["coach", "cocoach"].includes(m.role)) : mb;
+      Z.querySelectorAll("[data-suivi]").forEach(D => { const s = D.dataset.suivi; const sec = (l.find(x => x.id === s) || {}).sec, mbS = /^u_/.test(sec || "") ? mb.filter(m => m.id === sec.slice(2)) : sec ? mb.filter(m => (m.sections || []).includes(sec) || ["coach", "cocoach"].includes(m.role)) : mb;
         ecoutesFaits.push(SV.ecouterFaits(cb.id, s, f => { const ok = new Set(f.map(x => x.id));
         $("nb_" + s).textContent = `${ok.size}/${mbS.length}`; $("qui_" + s).innerHTML = mbS.map(m => `<span class="cl-qui${ok.has(m.id) ? " ok" : ""}">${ok.has(m.id) ? "✓" : "✗"} ${echap(m.pseudo)}</span>`).join(""); }, sec)); }); }
   }));
@@ -298,7 +304,7 @@ function feuillePublier() {
   ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Parcourir", "Browse"], ["mod", "Modèles", "Templates"], ["fav", "Mes séances", "My workouts"], ["prog", "Programmes", "Programmes"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
     <label class="recherche"><input id="pbQ" type="search" placeholder="${L("Rechercher", "Search")}" autocomplete="off"></label><ul class="list cl-choix" id="pbListe"></ul>
     <div class="champ-duo"><label class="champ"><span id="pbDateT">${L("Date", "Date")}</span><input type="date" id="pbDate" value="${jourCle()}" min="${decaler(jourCle(), -30)}"></label><label class="champ"><span>${L("Titre affiché", "Displayed title")}</span><input id="pbTitre" maxlength="60"></label></div>
-    ${sectionsDe(club()).length ? `<label class="champ"><span>${L("Pour", "For")}</span><select id="pbSec"><option value="">${L("Tout le club", "The whole club")}</option>${sectionsDe(club()).map(x => `<option value="${x.id}"${CL.filtre === x.id ? " selected" : ""}>${echap(x.nom)}</option>`).join("")}</select></label>` : ""}
+    <label class="champ"><span>${L("Pour", "For")}</span><select id="pbSec"><option value="">${L("Tout le club", "The whole club")}</option>${sectionsDe(club()).length ? `<optgroup label="${L("Une section", "A section")}">${sectionsDe(club()).map(x => `<option value="${x.id}"${CL.filtre === x.id ? " selected" : ""}>${echap(x.nom)}</option>`).join("")}</optgroup>` : ""}${(CL.mbListe || []).length ? `<optgroup label="${L("Une personne (séance sur mesure)", "One person (tailored workout)")}">${[...CL.mbListe].sort((a, b) => a.pseudo.localeCompare(b.pseudo)).map(m => `<option value="u_${m.id}">👤 ${echap(m.pseudo)}</option>`).join("")}</optgroup>` : ""}</select></label>
     <label class="champ"><span>${L("Consigne pour le groupe (facultatif)", "Note for the group (optional)")}</span><textarea id="pbNote" class="choixVoix" rows="2" maxlength="300" placeholder="${L("ex. À faire avant l’entraînement de jeudi", "e.g. Do it before Thursday’s practice")}"></textarea></label><p class="cl-erreur" id="pbErr"></p>
     <button class="primary" id="pbOk">${L("Publier", "Post")}</button>`);
   const liste = () => { const q = plat($("pbQ").value.trim()), y = $("pbListe").scrollTop; requestAnimationFrame(() => { $("pbListe").scrollTop = y; });   // choisir une séance ne ramène pas la liste en haut
@@ -475,7 +481,7 @@ async function majCarteClubs() {
   const vide = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${L("Clubs", "Clubs")}</strong><small>${L("Rejoins le club de ton coach ou crée le tien", "Join your coach’s club or create your own")}</small></span></button>`;
   if (!lire("clubCompte") || !CL.u) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); if (lire("clubCompte") && CL.u === undefined) chargerServeur().catch(() => {}); return; }
   if (!CL.clubs.length) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); return; }
-  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, mesSections(c)))[0], m: await SV.dernierMessage(c.id), ms: await Promise.all(mesSections(c).map(async sal => [c.id + "_" + sal, await SV.dernierMessage(c.id, sal)])) })));
+  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, [...mesSections(c), ...(CL.u ? ["u_" + CL.u.uid] : [])]))[0], m: await SV.dernierMessage(c.id), ms: await Promise.all(mesSections(c).map(async sal => [c.id + "_" + sal, await SV.dernierMessage(c.id, sal)])) })));
   CL.der = Object.fromEntries(info.flatMap(x => [[x.c.id, x.m], ...x.ms]));
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances", depuisAccueil: true }) : ouvrirClubs({ vue: "liste", depuisAccueil: false });

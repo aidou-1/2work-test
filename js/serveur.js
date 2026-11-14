@@ -88,9 +88,10 @@ export async function purgerAnciens(c, estCoach) {
   const avant = j => X.Timestamp.fromMillis(Date.now() - j * 864e5), jourAvant = j => new Date(Date.now() - j * 864e5).toISOString().slice(0, 10),
     vieux = async (chemin, champ, lim, n = 100) => ((await X.getDocs(X.query(col(...chemin), X.where(champ, "<", lim), X.limit(n))).catch(() => null)) || { docs: [] }).docs;
   for (const [k, j] of [["signalements", DUREES.signalements], ["demandes", DUREES.demandes], ["exclus", DUREES.exclus]]) for (const x of await vieux(["clubs", c, k], "t", avant(j))) await X.deleteDoc(x.ref).catch(() => {});
-  const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
+  const cl = await lireDoc("clubs", c), mbs = await X.getDocs(col("clubs", c, "membres")).catch(() => null), mb = mbs && new Set(mbs.docs.map(x => x.id)),
+    sals = ["", ...((cl && cl.sections) || []).map(x => x.id), ...[...(mb || [])].map(u => "u_" + u)];
   const mi = (await X.getDocs(col("clubs", c, "mineurs")).catch(() => null)) || { docs: [] };   // fiches « -15 » restées après un départ (anciennes versions)
-  if (mi.docs.length) { const mbs = await X.getDocs(col("clubs", c, "membres")).catch(() => null), mb = mbs && new Set(mbs.docs.map(x => x.id)); if (mb) for (const x of mi.docs) if (!mb.has(x.id)) await X.deleteDoc(x.ref).catch(() => {}); }
+  if (mb) for (const x of mi.docs) if (!mb.has(x.id)) await X.deleteDoc(x.ref).catch(() => {});
   for (const sal of sals) {
     for (const x of await vieux([...B(c, sal), "seances"], "date", jourAvant(DUREES.faits), 30))   // coches des séances de plus de 3 mois
       for (const f of ((await X.getDocs(col(...B(c, sal), "seances", x.id, "faits")).catch(() => null)) || { docs: [] }).docs) await X.deleteDoc(f.ref).catch(() => {});
@@ -103,6 +104,7 @@ export async function purgerAnciens(c, estCoach) {
 }
 export async function supprimerClub(c) {   // le coach efface tout le contenu, puis le club, puis sa propre fiche de membre
   await purgerPrev(c); for (const x of ((await lireDoc("clubs", c)) || {}).sections || []) await supprimerSection(c, x.id);
+  for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) await supprimerSection(c, "u_" + x.id);   // séances personnelles
   for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem", "sanctions", "mineurs"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
   for (const x of (await X.getDocs(col("clubs", c, "seances"))).docs) { for (const f of (await X.getDocs(col("clubs", c, "seances", x.id, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(x.ref); }
   for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) if (x.id !== moi()) await X.deleteDoc(x.ref);
@@ -136,12 +138,13 @@ export async function exclure(c, uid, motif, nom) {   // le membre exclu garde u
   await X.setDoc(d("clubs", c, "exclus", uid), { motif, nom, t: X.serverTimestamp(), exp: exp(DUREES.exclus) });
   const cl = await lireDoc("clubs", c);
   for (const sal of ["", ...((cl && cl.sections) || []).map(x => x.id)]) { const se = await X.getDocs(col(...B(c, sal), "seances")).catch(() => null); for (const x of se ? se.docs : []) await X.deleteDoc(d(...B(c, sal), "seances", x.id, "faits", uid)).catch(() => {}); }
-  await X.deleteDoc(d("clubs", c, "sanctions", uid)).catch(() => {});
+  await X.deleteDoc(d("clubs", c, "sanctions", uid)).catch(() => {}); await supprimerSection(c, "u_" + uid).catch(() => {});
   await X.deleteDoc(d("clubs", c, "membres", uid)); await X.deleteDoc(d("clubs", c, "mineurs", uid)).catch(() => {});
   await purgerPrev(c, uid).catch(() => {});
 }
-async function mesTracesEffacer(c, anonyme) {   // mes messages (club et sections) vidés, mes coches et fiches de prévention effacées
+async function mesTracesEffacer(c, anonyme) {   // mes messages (club et sections) vidés, mes coches, mes séances personnelles et fiches de prévention effacées
   const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
+  await supprimerSection(c, "u_" + moi()).catch(() => {});
   for (const sal of sals) {
     const q = await X.getDocs(X.query(col(...B(c, sal), "messages"), X.where("uid", "==", moi()))).catch(() => null);
     for (const x of q ? q.docs : []) await X.updateDoc(x.ref, { suppr: true, texte: "", reac: {}, rep: X.deleteField(), ...(anonyme ? { pseudo: "" } : {}) }).catch(() => {});
@@ -180,7 +183,7 @@ export const ecouterMineurs = (c, cb) => X.onSnapshot(col("clubs", c, "mineurs")
 const vers = s => s.docs.map(x => ({ id: x.id, ...x.data({ serverTimestamps: "estimate" }) }));
 export const ecouterMembres = (c, cb) => X.onSnapshot(col("clubs", c, "membres"), s => cb(vers(s)), () => cb([]));
 export const ecouterDemandes = (c, cb) => X.onSnapshot(col("clubs", c, "demandes"), s => cb(vers(s)), () => cb([]));
-export const ecouterSeances = (c, cb, sal) => X.onSnapshot(X.query(col(...B(c, sal), "seances"), X.orderBy("date", "desc"), X.limit(60)), s => cb(vers(s).map(x => ({ ...x, sec: sal || "" }))), () => cb([]));
+export const ecouterSeances = (c, cb, sal) => X.onSnapshot(X.query(col(...B(c, sal), "seances"), X.orderBy("date", "desc"), X.limit(/^u_/.test(sal || "") ? 12 : 60)), s => cb(vers(s).map(x => ({ ...x, sec: sal || "" }))), () => cb([]));
 export const ecouterFaits = (c, s, cb, sal) => X.onSnapshot(col(...B(c, sal), "seances", s, "faits"), q => cb(vers(q)), () => cb([]));
 export const ecouterMessages = (c, cb, sal) => X.onSnapshot(X.query(col(...B(c, sal), "messages"), X.orderBy("t", "desc"), X.limit(150)), s => cb(vers(s).reverse()), () => cb([]));
 export const ecouterSignalements = (c, cb) => X.onSnapshot(col("clubs", c, "signalements"), s => cb(vers(s)), () => cb([]));

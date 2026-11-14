@@ -265,6 +265,7 @@ box-shadow: 0 14px 28px -16px var(--c); }
 .reglage label { flex: 1 1 9em; font-weight: 600; }
 .reglage small { display: block; color: var(--muted); font-weight: 400; font-size: .85rem; }
 .stepper { display: flex; align-items: center; gap: 6px; }
+#session, #pret { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* pendant l'effort : rien à sélectionner (secouer = « Annuler » sur iPhone) */
 .stepper, .stepper output { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .stepper button:not(.toggle) { width: 44px; height: 44px; font-size: 1.4rem; font-weight: 600; background: var(--soft); color: var(--ink); }
 .stepper output { min-width: 3.2em; text-align: center; font-family: var(--titre); font-weight: 700; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
@@ -686,6 +687,67 @@ html[data-theme="dark"] .nav { border-color: color-mix(in srgb, var(--accent) 40
 html[data-theme="dark"] #menu .choice, html[data-theme="dark"] .prog-carte { box-shadow: 0 0 30px -8px var(--c), inset 0 1px 0 rgba(255,255,255,.25); border: 1px solid color-mix(in srgb, var(--c) 60%, #fff); }
 html[data-theme="dark"] .media { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 30px -8px var(--accent); }
 
+/* ===== Thèmes (Réglages → Style) : data-style sur <html>, combiné au clair/sombre (data-theme). Sans data-style : le style d'origine.
+   Fonderie : dalles épaisses en volume, orange en fusion réservé aux actions. Atelier papier : papier grainé, cartes pliées, encre.
+   :is([data-theme]) relève la priorité au-dessus des halos du sombre néon ; --rx/--ry : inclinaison 3D au doigt (tilt, js/progres.js). ===== */
+:root { --ressort: cubic-bezier(.34, 1.56, .64, 1); }
+html[data-style] :is(.choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte) { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .55s var(--ressort), box-shadow .3s; }
+html[data-style] :is(.primary, .toggle, .controls button, .choice, .tuile):active { transform: translateY(3px) scale(.985); }
+html[data-style] .fond i, html[data-style] .fond b { display: none; }
+
+/* --- Fonderie --- */
+html[data-style="fonderie"] { --brand: #FF6A16; --bg: #F4ECE3; --surface: #FFFAF4; --soft: #EADDCF; --ligne: rgba(90,50,20,.10); --ink: #1E140E; --muted: #6E5A4C; --accent-txt: #B8430A; --voile: 244,236,227;
+  --dalle: linear-gradient(165deg, #FFFDF9, #F3E8DC); --epais: 0 1px 0 #fff inset, 0 2px 0 #E2D2C1, 0 4px 0 #D6C3AF, 0 6px 0 #C9B39C, 0 18px 22px -14px rgba(90,58,32,.45);
+  --fusion: linear-gradient(180deg, #FF8A2E, #E2470C); --ep-btn: 0 1px 0 #FFD1A0 inset, 0 4px 0 #9A3306, 0 14px 22px -10px rgba(255,90,0,.5); --braise: rgba(255,106,22,.16); }
+html[data-style="fonderie"][data-theme="dark"] { --bg: #0C0907; --surface: #211812; --soft: #2C211A; --ligne: rgba(255,200,150,.08); --ink: #FFF4E8; --muted: #C2B1A2; --accent-txt: #FF8A3D; --or: #FFB347; --voile: 12,9,7;
+  --dalle: linear-gradient(165deg, #2C211A, #1A130F 65%); --epais: 0 1px 0 rgba(255,255,255,.09) inset, 0 -1px 0 rgba(0,0,0,.5) inset, 0 2px 0 #130E0B, 0 4px 0 #100B09, 0 6px 0 #0C0907, 0 22px 26px -14px rgba(0,0,0,.85); --braise: rgba(255,106,22,.28); }
+html[data-style="fonderie"] body { background: radial-gradient(900px 520px at 15% -12%, var(--braise), transparent 65%), radial-gradient(700px 520px at 110% 35%, color-mix(in srgb, var(--braise) 50%, transparent), transparent 70%), var(--bg); background-attachment: fixed; }
+html[data-style="fonderie"]:is([data-theme]) :is(.choice, .list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte) { background: var(--dalle); border: 0; border-radius: 20px; box-shadow: var(--epais); }
+html[data-style="fonderie"]:is([data-theme]) :is(.choice, .sc-corps)::before { box-shadow: 0 0 10px var(--c); }
+html[data-style="fonderie"]:is([data-theme]) :is(#menu .choice, .prog-carte) { border: 0; background: radial-gradient(90% 120% at 100% 0%, rgba(255,255,255,.28), transparent 55%), linear-gradient(150deg, color-mix(in srgb, var(--c) 80%, #fff), var(--c) 45%, color-mix(in srgb, var(--c) 72%, #000));
+  box-shadow: 0 1px 0 rgba(255,255,255,.45) inset, 0 -2px 0 rgba(0,0,0,.18) inset, 0 2px 0 color-mix(in srgb, var(--c) 60%, #000), 0 4px 0 color-mix(in srgb, var(--c) 50%, #000), 0 6px 0 color-mix(in srgb, var(--c) 40%, #000), 0 24px 30px -14px color-mix(in srgb, var(--c) 60%, transparent); }
+html[data-style="fonderie"]:is([data-theme]) :is(.primary, .controls .main, .toggle:not([aria-pressed="false"]):not(.contour), .ajouter) { background: var(--fusion); color: #170801; box-shadow: var(--ep-btn); }
+html[data-style="fonderie"]:is([data-theme]) :is(.primary, .controls .main):active { box-shadow: 0 1px 0 #FFD1A0 inset, 0 1px 0 #9A3306; }
+html[data-style="fonderie"]:is([data-theme]) :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main)) { background: var(--dalle); color: var(--ink); box-shadow: var(--epais); border: 0; }
+html[data-style="fonderie"]:is([data-theme]) .nav { border: 0; background: color-mix(in srgb, var(--surface) 86%, transparent); box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 4px 0 color-mix(in srgb, var(--bg) 70%, #000), 0 20px 30px -10px rgba(0,0,0,.6); }
+html[data-style="fonderie"]:is([data-theme]) .nav button[aria-current="page"] { color: var(--accent-txt); } html[data-style="fonderie"]:is([data-theme]) .nav button[aria-current="page"] svg { filter: drop-shadow(0 0 6px var(--brand)); }
+html[data-style="fonderie"]:is([data-theme]) :is(h1, .end h2) { background: linear-gradient(180deg, var(--ink) 30%, color-mix(in srgb, var(--brand) 70%, var(--ink))); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--brand) 35%, transparent)); }
+html[data-style="fonderie"]:is([data-theme]) .time { color: var(--ink); text-shadow: 0 1px 0 #FFB98A, 0 2px 0 #F08A4F, 0 3px 0 #D96A2E, 0 4px 0 #B9521F, 0 5px 0 #963F15, 0 6px 0 #74300F, 0 16px 22px rgba(0,0,0,.45); }
+html[data-style="fonderie"]:is([data-theme]) #anneau { stroke: var(--brand); filter: drop-shadow(0 0 6px var(--brand)); } html[data-style="fonderie"] .anneau-t .piste { stroke: var(--soft); }
+html[data-style="fonderie"]:is([data-theme]) .media { border-radius: 24px; box-shadow: var(--epais); }
+
+/* --- Atelier papier --- */
+html[data-style="papier"] { --brand: #C8430B; --bg: #E9E0CF; --surface: #FFFCF6; --soft: #EFE6D6; --ligne: rgba(58,40,20,.12); --ink: #17120E; --muted: #5A5047; --accent-txt: #B23A08; --vert: #2E6A4E; --voile: 233,224,207; --r: 8px;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .22 0 0 0 0 .15 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --feuille: 0 1px 1px rgba(58,40,20,.06), 0 2px 2px rgba(58,40,20,.06), 0 4px 4px rgba(58,40,20,.06), 0 8px 8px rgba(58,40,20,.06), 0 16px 16px rgba(58,40,20,.05); --encre: #17120E; --papier-btn: #FFF7EA; }
+html[data-style="papier"][data-theme="dark"] { --bg: #1B1713; --surface: #2A241E; --soft: #352D25; --ligne: rgba(255,240,220,.10); --ink: #F3EADB; --muted: #BBAE9C; --accent-txt: #F07A2E; --vert: #6FBF94; --voile: 27,23,19;
+  --feuille: 0 1px 1px rgba(0,0,0,.25), 0 4px 6px rgba(0,0,0,.25), 0 14px 18px rgba(0,0,0,.3); --encre: #F3EADB; --papier-btn: #1B1713; }
+html[data-style="papier"] body { background: var(--grain), var(--bg); }
+html[data-style="papier"]:is([data-theme]) :is(.choice, .list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte) { background: var(--grain), var(--surface); border: 0; border-radius: 6px; box-shadow: var(--feuille); }
+html[data-style="papier"]:is([data-theme]) :is(.carte, .carnet) { position: relative; } html[data-style="papier"]:is([data-theme]) :is(.choice, .tuile, .carte, .carnet)::after { content: ""; position: absolute; transform: none; border: 0; opacity: 1; right: 0; top: 0; width: 18px; height: 18px; pointer-events: none; border-bottom-left-radius: 4px; background: linear-gradient(225deg, var(--bg) 50%, color-mix(in srgb, var(--surface) 80%, #000) 50%); box-shadow: -2px 2px 3px rgba(58,40,20,.15); transition: width .5s var(--ressort), height .5s var(--ressort); }
+html[data-style="papier"]:is([data-theme]) :is(.choice, .tuile, .carte, .carnet).incline::after { width: 28px; height: 28px; }
+html[data-style="papier"]:is([data-theme]) :is(#menu .choice, .prog-carte) { border: 0; border-radius: 6px; background: var(--grain), linear-gradient(160deg, var(--c), color-mix(in srgb, var(--c) 80%, #000)); box-shadow: var(--feuille); }
+html[data-style="papier"]:is([data-theme]) :is(#menu .choice, .prog-carte)::after { content: ""; display: block; position: absolute; inset: 0; right: auto; width: 100%; height: 100%; border-radius: inherit; pointer-events: none; transform: none; border: 0; opacity: 1; background: linear-gradient(calc(100deg + var(--ry, 0deg) * 3), transparent 54%, rgba(0,0,0,.14) 54.2%, rgba(255,255,255,.18) 54.6%, transparent 63%); box-shadow: none; }
+html[data-style="papier"]:is([data-theme]) :is(.primary, .controls .main, .toggle:not([aria-pressed="false"]):not(.contour), .ajouter) { background: var(--encre); color: var(--papier-btn); border-radius: 999px; box-shadow: 0 2px 0 #000, 0 8px 14px -6px rgba(58,40,20,.6); }
+html[data-style="papier"]:is([data-theme]) :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main)) { background: var(--grain), var(--surface); color: var(--ink); border-radius: 999px; box-shadow: inset 0 0 0 2px var(--encre), 0 3px 0 var(--encre); border: 0; }
+html[data-style="papier"]:is([data-theme]) .nav { border: 0; border-radius: 8px; background: var(--grain), var(--surface); box-shadow: var(--feuille); }
+html[data-style="papier"]:is([data-theme]) .nav button[aria-current="page"] { color: var(--accent-txt); } html[data-style="papier"]:is([data-theme]) .nav button[aria-current="page"] svg { filter: none; }
+html[data-style="papier"]:is([data-theme]) :is(h1, .end h2, .time) { text-shadow: none; } html[data-style="papier"]:is([data-theme]) .time { color: var(--ink); }
+html[data-style="papier"]:is([data-theme]) #anneau { stroke: var(--brand); filter: none; } html[data-style="papier"]:is([data-theme]) .media { border-radius: 6px; box-shadow: var(--feuille); }
+html[data-style="papier"] .choices > :nth-child(odd) { rotate: -.4deg; } html[data-style="papier"] .choices > :nth-child(even) { rotate: .4deg; }
+
+/* ===== Style du minuteur (Réglages, tous les thèmes) : chiffres (d'origine), anneau couché avec coureur, volets à bascule ===== */
+html[data-minuteur="coureur"] #session .chrono { position: relative; justify-content: center; perspective: 520px; padding-bottom: 18px; }
+html[data-minuteur="coureur"] #session .chrono .anneau-t { position: absolute; left: 50%; top: 66%; width: min(300px, 84vw); max-width: none; flex: none; translate: -50% -50%; transform: rotateX(68deg) rotate(-90deg); z-index: -1; }
+html[data-minuteur="coureur"] #session .chrono .anneau-t circle { stroke-width: 6; } html[data-minuteur="coureur"] #session .chrono .anneau-t.fin { animation: none; } html[data-minuteur="coureur"] #coureur { display: block; }
+#coureur { display: none; transform-origin: 50px 50px; transition: transform 1s linear; fill: #fff; filter: drop-shadow(0 0 4px var(--brand)) drop-shadow(0 0 10px var(--brand)); }
+html[data-minuteur="coureur"] #session:has(#mediaBox > .media) > .chrono .anneau-t { position: static; width: 58px; translate: none; transform: rotate(-90deg); z-index: auto; }
+.time .volet { display: inline-block; position: relative; transform-origin: 50% 55%; } .time .volet.bascule { animation: volet .5s var(--doux); }
+@keyframes volet { 0% { transform: perspective(400px) rotateX(-90deg); opacity: .2; } 60% { transform: perspective(400px) rotateX(12deg); opacity: 1; } 100% { transform: none; } }
+html[data-minuteur="volets"] #time { display: inline-flex; gap: .04em; } html[data-minuteur="volets"] #time .volet { padding: 0 .04em; border-radius: .08em; background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #fff) 50%, var(--surface) 50%); box-shadow: 0 2px 0 color-mix(in srgb, var(--surface) 70%, #000), 0 10px 16px -8px rgba(0,0,0,.5), inset 0 -1px 0 rgba(0,0,0,.25); }
+html[data-minuteur="volets"] #time .volet { color: var(--ink); } html[data-minuteur="volets"] #time .volet::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: rgba(0,0,0,.28); }
+@media (prefers-reduced-motion: reduce) { html[data-style] :is(.choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte) { transform: none; } .time .volet.bascule { animation: none; } }
+
 @media (prefers-reduced-motion: reduce) {
 *:not(.souffle > i, .rc-barres b), *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 button:active:not(:disabled) { transform: none; }
@@ -698,7 +760,7 @@ button:active:not(:disabled) { transform: none; }
 .bx-gestes { padding: 0 !important; } .bx-prof .chips, .bx-regl .chips { flex-wrap: wrap; } .bx-gestes li { cursor: pointer; } .bx-prof > .toggle { width: 100%; margin-top: 8px; white-space: normal; height: auto; min-height: 40px; }
 </style>
 <script>/* thème appliqué avant l'affichage pour éviter un flash clair */
-try { const t = localStorage.getItem("theme") || "sombre"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; } catch (e) {}</script>
+try { const t = localStorage.getItem("theme") || "sombre"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; const s = localStorage.getItem("style") || "fonderie", m = localStorage.getItem("minuteur") || "chiffres"; if (s !== "actuel") document.documentElement.dataset.style = s; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; } catch (e) {}</script>
 </head>
 <body>
 <div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div>
@@ -848,7 +910,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="bars" id="bars"></div>
 <p class="count" id="count"></p>
 <p class="fc hidden" id="fcPastille"></p>
-<div class="chrono"><div class="time" id="time">20</div><svg class="anneau-t" id="anneauBox" viewBox="0 0 100 100" aria-hidden="true"><circle class="piste" cx="50" cy="50" r="44"/><circle id="anneau" cx="50" cy="50" r="44"/></svg></div>
+<div class="chrono"><div class="time" id="time">20</div><svg class="anneau-t" id="anneauBox" viewBox="0 0 100 100" aria-hidden="true"><circle class="piste" cx="50" cy="50" r="44"/><circle id="anneau" cx="50" cy="50" r="44"/><circle id="coureur" cx="94" cy="50" r="5"/></svg></div>
 <button id="plusRepos" class="plus-repos hidden">+15 s</button>
 <h2 class="name" id="name"></h2>
 <p class="type-ex" id="typeEx"></p>
@@ -901,6 +963,14 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="stepper"><button class="toggle" id="thClair" aria-pressed="true">Clair</button><button class="toggle" id="thSombre" aria-pressed="false">Sombre</button><button class="toggle" id="thAuto" aria-pressed="false">Auto</button></div>
 </div>
 <div class="reglage">
+<label>Style<small>L’allure de toute l’appli, en clair comme en sombre</small></label>
+<div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="actuel">Classique</button></div>
+</div>
+<div class="reglage">
+<label>Minuteur<small>Pendant la séance : chiffres, anneau avec coureur ou volets qui basculent</small></label>
+<div class="stepper" id="rgMinuteur" role="group"><button class="toggle" data-mn="chiffres">Chiffres</button><button class="toggle" data-mn="coureur">Anneau</button><button class="toggle" data-mn="volets">Volets</button></div>
+</div>
+<div class="reglage">
 <label for="coachBtn">Coach vocal<small>Encouragements pendant l’effort : mi-parcours, 10 dernières secondes</small></label>
 <button id="coachBtn" class="toggle" aria-pressed="true">Activé</button>
 </div>
@@ -921,7 +991,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="volume"><input type="range" id="volSons" min="0" max="300" step="10" value="100"><output id="volVal">100 %</output></div>
 </div>
 <div class="reglage">
-<label for="musiqueBtn">Écouter ma musique en même temps<small data-en="Beeps mix with your music (Spotify, Deezer…) without stopping it. Turn this off to control the workout from the lock screen or your earphones (pause, next, previous): the app then takes over the phone’s audio.">Les bips se mélangent à ta musique (Spotify, Deezer…) sans la couper. Coupe ce réglage pour piloter la séance depuis l’écran verrouillé ou tes écouteurs (pause, suivant, précédent) : l’appli prend alors le son du téléphone.</small></label>
+<label for="musiqueBtn">Écouter ma musique en même temps<small data-en="Beeps mix with your music (Spotify, Deezer…) without stopping it. Turn this off to hear the beeps with the screen off (intervals, running) and to control the workout from the lock screen or your earphones: the app then takes over the phone’s audio.">Les bips se mélangent à ta musique (Spotify, Deezer…) sans la couper, mais se taisent écran éteint. Coupe ce réglage pour entendre les bips <b>même écran éteint</b> (fractionné, course) et piloter la séance depuis l’écran verrouillé ou tes écouteurs : l’appli prend alors le son du téléphone.</small></label>
 <button id="musiqueBtn" class="toggle" aria-pressed="true">Activé</button>
 </div>
 <div class="reglage">
@@ -1013,38 +1083,38 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-14y"></script>
-<script src="js/donnees.js?v=2026-11-14y"></script>
-<script src="js/seance.js?v=2026-11-14y"></script>
-<script src="js/progres.js?v=2026-11-14y"></script>
-<script src="js/catalogue.js?v=2026-11-14y"></script>
-<script src="js/profil.js?v=2026-11-14y"></script>
-<script src="js/anatomie.js?v=2026-11-14y"></script>
-<script src="js/evenements.js?v=2026-11-14y"></script>
-<script src="js/outils.js?v=2026-11-14y"></script>
-<script src="js/cardio.js?v=2026-11-14y"></script>
-<script src="js/chronos.js?v=2026-11-14y"></script>
-<script src="js/sports.js?v=2026-11-14y"></script>
-<script src="js/sport.js?v=2026-11-14y"></script>
-<script src="js/boxe.js?v=2026-11-14y"></script>
-<script src="js/foot.js?v=2026-11-14y"></script>
-<script src="js/course.js?v=2026-11-14y"></script>
-<script src="js/basket.js?v=2026-11-14y"></script>
-<script src="js/tennis.js?v=2026-11-14y"></script>
-<script src="js/padel.js?v=2026-11-14y"></script>
-<script src="js/handball.js?v=2026-11-14y"></script>
-<script src="js/volley.js?v=2026-11-14y"></script>
-<script src="js/cyclisme.js?v=2026-11-14y"></script>
-<script src="js/natation.js?v=2026-11-14y"></script>
-<script src="js/escalade.js?v=2026-11-14y"></script>
-<script src="js/ski.js?v=2026-11-14y"></script>
-<script src="js/surf.js?v=2026-11-14y"></script>
-<script src="js/pilates.js?v=2026-11-14y"></script>
-<script src="js/jeu.js?v=2026-11-14y"></script>
-<script src="js/moi.js?v=2026-11-14y"></script>
-<script src="js/guide.js?v=2026-11-14y"></script>
-<script src="js/clubs.js?v=2026-11-14y"></script>
-<script src="js/coach.js?v=2026-11-14y"></script>
-<script src="js/semaine1.js?v=2026-11-14y"></script>
+<script src="consignes.js?v=2026-11-14za"></script>
+<script src="js/donnees.js?v=2026-11-14za"></script>
+<script src="js/seance.js?v=2026-11-14za"></script>
+<script src="js/progres.js?v=2026-11-14za"></script>
+<script src="js/catalogue.js?v=2026-11-14za"></script>
+<script src="js/profil.js?v=2026-11-14za"></script>
+<script src="js/anatomie.js?v=2026-11-14za"></script>
+<script src="js/evenements.js?v=2026-11-14za"></script>
+<script src="js/outils.js?v=2026-11-14za"></script>
+<script src="js/cardio.js?v=2026-11-14za"></script>
+<script src="js/chronos.js?v=2026-11-14za"></script>
+<script src="js/sports.js?v=2026-11-14za"></script>
+<script src="js/sport.js?v=2026-11-14za"></script>
+<script src="js/boxe.js?v=2026-11-14za"></script>
+<script src="js/foot.js?v=2026-11-14za"></script>
+<script src="js/course.js?v=2026-11-14za"></script>
+<script src="js/basket.js?v=2026-11-14za"></script>
+<script src="js/tennis.js?v=2026-11-14za"></script>
+<script src="js/padel.js?v=2026-11-14za"></script>
+<script src="js/handball.js?v=2026-11-14za"></script>
+<script src="js/volley.js?v=2026-11-14za"></script>
+<script src="js/cyclisme.js?v=2026-11-14za"></script>
+<script src="js/natation.js?v=2026-11-14za"></script>
+<script src="js/escalade.js?v=2026-11-14za"></script>
+<script src="js/ski.js?v=2026-11-14za"></script>
+<script src="js/surf.js?v=2026-11-14za"></script>
+<script src="js/pilates.js?v=2026-11-14za"></script>
+<script src="js/jeu.js?v=2026-11-14za"></script>
+<script src="js/moi.js?v=2026-11-14za"></script>
+<script src="js/guide.js?v=2026-11-14za"></script>
+<script src="js/clubs.js?v=2026-11-14za"></script>
+<script src="js/coach.js?v=2026-11-14za"></script>
+<script src="js/semaine1.js?v=2026-11-14za"></script>
 </body>
 </html>

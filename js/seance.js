@@ -255,6 +255,7 @@ function afficherEcran(nom) {
   const onglet = { menu: "nMenu", progres: "nProgres", progs: "nProgs", outils: "nOutils", moi: "nMoi", reglages: "reglagesBtn" }[nom];   // barre de navigation : écrans principaux seulement
   $("nav").classList.toggle("hidden", !onglet); [...$("nav").children].forEach(b => b.setAttribute("aria-current", b.id === onglet ? "page" : "false"));
   if (nom === "menu") { majReprise(); majVitalite(); majJeu(); majQuick();  if (typeof guideAuto === "function") guideAuto(); if (typeof majCarteClubs === "function") majCarteClubs(); if (typeof majS1 === "function") majS1(); }
+  if (["pret", "session"].includes(nom)) try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); getSelection().removeAllRanges(); } catch (e) {}   // iPhone : rien de sélectionné ni de saisi en cours, sinon secouer le téléphone en courant propose « Annuler »
   if (!["pret", "session"].includes(nom)) { clearTimeout(tSecours); $("voixSecours").classList.add("hidden"); }   // pas d'annonce de secours hors séance
   majVerrou();
 }
@@ -280,7 +281,7 @@ let limiteur = null;
 const sortie = () => { if (!limiteur) { limiteur = audio.createDynamicsCompressor(); limiteur.threshold.value = -3; limiteur.knee.value = 0; limiteur.ratio.value = 20; limiteur.attack.value = .002; limiteur.release.value = .1; limiteur.connect(audio.destination); } return limiteur; };
 function bip(freq = 880, ms = 150, vol = 0.15, forme = "sine", decalage = 0, attaque = 0.015) {
   try {
-    if (!volSons || muet) return;
+    if (!volSons || muet || guideJoue()) return;
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state !== "running") audio.resume();   // « suspended », ou « interrupted » sur iPhone après la voix
     const o = audio.createOscillator(), g = audio.createGain();
@@ -320,10 +321,52 @@ function pisteSilence() {
   silence = new Audio(URL.createObjectURL(new Blob([o], { type: "audio/wav" }))); silence.loop = true;
   return silence;
 }
+/* Piste guide, écran éteint : quand le téléphone se verrouille, il gèle la page (minuteur, voix, bips) mais laisse jouer un fichier audio.
+   On enregistre donc à l'avance, dans un fichier, les bips de toute la suite de la séance (3 bips avant chaque changement, puis
+   2 notes montantes pour l'effort, une note grave pour le repos, 3 notes à la fin) : le fractionné s'entend même écran éteint.
+   Refaite à chaque départ, pause, reprise, passage ou retour ; à défaut (séries aux répétitions), la piste muette. */
+let guide = null;
+function etapesRestantes() {
+  const l = [];
+  if (mode === "tabata") {
+    const t = { ...tab };
+    for (let k = 0; k < 600; k++) {
+      l.push([k ? { ex: dureeGlobale, rep: repos, rec: recup }[t.ph] : reste, t.ph === "ex" ? "ex" : "rep"]);
+      if (t.ph === "ex") { if (t.r < reps - 1) { if (repos > 0) t.ph = "rep"; else t.r++; } else if (t.c < cycles - 1) { if (recup > 0) t.ph = "rec"; else { t.c++; t.r = 0; } } else break; }
+      else if (t.ph === "rep") { t.r++; t.ph = "ex"; } else { t.c++; t.r = 0; t.ph = "ex"; }
+    }
+  } else if (liste.length && mode !== "souffle") {
+    const ok = i => liste[i] && Number.isFinite(liste[i].duree) && liste[i].duree > 0;   // séries aux répétitions : la piste s'arrête là
+    l.push([reste, enRepos ? "rep" : "ex"]);
+    let i = enRepos ? index + 1 : index;
+    if (enRepos) { if (!ok(i)) return l; l.push([liste[i].duree, "ex"]); }
+    for (; i < liste.length - 1; i++) { const r = ["seance", "salle"].includes(mode) ? (liste[i].r ?? repos) : 0; if (r > 0) l.push([r, "rep"]); if (!ok(i + 1)) break; l.push([liste[i + 1].duree, "ex"]); }
+  }
+  return l.filter(([d]) => d > 0);
+}
+function pisteGuide() {
+  const et = etapesRestantes(); if (!et.length || !volSons) return null;
+  const SR = 8000, tot = Math.min(3600, et.reduce((s, [d]) => s + d, 0) + 3), n = Math.round(SR * tot), o = new Uint8Array(44 + n).fill(128, 44), d = new DataView(o.buffer);   // 8 Ko par seconde
+  [[0, 0x52494646], [8, 0x57415645], [12, 0x666d7420], [36, 0x64617461]].forEach(([p, v]) => d.setUint32(p, v));
+  [[4, 36 + n], [16, 16], [24, SR], [28, SR], [40, n]].forEach(([p, v]) => d.setUint32(p, v, true));
+  [[20, 1], [22, 1], [32, 1], [34, 8]].forEach(([p, v]) => d.setUint16(p, v, true));
+  const note = (t, f, dur, v = .5) => { const a = Math.round(t * SR), b = Math.min(n, a + Math.round(dur * SR)); v *= Math.min(1, volSons) * 127;
+    for (let i = Math.max(0, a); i < b; i++) { const x = (i - a) / SR; o[44 + i] = Math.max(1, Math.min(255, o[44 + i] + Math.round(v * Math.sin(2 * Math.PI * f * x) * Math.min(1, x / .01, (dur - x) / .04)))); } };
+  let t = 0;
+  et.forEach(([dur], k) => { t += dur; if (t > tot - 3) return; if (dur > 4) [3, 2, 1].forEach(s => note(t - s, 1320, .18, .45));
+    const suite = et[k + 1]; if (!suite) [660, 880, 1320].forEach((f, j) => note(t + j * .22, f, .2)); else if (suite[1] === "ex") { note(t, 880, .22); note(t + .24, 1320, .4); } else note(t, 440, .7, .6); });
+  return new Audio(URL.createObjectURL(new Blob([o], { type: "audio/wav" })));
+}
+const guideJoue = () => guide && !guide.paused;
+function arreterGuide() { if (guide) { guide.pause(); URL.revokeObjectURL(guide.src); guide = null; } }
+function majGuide() { if (["pret", "session"].includes(ecranCourant) && !avecMusique) { arreterGuide(); majVerrou(); } }   // départ, pause, reprise, passage, retour
 function majVerrou() {
   const actif = ["pret", "session"].includes(ecranCourant) && !avecMusique;
   try {
-    if (actif && !enPause) pisteSilence().play().catch(() => {}); else if (silence) silence.pause();
+    if (!actif || enPause || ecranCourant === "pret") arreterGuide();
+    else if (!guide) { const g = guide = pisteGuide();   // une piste qui échoue ou se termine (séries aux répétitions, plafond d'une heure) laisse place à la suivante ou à la piste muette
+      if (g) { const fin = () => { if (guide === g) { arreterGuide(); majVerrou(); } }; g.onended = fin; g.play().catch(() => { if (guide === g) { URL.revokeObjectURL(g.src); guide = null; pisteSilence().play().catch(() => {}); } }); } }
+    if (actif && !enPause && !guide) pisteSilence().play().catch(() => {}); else if (silence) silence.pause();
     if (!("mediaSession" in navigator)) return;
     navigator.mediaSession.metadata = actif ? new MediaMetadata({ title: $(ecranCourant === "pret" ? "pretNom" : "name").textContent, artist: "2 WORK" + (routine ? " · " + routine.titre : ""), artwork: [{ src: "icons/icon-512.png", sizes: "512x512", type: "image/png" }] }) : null;
     navigator.mediaSession.playbackState = !actif ? "none" : enPause ? "paused" : "playing";
@@ -339,9 +382,17 @@ new MutationObserver(majVerrou).observe($("name"), { childList: true, characterD
 let anneauTotal = 1, anneauPrec = 0;
 new MutationObserver(() => {
   const v = parseInt($("time").textContent, 10) || 0, A = $("anneau"), C = 276.5, neuf = v > anneauPrec;
-  if (neuf) { anneauTotal = Math.max(1, v); A.style.transition = "none"; A.style.strokeDashoffset = 0; void A.getBoundingClientRect(); A.style.transition = ""; }
-  anneauPrec = v; A.style.strokeDashoffset = -C * (1 - Math.max(0, v - 1) / anneauTotal);   // décalage négatif : l'anneau se vide dans le sens des aiguilles d'une montre
+  const R = $("coureur");   // style « Anneau » : le coureur lumineux en tête de l'arc restant
+  if (neuf) { anneauTotal = Math.max(1, v); [A, R].forEach(x => x.style.transition = "none"); A.style.strokeDashoffset = 0; R.style.transform = "rotate(0deg)"; void A.getBoundingClientRect(); [A, R].forEach(x => x.style.transition = ""); }
+  const f = 1 - Math.max(0, v - 1) / anneauTotal;
+  anneauPrec = v; A.style.strokeDashoffset = -C * f; R.style.transform = `rotate(${360 * f}deg)`;   // décalage négatif : l'anneau se vide dans le sens des aiguilles d'une montre
   $("anneauBox").classList.toggle("fin", v <= 3 && v > 0);
+}).observe($("time"), { childList: true, characterData: true, subtree: true });
+// style « Volets » : chaque chiffre est une plaquette qui bascule quand il change (le texte reste lisible tel quel par le reste du code)
+new MutationObserver(() => {
+  const t = $("time"), s = t.textContent; if (document.documentElement.dataset.minuteur !== "volets" || t.dataset.v === s) return;
+  const avant = t.dataset.v || ""; t.dataset.v = s;
+  t.innerHTML = [...s].map((c, i) => /\d/.test(c) ? `<span class="volet${c !== avant[i] && avant ? " bascule" : ""}">${c}</span>` : c).join("");
 }).observe($("time"), { childList: true, characterData: true, subtree: true });
 
 /* ============ REPRISE D'UNE SÉANCE INTERROMPUE ============
@@ -370,6 +421,7 @@ function rejouer() {   // après le décompte : la séance repart à l'exercice 
   if (s.mode === "tabata") { demarrerTab(); tab = s.tab; afficherTab(); }
   else if (s.mode === "souffle") { demarrerSouf(); souf.i = Math.min(s.i, souf.plan.length - 1); afficherSouf(); }
   else { demarrer(); index = Math.min(s.index, liste.length - 1); afficher(); }
+  majGuide();
 }
 
 /* Les 3 sons de la séance, assez aigus et présents pour s'entendre sur un haut-parleur de téléphone */
@@ -539,7 +591,7 @@ function demarrer() {
   $("bars").innerHTML = liste.map(() => "<i><b></b></i>").join("");
   ecran("session");
   sons.change();
-  afficher();
+  afficher(); majGuide();
 }
 
 /* Vidéos d'exercices : fichiers videos/<id>.mp4 déposés à côté de index.html.
@@ -629,6 +681,7 @@ function tic() {
 }
 
 function suivant(auto) {
+  if (!auto) setTimeout(majGuide);
   if (enRepos) { enRepos = false; index++; if (auto) sons.change(); return afficher(); }
   if (index >= liste.length - 1) return terminer();
   if (auto && (mode === "seance" || mode === "salle") && (liste[index].r ?? repos) > 0) return afficherRepos();
@@ -637,7 +690,7 @@ function suivant(auto) {
   afficher();
 }
 
-function precedent() { if (enRepos) enRepos = false; else if (index > 0) index--; afficher(); }
+function precedent() { if (enRepos) enRepos = false; else if (index > 0) index--; afficher(); majGuide(); }
 
 /* ============ TABATA ============
    Un cycle = un exercice répété "reps" fois (effort + repos). Entre deux cycles : récupération. */
@@ -651,7 +704,7 @@ function demarrerTab() {
   $("bars").innerHTML = "<i><b></b></i>".repeat(cycles);
   ecran("session");
   sons.change();
-  afficherTab();
+  afficherTab(); majGuide();
 }
 
 function afficherTab() { $("ensuite").innerHTML = "";
@@ -689,6 +742,7 @@ function ticTab() {
 }
 
 function suivantTab(auto) {
+  if (!auto) setTimeout(majGuide);
   const n = cycles;
   if (tab.ph === "ex") {
     if (tab.r < reps - 1) { if (repos > 0) tab.ph = "rep"; else tab.r++; }
@@ -704,7 +758,7 @@ function precedentTab() {
   if (tab.ph !== "ex") tab.ph = "ex";
   else if (tab.r > 0) tab.r--;
   else if (tab.c > 0) { tab.c--; tab.r = reps - 1; }
-  afficherTab();
+  afficherTab(); majGuide();
 }
 
 function setCycles(n) {
@@ -819,7 +873,7 @@ function afficherRepos() {
   parler(PH("repos") + annonce(e, liste[index], true) + (c0 ? ". " + c0 : "")); if (c0) conseilDejaDit = index + 1;
   $("plusRepos").classList.remove("hidden");
 }
-$("plusRepos").onclick = () => { if (enRepos) { reste += 15; $("time").textContent = reste; } };
+$("plusRepos").onclick = () => { if (enRepos) { reste += 15; $("time").textContent = reste; majGuide(); } };
 
 function terminer() {
   clearInterval(timer); horlogeActive++; oublierSeance();
@@ -841,7 +895,7 @@ function terminer() {
 }
 
 function pause() {
-  enPause = !enPause;
+  enPause = !enPause; arreterGuide();
   $("pause").textContent = T(enPause ? "Reprendre" : "Pause");
   const vid = document.querySelector("#mediaBox video");
   if (vid) enPause ? vid.pause() : vid.play().catch(() => {});

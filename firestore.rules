@@ -39,7 +39,8 @@ service cloud.firestore {
     function faitOk() { return champs(['pseudo', 't'], ['pseudo', 't', 'exp']) && D().pseudo == monPseudo() && maintenant(D().t) && expOk(90); }
     // effacement automatique (règles TTL de Firestore sur le champ exp) : si présent, exp = maintenant + j jours (à une semaine près : horloge du téléphone)
     function expOk(j) { return !('exp' in D()) || (D().exp is timestamp && D().exp > request.time + duration.value(j - 7, 'd') && D().exp < request.time + duration.value(j + 7, 'd')); }
-    function dansSection(c, sal) { return staff(c) || (membre(c) && sal in get(membreDoc(c)).data.get('sections', [])); }
+    // salon « u_<uid> » : séances publiées pour une seule personne (elle et le staff seulement)
+    function dansSection(c, sal) { return staff(c) || (membre(c) && (sal == 'u_' + moi() || (!sal.matches('u_.*') && sal in get(membreDoc(c)).data.get('sections', [])))); }
     function reac(e) {
       let avant = resource.data.reac.get(e, []);
       let apres = D().reac.get(e, []);
@@ -173,16 +174,16 @@ service cloud.firestore {
         match /seances/{s} {
           allow read: if dansSection(c, sal);
           allow create, update: if staff(c) && seanceOk();
-          allow delete: if staff(c);
+          allow delete: if staff(c) || (connecte() && sal == 'u_' + moi());   // ses séances personnelles, en quittant le club
           match /faits/{uid} {
-            allow read: if staff(c) || (connecte() && moi() == uid);
+            allow read: if staff(c) || (connecte() && (moi() == uid || sal == 'u_' + moi()));   // ses séances personnelles : liste complète pour les effacer en partant
             allow create, update: if dansSection(c, sal) && moi() == uid && faitOk();
             allow delete: if (connecte() && moi() == uid) || staff(c);
           }
         }
         match /messages/{m} {
           allow read: if dansSection(c, sal);
-          allow create: if dansSection(c, sal) && msgCreeOk(c);
+          allow create: if dansSection(c, sal) && !sal.matches('u_.*') && msgCreeOk(c);   // pas de messages privés
           allow update: if dansSection(c, sal) && msgMajOk(c);
           allow delete: if staff(c);   // section ou club supprimés
         }

@@ -562,6 +562,19 @@ function appliquerTheme() {
 [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).onclick = () => { theme = t; stocker("theme", t); appliquerTheme(); });
 sombreSys.addEventListener && sombreSys.addEventListener("change", () => theme === "auto" && appliquerTheme());
 appliquerTheme();
+// style de l'appli (Fonderie par défaut, Atelier papier, Classique = d'origine) et style du minuteur ; appliqués aussi avant l'affichage (index.html)
+const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
+    $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
+  $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; } }; maj(); };
+choixRg("rgStyle", "style", "style", "fonderie", "st"); choixRg("rgMinuteur", "minuteur", "minuteur", "chiffres", "mn");
+// inclinaison 3D au doigt des cartes (thèmes Fonderie et Atelier papier), sauf « réduire les animations »
+{ const calme = matchMedia("(prefers-reduced-motion: reduce)"), CARTES = ".choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte";
+  let el = null, f = 0; const remettre = () => { cancelAnimationFrame(f); if (el) { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); el.classList.remove("incline"); el = null; } };
+  addEventListener("pointermove", e => { if (calme.matches || !document.documentElement.dataset.style || (e.pointerType !== "mouse" && !e.buttons && e.pointerType !== "touch")) return;
+    const c = e.target.closest && e.target.closest(CARTES); if (c !== el) remettre(); if (!c) return; el = c; cancelAnimationFrame(f);
+    f = requestAnimationFrame(() => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5, m = Math.min(8, 900 / Math.max(r.width, 120));
+      c.classList.add("incline"); c.style.setProperty("--ry", (x * m).toFixed(2) + "deg"); c.style.setProperty("--rx", (-y * m).toFixed(2) + "deg"); }); }, { passive: true });
+  ["pointerup", "pointercancel", "scroll"].forEach(t => addEventListener(t, remettre, { passive: true, capture: true })); document.addEventListener("pointerleave", remettre); }
 
 /* ============ RÉCAPITULATIF MENSUEL : « Ton mois en sport », en stories ============ */
 const nomMois = m => { const [a, mo] = m.split("-"); const t = new Date(a, mo - 1, 1).toLocaleDateString(L("fr-FR", "en-GB"), { month: "long", year: "numeric" }); return t[0].toUpperCase() + t.slice(1); };
