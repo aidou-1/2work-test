@@ -29,13 +29,14 @@ async function chargerServeur() {
 }
 async function rafraichir() { try { Object.assign(CL, await SV.mesClubs()); } catch (e) {} }
 async function ouvrirClubs(vue) {
-  stop(); if (vue) Object.assign(CL, vue);
+  stop(); if (!vue || !("depuisAccueil" in vue)) CL.depuisAccueil = false; if (vue) Object.assign(CL, vue);
   $("clCorps").innerHTML = `<p class="vide">${L("Connexion au serveur…", "Connecting…")}</p>`; ecran("clubs", () => scrollTo(0, 0));
   try { await chargerServeur(); } catch (e) { $("clCorps").innerHTML = `<p class="vide">📡 ${L("Les clubs ont besoin d’internet. Vérifie ta connexion et réessaie.", "Clubs need internet. Check your connection and try again.")}</p><button class="toggle" id="clReessai">${L("Réessayer", "Retry")}</button>`; $("clReessai").onclick = () => ouvrirClubs(); return; }
   if (CL.u) await rafraichir().catch(() => {});   // sections et rôles à jour (le coach a pu en créer)
   if (CL.u !== undefined) rendu();
 }
-$("clRetour").onclick = () => { stop(); if (CL.vue === "club") { CL.vue = "liste"; CL.c = null; retour(() => rendu()); } else retour(() => ecran("menu")); };
+// retour : d'un club vers la liste des clubs (en haut de page), ou vers l'accueil si le club a été ouvert directement depuis la carte de l'accueil
+$("clRetour").onclick = () => { stop(); if (CL.vue === "club" && !CL.depuisAccueil) { CL.vue = "liste"; CL.c = null; sensRetour = true; ecran("clubs", () => { rendu(); scrollTo(0, 0); }); } else { CL.depuisAccueil = false; CL.vue = "liste"; retour(() => ecran("menu")); } };
 
 function rendu() {
   stop(); const C = $("clCorps");
@@ -54,7 +55,7 @@ function rendu() {
     <h2 class="sec">☁️ ${L("Sauvegarde en ligne", "Online backup")}</h2><div class="carnet cl-compte" id="svCarte"><small>…</small></div>
     <h2 class="sec">${L("Mon compte", "My account")}</h2><div class="carnet cl-compte"><p><b style="color:${couleurPseudo(CL.u.pseudo)}">${echap(CL.u.pseudo)}</b><small>${echap(CL.u.email)}</small></p>
       <div class="partage-btns"><button class="toggle contour" id="clDeco">${L("Se déconnecter", "Sign out")}</button><button class="toggle contour cl-danger" id="clSuppr">${L("Supprimer mon compte", "Delete my account")}</button></div></div>`;
-  C.querySelectorAll("[data-club]").forEach(b => b.onclick = () => { CL.vue = "club"; CL.c = b.dataset.club; CL.onglet = "seances"; ecran("clubs", rendu); scrollTo(0, 0); });
+  C.querySelectorAll("[data-club]").forEach(b => b.onclick = () => { CL.vue = "club"; CL.depuisAccueil = false; CL.c = b.dataset.club; CL.onglet = "seances"; ecran("clubs", rendu); scrollTo(0, 0); });
   C.querySelectorAll("[data-retrait]").forEach(b => b.onclick = async () => { await SV.lireRetrait(b.dataset.retrait); CL.retraits = CL.retraits.filter(x => x.id !== b.dataset.retrait); rendu(); });
   $("clRejoindre").onclick = feuilleRejoindre; $("clCreer").onclick = feuilleCreer;
   $("clDeco").onclick = async () => { await SV.deconnexion(); try { localStorage.removeItem("clubCompte"); } catch (e) {} };
@@ -189,7 +190,7 @@ function renduClub(C) {
   const cb = club(), O = [["seances", "Séances", "Workouts"], ["chat", "Chat", "Chat"], ["membres", "Membres", "Members"], ...(staff() ? [["suivi", "Suivi", "Tracking"]] : []), ["reglages", "Club", "Club"]];
   if (CL.onglet === "suivi" && !staff()) CL.onglet = "seances";
   C.innerHTML = `<div class="chips cl-onglets">${O.map(([k, f, e]) => `<button class="toggle" data-ong="${k}" aria-pressed="${CL.onglet === k}">${L(f, e)}${k === "chat" && nonLu(cb.id) ? ' <i class="cl-point"></i>' : ""}<span class="cl-badge hidden" id="badge_${k}"></span></button>`).join("")}</div><div id="clOng"></div>`;
-  C.querySelectorAll("[data-ong]").forEach(b => b.onclick = () => { CL.onglet = b.dataset.ong; rendu(); });
+  C.querySelectorAll("[data-ong]").forEach(b => b.onclick = () => { CL.onglet = b.dataset.ong; rendu(); scrollTo(0, 0); });
   if (staff()) { const n = [0, 0], maj = () => { const B = $("badge_membres"); if (B) { B.textContent = n[0] + n[1]; B.classList.toggle("hidden", !(n[0] + n[1])); } };
     desab.push(SV.ecouterDemandes(cb.id, l => { n[0] = l.length; maj(); }), SV.ecouterMembres(cb.id, l => { n[1] = l.reduce((a, m) => a + (m.secDem || []).filter(id => sectionsDe(cb).some(x => x.id === id)).length, 0); maj(); })); }
   ({ seances: ongSeances, chat: ongChat, membres: ongMembres, suivi: ongSuivi, reglages: ongReglages })[CL.onglet]($("clOng"), cb);
@@ -420,7 +421,7 @@ async function majCarteClubs() {
   const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, mesSections(c)))[0], m: await SV.dernierMessage(c.id), ms: await Promise.all(mesSections(c).map(async sal => [c.id + "_" + sal, await SV.dernierMessage(c.id, sal)])) })));
   CL.der = Object.fromEntries(info.flatMap(x => [[x.c.id, x.m], ...x.ms]));
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
-  $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances" }) : ouvrirClubs({ vue: "liste" });
+  $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances", depuisAccueil: true }) : ouvrirClubs({ vue: "liste", depuisAccueil: false });
 }
 $("semaineCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte" id="clubCarte"></div>`);
 // lien d'invitation ouvert (…?club=…&code=…) : on va droit aux clubs, après connexion si besoin
