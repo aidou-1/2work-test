@@ -260,7 +260,9 @@ function feuillePublier() {
   };
 }
 // fin d'une séance lancée depuis un club : cochée automatiquement (appelé par celebrer, js/progres.js)
-function clubSeanceFinie(r) { if (r && r.club && SV && CL.u) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true, r.club.sec).catch(() => {}); }
+// le serveur peut ne pas être chargé (séance reprise après redémarrage de l'appli…) : on le charge et on attend la connexion du compte (5 s au plus)
+async function serveurPret() { try { await chargerServeur(); for (let i = 0; i < 20 && CL.u === undefined; i++) await new Promise(r => setTimeout(r, 250)); } catch (e) {} return !!(SV && CL.u); }
+async function clubSeanceFinie(r) { if (r && r.club && lire("clubCompte") && await serveurPret()) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true, r.club.sec).catch(() => {}); }
 
 /* Chat : pseudo en couleur, réponses citées, réactions, suppression, signalement ; le staff modère */
 const REAC = ["👍", "❤️", "💪", "🔥", "😂"];

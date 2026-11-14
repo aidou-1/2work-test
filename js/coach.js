@@ -16,9 +16,9 @@ function prevLancer(cb) {
   const p = prevCfg(cb), s = seanceEch(p.sp, "complet"), t = L("Prévention", "Injury prevention") + " · " + T(ROUTINES[p.sp].titre);
   ROUTINES.prev = { ...s, titre: t, titreFr: "Prévention · " + (ROUTINES[p.sp].titreFr || ROUTINES[p.sp].titre), prevClub: { c: cb.id } }; CONSEILLES.prev = ROUTINES.prev.exercices; ouvrirRoutine("prev");
 }
-function prevFinie(x) {   // appelé par celebrer() (js/progres.js)
-  if (!x || !SV || !CL.u) return; if (typeof compter === "function") compter("prevention");
-  SV.prevFait(x.c, lundiCle(jourCle()), CL.u.pseudo).catch(() => {});
+async function prevFinie(x) {   // appelé par celebrer() (js/progres.js)
+  if (!x) return; if (typeof compter === "function") compter("prevention");
+  if (await serveurPret()) SV.prevFait(x.c, lundiCle(jourCle()), CL.u.pseudo).catch(() => {});
 }
 async function prevCarte(Z, cb) {
   const p = prevCfg(cb); if (!Z || !p) return;
@@ -94,7 +94,7 @@ function modeles(cb) {
 
 /* --- Fin d'une séance lancée depuis un club : bouton pour revenir à ses séances et enchaîner (appelé par celebrer, js/progres.js) --- */
 function finClub(r) {
-  const x = r && (r.club || r.prevClub), cb = x && CL.clubs.find(c => c.id === x.c); if ($("fClub")) $("fClub").remove(); if (!cb) return;
-  $("restart").insertAdjacentHTML("beforebegin", `<button class="toggle fin-club" id="fClub">👥 ${L("Retour au club", "Back to the club")} · ${echap(cb.nom)}<small>${L("pour enchaîner avec une autre séance", "to go on with another workout")}</small></button>`);
-  $("fClub").onclick = () => ouvrirClubs({ vue: "club", c: cb.id, onglet: "seances" });
+  const x = r && (r.club || r.prevClub), cb = x && CL.clubs.find(c => c.id === x.c); if ($("fClub")) $("fClub").remove(); if (!x) return;
+  $("restart").insertAdjacentHTML("beforebegin", `<button class="toggle fin-club" id="fClub">👥 ${L("Retour au club", "Back to the club")}${cb ? " · " + echap(cb.nom) : ""}<small>${L("pour enchaîner avec une autre séance", "to go on with another workout")}</small></button>`);
+  $("fClub").onclick = () => ouvrirClubs({ vue: "club", c: x.c, onglet: "seances" });
 }
