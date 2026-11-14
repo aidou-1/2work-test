@@ -160,6 +160,7 @@ function celebrer() {
   if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
   if (routine.prevClub && typeof prevFinie === "function") prevFinie(routine.prevClub);
   if (typeof apresSeance === "function") apresSeance();
+  if (typeof finClub === "function") finClub(routine);
   if (routine.reprise) repTerminer(routine.reprise, routine.repI);
   const S = statsGlobales(), neufs = verifierTrophees();
   $("fBilan").innerHTML = [[mn, L("minutes", "minutes")], [n, L(n > 1 ? "exercices" : "exercice", n > 1 ? "exercises" : "exercise")], [S.serie, L(S.serie > 1 ? "jours d’affilée" : "jour d’affilée", S.serie > 1 ? "days in a row" : "day in a row")]]

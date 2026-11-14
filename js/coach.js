@@ -87,3 +87,10 @@ function modeles(cb) {
     ["Gainage et renfo général", "Core and general strength", "renfoComplet", "Sans matériel, à faire à la maison cette semaine.", "No equipment, to do at home this week."],
     ["Concentration avant match", "Pre-match focus", "coherFocus", "Dans le vestiaire ou la veille au soir : quelques minutes pour calmer le stress.", "In the changing room or the night before: a few minutes to calm the nerves."]].filter(m => m && ROUTINES[m[2]]);
 }
+
+/* --- Fin d'une séance lancée depuis un club : bouton pour revenir à ses séances et enchaîner (appelé par celebrer, js/progres.js) --- */
+function finClub(r) {
+  const x = r && (r.club || r.prevClub), cb = x && CL.clubs.find(c => c.id === x.c); if ($("fClub")) $("fClub").remove(); if (!cb) return;
+  $("restart").insertAdjacentHTML("beforebegin", `<button class="toggle fin-club" id="fClub">👥 ${L("Retour au club", "Back to the club")} · ${echap(cb.nom)}<small>${L("pour enchaîner avec une autre séance", "to go on with another workout")}</small></button>`);
+  $("fClub").onclick = () => ouvrirClubs({ vue: "club", c: cb.id, onglet: "seances" });
+}
