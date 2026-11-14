@@ -118,13 +118,11 @@ service cloud.firestore {
       match /membres/{uid} {
         allow read: if membre(c);
         // le créateur s'inscrit coach en créant le club ; ensuite seul le staff ajoute, et seulement quelqu'un qui l'a demandé
-        allow create: if champs(['uid', 'pseudo', 'role', 'muet', 'depuis'], ['uid', 'pseudo', 'role', 'muet', 'depuis', 'm15']) && D().uid == uid && D().muet == false && maintenant(D().depuis)
+        allow create: if champs(['uid', 'pseudo', 'role', 'muet', 'depuis'], ['uid', 'pseudo', 'role', 'muet', 'depuis']) && D().uid == uid && D().muet == false && maintenant(D().depuis)
           && ((connecte() && moi() == uid && D().role == 'coach' && D().pseudo == monPseudo() && getAfter(/databases/$(db)/documents/clubs/$(c)).data.coach == uid)
-            || (staff(c) && D().role == 'membre' && D().pseudo == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.pseudo
-              && (!('m15' in D()) || D().m15 == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.get('m15', false))));   // sans m15 (staff sur une ancienne version) : le membre le corrige lui-même
+            || (staff(c) && D().role == 'membre' && D().pseudo == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.pseudo));
         // le coach nomme ou retire les co-coachs ; le staff rend muet ; personne ne touche au rôle du coach ni ne se modifie soi-même
         allow update: if (connecte() && moi() == uid && seulement(['dernier']) && maintenant(D().dernier))   // horodatage anti-spam, écrit avec chaque message
-          || (connecte() && moi() == uid && seulement(['m15']) && D().m15 == !ageOk(naissanceDe(moi()), 15))   // badge « -15 » tenu à jour (membres d'avant, 15 ans passés)
           // sections : le membre demande (secDem) ou quitte une section, il ne peut pas s'y ajouter lui-même ; le staff valide ou range directement
           || (connecte() && moi() == uid && seulement(['secDem']) && D().secDem is list && D().secDem.size() <= 12)
           || (connecte() && moi() == uid && seulement(['sections']) && D().sections is list && D().sections.hasOnly(resource.data.get('sections', [])))
@@ -135,6 +133,14 @@ service cloud.firestore {
         // on peut partir ; le staff peut exclure un membre (un co-coach seulement par le coach) ; le coach part en dernier, club supprimé
         allow delete: if (resource.data.role != 'coach' && ((connecte() && moi() == uid) || coach(c) || (staff(c) && resource.data.role == 'membre')))
           || (connecte() && moi() == uid && !exists(/databases/$(db)/documents/clubs/$(c)));
+      }
+      // moins de 15 ans : une fiche vide par membre concerné, lisible par le staff seul (badge « -15 », jamais l'âge) ;
+      // posée par le staff à l'acceptation (d'après la demande) ou par le membre lui-même, retirée à 15 ans ou au départ du club
+      match /mineurs/{uid} {
+        allow read: if staff(c) || (connecte() && moi() == uid);
+        allow create: if D().keys().size() == 0 && ((connecte() && moi() == uid && membre(c) && !ageOk(naissanceDe(moi()), 15))
+          || (staff(c) && get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.get('m15', false) == true));
+        allow delete: if staff(c) || (connecte() && moi() == uid && (ageOk(naissanceDe(moi()), 15) || !exists(membreDoc(c))));
       }
       // notice d'exclusion : le membre exclu lit le motif, puis l'efface (exposé des motifs, DSA art. 17)
       match /exclus/{uid} {
