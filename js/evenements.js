@@ -74,11 +74,11 @@ const vueK = (cat, titre, sous) => sousListe("choicesK", cat, "kcat", titre, sou
 
 function ouvrirListe(type) { type === "seance" ? vuePlan() : vueCats(); }
 /* Écran de démarrage : le logo s'anime, la barre se remplit, puis l'appli s'ouvre seule (un toucher l'ouvre tout de suite) */
-const entrer = () => { if ($("accueil").classList.contains("hidden")) return;
+const entrer = () => { if ($("accueil").classList.contains("hidden") || document.readyState === "loading") return;   // jamais avant que tous les scripts soient chargés (réseau lent)
   try { typeof rejoindreEnAttente === "function" && rejoindreEnAttente() ? ouvrirClubs() : besoinInstallGuide() ? ecran("bienvenue", guideInstall) : suiteBienvenue(); }
   catch (e) { try { ecran("menu"); } catch (x) {} } };   // un souci dans l'accueil ou le guide ne doit jamais bloquer l'écran de démarrage
 const suiteBienvenue = () => besoinBienvenue() ? ecran("bienvenue", () => bienvenue(1)) : ecran("menu");
-document.addEventListener("click", entrer); setTimeout(entrer, 2400);
+document.addEventListener("click", entrer); addEventListener("DOMContentLoaded", () => setTimeout(entrer, Math.max(300, 2400 - performance.now())));
 $("mEch").onclick = () => ouvrirListe("echauffement");
 $("mSeance").onclick = () => ouvrirListe("seance");
 $("mCalme").onclick = vueCalme;
