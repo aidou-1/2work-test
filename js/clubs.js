@@ -207,6 +207,7 @@ async function renduRejoindre(C) {
 
 /* --- Un club : onglets Séances · Chat · Membres · Réglages --- */
 function renduClub(C) {
+  { const cb = club(); if (cb && ["coach", "cocoach"].includes(cb.role) && lire("purge_" + cb.id) !== jourCle()) { stocker("purge_" + cb.id, jourCle()); SV.purgerAnciens(cb.id, cb.role === "coach").catch(() => {}); } }   // durées de conservation
   const cb = club(), O = [["seances", "Séances", "Workouts"], ["chat", "Chat", "Chat"], ["membres", "Membres", "Members"], ...(staff() ? [["suivi", "Suivi", "Tracking"]] : []), ["reglages", "Club", "Club"]];
   if (CL.onglet === "suivi" && !staff()) CL.onglet = "seances";
   C.innerHTML = `<div class="chips cl-onglets">${O.map(([k, f, e]) => `<button class="toggle" data-ong="${k}" aria-pressed="${CL.onglet === k}">${L(f, e)}${k === "chat" && nonLu(cb.id) ? ' <i class="cl-point"></i>' : ""}<span class="cl-badge hidden" id="badge_${k}"></span></button>`).join("")}</div><div id="clOng"></div>`;

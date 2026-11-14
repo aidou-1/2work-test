@@ -78,6 +78,23 @@ export async function supprimerSection(c, sal) {   // séances (et leurs coches)
   for (const x of (await X.getDocs(col(...B(c, sal), "seances"))).docs) await supprimerSeance(c, x.id, sal);
   for (const x of (await X.getDocs(col(...B(c, sal), "messages"))).docs) await X.deleteDoc(x.ref);
 }
+/* Effacement des données trop anciennes (durées de la page Confidentialité). L'effacement automatique de Firestore (TTL) demande l'offre payante :
+   c'est donc le coach (ou un co-coach) qui le fait, au plus une fois par jour, en ouvrant son club. Les champs exp restent prêts pour le TTL. */
+export async function purgerAnciens(c, estCoach) {
+  const avant = j => X.Timestamp.fromMillis(Date.now() - j * 864e5), jourAvant = j => new Date(Date.now() - j * 864e5).toISOString().slice(0, 10),
+    vieux = async (chemin, champ, lim, n = 100) => ((await X.getDocs(X.query(col(...chemin), X.where(champ, "<", lim), X.limit(n))).catch(() => null)) || { docs: [] }).docs;
+  for (const [k, j] of [["signalements", DUREES.signalements], ["demandes", DUREES.demandes], ["exclus", DUREES.exclus]]) for (const x of await vieux(["clubs", c, k], "t", avant(j))) await X.deleteDoc(x.ref).catch(() => {});
+  const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
+  for (const sal of sals) {
+    for (const x of await vieux([...B(c, sal), "seances"], "date", jourAvant(DUREES.faits), 30))   // coches des séances de plus de 3 mois
+      for (const f of ((await X.getDocs(col(...B(c, sal), "seances", x.id, "faits")).catch(() => null)) || { docs: [] }).docs) await X.deleteDoc(f.ref).catch(() => {});
+    if (estCoach) for (const x of await vieux([...B(c, sal), "messages"], "t", avant(DUREES.messages), 200)) await X.deleteDoc(x.ref).catch(() => {});
+  }
+  if (estCoach && cl && cl.prev && cl.prev.depuis) {   // fiches de prévention de plus de 8 semaines (fenêtre glissante de 4 semaines, passée chaque jour)
+    const uids = (await X.getDocs(col("clubs", c, "membres"))).docs.map(x => x.id), sems = lundis(cl.prev.depuis).filter(sv => sv < jourAvant(DUREES.prev) && sv >= jourAvant(DUREES.prev + 28));
+    await Promise.all(sems.flatMap(sv => uids.map(u => X.deleteDoc(d("clubs", c, "prev", sv + "_" + u)).catch(() => {}))));
+  }
+}
 export async function supprimerClub(c) {   // le coach efface tout le contenu, puis le club, puis sa propre fiche de membre
   await purgerPrev(c); for (const x of ((await lireDoc("clubs", c)) || {}).sections || []) await supprimerSection(c, x.id);
   for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem", "sanctions"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
