@@ -33,8 +33,8 @@ service cloud.firestore {
       && texte(D().titre, 60) && jour(D().date) && texteVide(D().note, 300) && D().auteur == moi()
       && (!('base' in D()) || id(D().base)) && (!('prog' in D()) || id(D().prog)) && (!('ids' in D()) || (D().ids is list && D().ids.size() <= 60)); }
     function faitOk() { return champs(['pseudo', 't'], ['pseudo', 't', 'exp']) && D().pseudo == monPseudo() && maintenant(D().t) && expOk(90); }
-    // effacement automatique (règles TTL de Firestore sur le champ exp) : si présent, exp = maintenant + j jours (à un jour près)
-    function expOk(j) { return !('exp' in D()) || (D().exp is timestamp && D().exp > request.time + duration.value(j - 1, 'd') && D().exp < request.time + duration.value(j + 1, 'd')); }
+    // effacement automatique (règles TTL de Firestore sur le champ exp) : si présent, exp = maintenant + j jours (à une semaine près : horloge du téléphone)
+    function expOk(j) { return !('exp' in D()) || (D().exp is timestamp && D().exp > request.time + duration.value(j - 7, 'd') && D().exp < request.time + duration.value(j + 7, 'd')); }
     function dansSection(c, sal) { return staff(c) || (membre(c) && sal in get(membreDoc(c)).data.get('sections', [])); }
     function reac(e) {
       let avant = resource.data.reac.get(e, []);

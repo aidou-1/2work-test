@@ -362,7 +362,7 @@ const PAGES = {
     <p><b>Why:</b> to run clubs, based on your consent given at sign-up (and, under 15, a parent’s consent too: joint consent, art. 45 of the French Data Protection Act). <b>How long:</b> as long as your account exists; after deletion, Google also erases its backup copies (within 180 days). Your date of birth is only used to check your age. The coach and co-coaches can remove a message, mute or remove a member, always with a reason shown to the person concerned; a reported message is shown to the coach and co-coaches.</p>
     <p>“Delete my account” (Clubs → My account) immediately erases your account, online backup, club memberships, ticked workouts, prevention records and the clubs you coach; your messages are emptied and only show “Deleted account”. Your username stays reserved (with no other data) so nobody can impersonate you.</p><p><b>Retention periods:</b> chat messages 12 months, ticked workouts 3 months, prevention records 8 weeks, reports 6 months, join requests and removal notices 3 months; they are then deleted automatically. Anonymous counters are totals with no personal data. The rest (account, clubs, backup) is kept until you delete it.</p><p><b>Reports and sanctions:</b> a report is anonymous (the coach does not see who made it). The reason for a mute is only visible to the person concerned and the club staff. See also <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase privacy</a>.</p>
     <h3>Feedback</h3><p>The “Give feedback” buttons (including on a sport being reworked) open an anonymous Google Forms form: only what you choose to write is sent, with the sport’s name where relevant, under <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google’s privacy policy</a>.</p>
-    <h3>Your rights</h3><p>You can view your data in “My progress” and “My profile”, and delete it at any time with the button below or by clearing this site’s data in your browser. For club data: “Delete my account”. You have the right to access, correct, erase, restrict, port and object, and to withdraw your consent at any time: write to ${contactLien()}. A parent can use this address to request deletion of their under-15 child’s account. You can also lodge a complaint with the CNIL (<a href="https://www.cnil.fr/en/" target="_blank" rel="noopener">cnil.fr</a>).</p>`) + `<button class="toggle contour danger" id="effacerTout">🗑 ${L("Supprimer toutes mes données", "Delete all my data")}</button>`],
+    <h3>Your rights</h3><p>You can view your data in “My progress” and “My profile”, and delete it at any time with the button below or by clearing this site’s data in your browser. For club data: “Delete my account”. You have the right to access, correct, erase, restrict, port and object, and to withdraw your consent at any time: write to ${contactLien()}. A parent can use this address to request deletion of their under-15 child’s account. You can also lodge a complaint with the CNIL (<a href="https://www.cnil.fr/en/" target="_blank" rel="noopener">cnil.fr</a>).</p>`) + `<button class="toggle contour danger" id="effacerTout">🗑 ${L("Supprimer toutes mes données", "Delete all my data")}</button><p class="sh-aide">${L("Efface ce téléphone et, si tu as un compte, ta copie en ligne (la sauvegarde en ligne s’arrête aussi sur tes autres téléphones). Ton compte des clubs se supprime dans Clubs → Mon compte.", "Erases this phone and, if you have an account, your online copy (online backup also stops on your other phones). Your clubs account is deleted in Clubs → My account.")}</p>`],
   cgu: ["Conditions d’utilisation", "Terms of use", () => L(`<p class="sh-aide">Version du 13 novembre 2026</p>
     <h3>1. Objet</h3><p>Ces conditions encadrent l’utilisation de 2 WORK, application gratuite d’échauffement, d’entraînement et de récupération, éditée à titre non professionnel (voir les mentions légales). Utiliser l’application, et en particulier créer un compte pour les clubs, vaut acceptation de ces conditions.</p>
     <h3>2. Accès</h3><p>L’application est gratuite et s’utilise sans compte. Seuls les clubs et la sauvegarde en ligne demandent un compte, proposé (facultatif) au premier lancement. Le service est fourni « en l’état » : il peut évoluer, être interrompu ou s’arrêter, sans garantie de disponibilité.</p>
@@ -402,11 +402,14 @@ const PAGES = {
 };
 // « Supprimer toutes mes données » : copie en ligne effacée et compte déconnecté (le compte des clubs lui-même se supprime depuis Clubs),
 // puis données, vidéos et pages hors ligne de ce téléphone
-async function effacerToutAppareil() {
-  try { if (lire("clubCompte") && typeof serveurPret === "function" && await serveurPret()) { await SV.effacerSauvegarde().catch(() => {}); await SV.changerAccordSauvegarde(false).catch(() => {}); await SV.deconnexion().catch(() => {}); } } catch (e) {}
+async function effacerToutAppareil(meme) {   // renvoie false (sans rien effacer) si un compte existe mais que le serveur est injoignable, sauf « meme »
+  if (lire("clubCompte")) { let ok = false;
+    try { if (typeof serveurPret === "function" && await serveurPret()) { await SV.changerAccordSauvegarde(false); await SV.effacerSauvegarde(); await SV.deconnexion().catch(() => {}); ok = true; } } catch (e) {}
+    if (!ok && !meme) return false; }
   try { await Promise.all((await caches.keys()).map(k => caches.delete(k))); } catch (e) {}
   try { (indexedDB.databases ? (await indexedDB.databases()).map(d => d.name) : ["firebaseLocalStorageDb"]).forEach(n => n && indexedDB.deleteDatabase(n)); } catch (e) {}
   try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+  return true;
 }
 function ouvrirPage(id) {
   const [fr, en, html] = PAGES[id];
@@ -414,7 +417,9 @@ function ouvrirPage(id) {
   const b = $("effacerTout");
   if (b) b.onclick = () => {
     if (!b.dataset.conf) { b.dataset.conf = 1; b.textContent = "⚠️ " + L("Toucher encore pour tout effacer définitivement", "Tap again to erase everything permanently"); return; }
-    b.disabled = true; b.textContent = "…"; effacerToutAppareil().finally(() => location.reload());
+    b.disabled = true; b.textContent = "…";
+    effacerToutAppareil(b.dataset.conf === "2").then(ok => { if (ok) return location.reload(); b.disabled = false; b.dataset.conf = 2;
+      b.textContent = "⚠️ " + L("Pas de connexion : ta copie en ligne et ton compte resteraient. Toucher encore pour effacer quand même ce téléphone", "No connection: your online copy and account would remain. Tap again to erase this phone anyway"); });
   };
   ecran("page");
 }
@@ -519,7 +524,7 @@ function choisirRestauration() {
   i.onchange = () => { const f = i.files[0]; if (!f) return; const lr = new FileReader(); lr.onload = () => verifierRestauration(lr.result); lr.readAsText(f); };
   i.click();
 }
-function verifierRestauration(txt) {
+function verifierRestauration(txt, enLigne) {   // enLigne : copie venue de la sauvegarde en ligne (la copie automatique reprend après « Restaurer »)
   let s; try { s = JSON.parse(txt); } catch (e) { s = null; }
   if (!s || s.app !== "2WORK" || typeof s.donnees !== "object") return renduDonnees(L("⚠️ Ce fichier n’est pas une sauvegarde 2 WORK.", "⚠️ This file is not a 2 WORK backup."));
   const D = Object.fromEntries(Object.entries(s.donnees).filter(([k, v]) => CLE_APPLI.test(k) && typeof v === "string").map(([k, v]) => [k, propre(v)]));
@@ -530,7 +535,7 @@ function verifierRestauration(txt) {
     const avant = donneesAppli();
     try { localStorage.setItem("sauvegardeAvantRestauration", JSON.stringify({ date: new Date().toISOString(), donnees: avant })); } catch (e) { return renduDonnees(L("⚠️ Mémoire du téléphone pleine : restauration impossible.", "⚠️ Phone storage full: restore failed.")); }
     if (!ecrireDonnees(D)) { ecrireDonnees(avant); return renduDonnees(L("⚠️ Mémoire du téléphone pleine : restauration annulée, tes données n’ont pas changé.", "⚠️ Phone storage full: restore cancelled, your data is unchanged.")); }
-    if (typeof apresRestauration === "function") apresRestauration();   // la sauvegarde en ligne reprend sur ce téléphone (js/clubs.js)
+    if (enLigne) { stocker("sauvegardeEnLigne", "1"); try { localStorage.removeItem("svPause"); } catch (e) {} }   // la sauvegarde en ligne reprend sur ce téléphone
     location.reload();
   };
 }
@@ -541,6 +546,7 @@ function ecrireDonnees(D) {
 function annulerRestauration() {
   let c; try { c = JSON.parse(localStorage.getItem("sauvegardeAvantRestauration")); } catch (e) { c = null; } if (!c || !c.donnees) return;
   if (!ecrireDonnees(c.donnees)) return renduDonnees(L("⚠️ Mémoire du téléphone pleine.", "⚠️ Phone storage full."));
+  stocker("sauvegardeEnLigne", "0");   // sinon les anciennes données remplaceraient la copie en ligne : à réactiver dans Clubs si voulu
   try { localStorage.removeItem("sauvegardeAvantRestauration"); } catch (e) {} location.reload();
 }
 const joursDepuis = j => j ? Math.round((new Date(jourCle()) - new Date(j)) / 864e5) : null;
@@ -587,8 +593,9 @@ function renduDonnees(msg) {
     <div class="partage-btns"><button class="toggle" id="rgSauver">💾 ${L("Sauvegarder", "Back up")}</button><button class="toggle contour" id="rgRestaurer">↩︎ ${L("Restaurer", "Restore")}</button></div>${msg ? `<p class="sh-ok">${msg}</p>` : ""}
     <div class="reglage-ligne sante-ligne"><span><b>❤️ ${H ? nomSante() : L("Apple Santé et Health Connect", "Apple Health and Health Connect")}</b><small>${H ? L("Ajoute automatiquement chaque séance à tes données de santé", "Automatically adds each workout to your health data") : L("Prévu dans une future appli des stores. En attendant : export Strava ou Garmin en fin de séance.", "Planned for a future store app. Meanwhile: Strava or Garmin export at the end of a workout.")}</small></span>${H ? `<button class="toggle" id="rgSante" aria-pressed="${santeActive()}">${santeActive() ? L("Activé", "On") : L("Activer", "Turn on")}</button>` : ""}</div>`;
   let av = null; try { av = JSON.parse(localStorage.getItem("sauvegardeAvantRestauration")); } catch (e) {}
-  if (av && av.date) { Z.querySelector(".partage-btns").insertAdjacentHTML("afterend", `<button class="lien" id="rgAnnulRest">↩︎ ${L(`Annuler la dernière restauration (revenir aux données du ${new Date(av.date).toLocaleDateString("fr-FR")})`, `Undo the last restore (back to the data from ${new Date(av.date).toLocaleDateString("en-GB")})`)}</button>`);
-    $("rgAnnulRest").onclick = () => { if (!$("rgAnnulRest").dataset.conf) { $("rgAnnulRest").dataset.conf = 1; return $("rgAnnulRest").textContent = L("Toucher encore pour revenir aux anciennes données", "Tap again to go back to the old data"); } annulerRestauration(); }; }
+  if (av && av.date && Date.now() - new Date(av.date) < 3 * 864e5) {   // proposé 3 jours : au-delà, annuler effacerait les séances faites depuis
+    Z.querySelector(".partage-btns").insertAdjacentHTML("afterend", `<button class="lien" id="rgAnnulRest">↩︎ ${L(`Annuler la dernière restauration (revenir aux données du ${new Date(av.date).toLocaleDateString("fr-FR")})`, `Undo the last restore (back to the data from ${new Date(av.date).toLocaleDateString("en-GB")})`)}</button>`);
+    $("rgAnnulRest").onclick = () => { if (!$("rgAnnulRest").dataset.conf) { $("rgAnnulRest").dataset.conf = 1; return $("rgAnnulRest").textContent = L("Toucher encore : les séances faites depuis seront perdues, et la sauvegarde en ligne sera mise en pause", "Tap again: workouts done since will be lost, and online backup will be paused"); } annulerRestauration(); }; }
   $("rgSauver").onclick = sauvegarder; $("rgRestaurer").onclick = choisirRestauration;
   if ($("rgSante")) $("rgSante").onclick = () => activerSante(!santeActive());
 }

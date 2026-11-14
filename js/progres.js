@@ -152,10 +152,11 @@ function compteur(el, fin, suffixe = "") {
   (function f(t) { const k = Math.min(1, (t - t0) / d), v = Math.round(fin * (1 - Math.pow(1 - k, 3))); el.textContent = v + suffixe; if (k < 1) requestAnimationFrame(f); })(t0);
 }
 function celebrer() {   // renvoie false si la séance est écourtée (moins de 60 % du temps prévu) : rien n'est alors compté
-  const fait = tempsSeance(), sReel = Math.round(Math.min(totalPrevu, fait));
-  if (totalPrevu >= 90 && fait < .6 * totalPrevu) {
+  const fait = tempsSeance(), sReel = Math.round(Math.min(totalPrevu, fait)),
+    effort = mode === "tabata" ? cycles * reps * dureeGlobale : mode === "souffle" ? totalPrevu : liste.reduce((t, e) => t + (e.duree || 0), 0) || totalPrevu;   // temps d'effort prévu, sans les repos
+  if (effort >= 90 && fait < .6 * effort) {
     $("fTitre").textContent = L("Séance écourtée", "Workout cut short");
-    $("fSub").textContent = L(`${Math.max(1, Math.round(fait / 60))} min sur ${Math.round(totalPrevu / 60)} prévues : elle n’est pas comptée (trophées, séries, club), il faut en faire au moins 60 %. La prochaine sera la bonne !`, `${Math.max(1, Math.round(fait / 60))} min out of ${Math.round(totalPrevu / 60)} planned: it doesn’t count (trophies, streaks, club), you need to do at least 60%. Next one will be it!`);
+    $("fSub").textContent = L(`${Math.max(1, Math.round(fait / 60))} min pour ${Math.round(effort / 60)} min d’effort prévues : elle n’est pas comptée (trophées, séries, club), il faut faire au moins 60 % de l’effort. La prochaine sera la bonne !`, `${Math.max(1, Math.round(fait / 60))} min for ${Math.round(effort / 60)} min of planned effort: it doesn’t count (trophies, streaks, club), you need to do at least 60% of the effort. Next one will be it!`);
     ["fBilan", "fTrophees", "fRessenti", "fCharges", "fPartage"].forEach(id => $(id).innerHTML = ""); if (typeof finClub === "function") finClub(routine); return false;
   }
   const mn = Math.max(1, Math.round(sReel / 60)), n = mode === "souffle" ? (routine.blocs || []).length : mode === "tabata" ? cycles : new Set(ids).size;

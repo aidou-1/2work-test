@@ -71,31 +71,35 @@ const fichierSuivi = () => JSON.stringify({ app: "2WORK", version: 1, date: new 
 let svDernier = 0;
 async function sauvegardeAuto(force, encore = 1) {
   if (!svActive() || !SV || !CL.u || (!force && Date.now() - svDernier < 6e5)) return;
-  svDernier = Date.now();
-  try { await SV.sauverEnLigne(fichierSuivi()); stocker("sauvegardeEnLigneDate", new Date().toISOString()); }
+  svDernier = Date.now(); const f = fichierSuivi();
+  // garde-fou : jamais une copie automatique deux fois plus petite que celle en ligne (téléphone neuf ou vidé) ; on met en pause et on demande
+  const info = await SV.infoSauvegarde().catch(() => null);
+  if (info && info.s.n && f.length < .5 * info.s.n) { stocker("sauvegardeEnLigne", "0"); stocker("svPause", "1"); return; }
+  try { await SV.sauverEnLigne(f); stocker("sauvegardeEnLigneDate", new Date().toISOString()); }
   catch (e) { if (e.code !== "permission-denied") return;
     const a = await SV.accordSauvegarde().catch(() => true);
     if (a === false) return stocker("sauvegardeEnLigne", "0");   // retirée depuis un autre téléphone
-    if (a === undefined) { await SV.changerAccordSauvegarde(true).catch(() => {}); return encore && sauvegardeAuto(true, 0); }   // accord donné avant qu'il soit gardé dans le compte
     if (encore) setTimeout(() => sauvegardeAuto(true, 0), 61e3); }   // une copie toutes les 60 s au plus : on réessaie une fois
 }
 // à la connexion : l'accord du compte fait foi (un retrait sur un autre téléphone arrête aussi celui-ci)
 async function syncAccordSauvegarde() { if (!SV || !CL.u) return; const a = await SV.accordSauvegarde().catch(() => null); if (a === false && svActive()) stocker("sauvegardeEnLigne", "0"); }
-function apresRestauration() { if (lire("svRestaurable") === "1") stocker("sauvegardeEnLigne", "1"); try { localStorage.removeItem("svRestaurable"); } catch (e) {} }
+
 const apresSeance = () => sauvegardeAuto(true);
 async function renduSauvegarde() {
   const Z = $("svCarte"); if (!Z) return;
   const ko = t => { Z.querySelector(".cl-erreur").textContent = t; };
   if (!svActive()) {
-    Z.innerHTML = `<p>${L("Retrouve ton historique, tes trophées, tes programmes et tes réglages sur un nouveau téléphone. Copie inaccessible aux autres utilisateurs, mise à jour après chaque séance.", "Get your history, trophies, programmes and settings back on a new phone. Copy inaccessible to other users, updated after each workout.")}</p>
+    Z.innerHTML = `${lire("svPause") === "1" ? `<p class="sh-aide">⏸️ ${L("Sauvegarde automatique en pause : la copie en ligne contient beaucoup plus de données que ce téléphone. Récupère-la, ou remplace-la si c’est voulu.", "Automatic backup paused: the online copy holds much more data than this phone. Get it back, or replace it if that’s what you want.")}</p>` : ""}<p>${L("Retrouve ton historique, tes trophées, tes programmes et tes réglages sur un nouveau téléphone. Copie inaccessible aux autres utilisateurs, mise à jour après chaque séance.", "Get your history, trophies, programmes and settings back on a new phone. Copy inaccessible to other users, updated after each workout.")}</p>
       <label class="cl-case"><input type="checkbox" id="svAccord"><span>${L("J’accepte que tout mon suivi soit sauvegardé en ligne : historique avec mes ressentis, trophées, programmes, profil (date de naissance, poids, taille), mensurations et poids du suivi du corps, tests, charges et programmes de reprise après blessure. Je peux désactiver et effacer cette copie à tout moment, depuis n’importe lequel de mes téléphones.", "I agree that all my progress is backed up online: history with how I felt, trophies, programmes, profile (date of birth, weight, height), body measurements and weight, tests, loads and back-after-injury programmes. I can turn it off and erase the copy at any time, from any of my phones.")}</span></label>
       <p class="cl-erreur"></p><button class="toggle" id="svOn">${L("Activer la sauvegarde en ligne", "Turn on online backup")}</button>`;
     $("svOn").onclick = async () => { if (!$("svAccord").checked) return ko(L("Coche la case pour activer.", "Tick the box to turn it on."));
       $("svOn").disabled = true;
-      const info = await SV.infoSauvegarde().catch(() => null);   // une copie existe déjà (autre téléphone) : on ne l'écrase pas sans le dire
-      if (info && !$("svOn").dataset.conf) { $("svOn").dataset.conf = 1; $("svOn").disabled = false; $("svOn").textContent = L("Remplacer la copie en ligne par ce téléphone", "Replace the online copy with this phone");
-        return ko(L(`Une copie existe déjà sur ton compte (${info.t ? info.t.toLocaleDateString("fr-FR") : "?"}). Pour la récupérer, active puis touche « Restaurer » ; sinon touche le bouton pour la remplacer par les données de ce téléphone.`, `A copy already exists on your account (${info.t ? info.t.toLocaleDateString("en-GB") : "?"}). To get it back, restore it; otherwise tap the button to replace it with this phone’s data.`)); }
-      try { await SV.changerAccordSauvegarde(true); stocker("sauvegardeEnLigne", "1"); await SV.sauverEnLigne(fichierSuivi()); stocker("sauvegardeEnLigneDate", new Date().toISOString()); renduSauvegarde(); } catch (x) { stocker("sauvegardeEnLigne", "0"); ko(msgErr(x)); $("svOn").disabled = false; } };
+      const info = await SV.infoSauvegarde().catch(() => null);   // une copie existe déjà (autre téléphone) : restaurer ou remplacer, deux choix séparés
+      if (info && !$("svOn").dataset.conf) { $("svOn").dataset.conf = 1; $("svOn").disabled = false; $("svOn").textContent = L("Remplacer la copie en ligne par ce téléphone", "Replace the online copy with this phone"); $("svOn").classList.add("contour");
+        $("svOn").insertAdjacentHTML("beforebegin", `<button class="toggle" id="svRecup">↩︎ ${L("Récupérer la copie en ligne sur ce téléphone", "Get the online copy back on this phone")}</button>`);
+        $("svRecup").onclick = async () => { try { await SV.changerAccordSauvegarde(true); verifierRestauration(await SV.lireSauvegarde(info), true); } catch (x) { ko(msgErr(x)); } };
+        return ko(L(`Une copie existe déjà sur ton compte (${info.t ? info.t.toLocaleDateString("fr-FR") : "?"}) : récupère-la, ou remplace-la par les données de ce téléphone (elle serait alors perdue).`, `A copy already exists on your account (${info.t ? info.t.toLocaleDateString("en-GB") : "?"}): get it back, or replace it with this phone’s data (it would then be lost).`)); }
+      try { await SV.changerAccordSauvegarde(true); stocker("sauvegardeEnLigne", "1"); try { localStorage.removeItem("svPause"); } catch (e) {} await SV.sauverEnLigne(fichierSuivi()); stocker("sauvegardeEnLigneDate", new Date().toISOString()); renduSauvegarde(); } catch (x) { stocker("sauvegardeEnLigne", "0"); ko(msgErr(x)); $("svOn").disabled = false; } };
     return;
   }
   const info = await SV.infoSauvegarde().catch(() => null);
@@ -103,7 +107,7 @@ async function renduSauvegarde() {
     <div class="partage-btns"><button class="toggle" id="svMaint">${L("Sauvegarder maintenant", "Back up now")}</button>${info ? `<button class="toggle contour" id="svRest">${L("Restaurer sur ce téléphone", "Restore on this phone")}</button>` : ""}</div>
     <button class="lien" id="svOff">${L("Désactiver et effacer la copie en ligne", "Turn off and erase the online copy")}</button>`;
   $("svMaint").onclick = async () => { $("svMaint").disabled = true; try { await SV.sauverEnLigne(fichierSuivi()); renduSauvegarde(); } catch (x) { ko(x.code === "permission-denied" ? L("Une copie vient d’être faite : réessaie dans une minute.", "A copy was just made: try again in a minute.") : msgErr(x)); $("svMaint").disabled = false; } };
-  if ($("svRest")) $("svRest").onclick = async () => { try { stocker("svRestaurable", "1"); verifierRestauration(await SV.lireSauvegarde(info)); } catch (x) { ko(msgErr(x)); } };
+  if ($("svRest")) $("svRest").onclick = async () => { try { verifierRestauration(await SV.lireSauvegarde(info), true); } catch (x) { ko(msgErr(x)); } };
   $("svOff").onclick = async () => { if (!$("svOff").dataset.conf) { $("svOff").dataset.conf = 1; return $("svOff").textContent = L("Confirmer : effacer la copie en ligne", "Confirm: erase the online copy"); }
     try { await SV.changerAccordSauvegarde(false); await SV.effacerSauvegarde(); stocker("sauvegardeEnLigne", "0"); renduSauvegarde(); } catch (x) { ko(msgErr(x)); } };
 }
@@ -113,7 +117,7 @@ async function proposerRestauration() {
   if (lireHist().length || lire("svPropose") || !SV || !CL.u) return;
   try { if ((await SV.accordSauvegarde()) === false) return stocker("svPropose", "1");
     const info = await SV.infoSauvegarde(); if (!info) return stocker("svPropose", "1");
-    const txt = await SV.lireSauvegarde(info); stocker("svPropose", "1"); stocker("svRestaurable", "1"); verifierRestauration(txt);
+    const txt = await SV.lireSauvegarde(info); stocker("svPropose", "1"); verifierRestauration(txt, true);
   } catch (e) {}   // réseau coupé, décompression impossible : on reproposera à la prochaine ouverture
 }
 
