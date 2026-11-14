@@ -10,7 +10,7 @@ const msgErr = e => L(...(ERR[e && e.code] || ["Une erreur est survenue, réessa
 const ageDe = n => { const a = new Date(n), j = new Date(); return j.getFullYear() - a.getFullYear() - (j < new Date(j.getFullYear(), a.getMonth(), a.getDate()) ? 1 : 0); };
 const club = () => CL.clubs.find(x => x.id === CL.c), staff = () => ["coach", "cocoach"].includes((club() || {}).role);
 /* Sections d'un club (ex. club de boxe : boxe anglaise, MMA, JJB…) : cb.sections = [{ id, nom }], tenues par le staff ;
-   chaque membre coche les siennes (cb.mesSec), le staff peut corriger. Une séance ou un chat de section n'est visible que de ses membres et du staff. */
+   chaque membre les demande (secDem, cb.mesDem), le staff valide (sections, cb.mesSec) ; un membre peut seulement en quitter une. Une séance ou un chat de section n'est visible que de ses membres et du staff. */
 const sectionsDe = cb => (cb && cb.sections) || [], nomSec = (cb, id) => (sectionsDe(cb).find(x => x.id === id) || { nom: "?" }).nom;
 const mesSections = cb => ["coach", "cocoach"].includes(cb.role) ? sectionsDe(cb).map(x => x.id) : (cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id));
 function ecouterSeancesClub(cb, f) {   // séances du club entier + de mes sections, fusionnées par date (plus récentes d'abord)
@@ -190,7 +190,8 @@ function renduClub(C) {
   if (CL.onglet === "suivi" && !staff()) CL.onglet = "seances";
   C.innerHTML = `<div class="chips cl-onglets">${O.map(([k, f, e]) => `<button class="toggle" data-ong="${k}" aria-pressed="${CL.onglet === k}">${L(f, e)}${k === "chat" && nonLu(cb.id) ? ' <i class="cl-point"></i>' : ""}<span class="cl-badge hidden" id="badge_${k}"></span></button>`).join("")}</div><div id="clOng"></div>`;
   C.querySelectorAll("[data-ong]").forEach(b => b.onclick = () => { CL.onglet = b.dataset.ong; rendu(); });
-  if (staff()) desab.push(SV.ecouterDemandes(cb.id, l => { const B = $("badge_membres"); if (B) { B.textContent = l.length; B.classList.toggle("hidden", !l.length); } }));
+  if (staff()) { const n = [0, 0], maj = () => { const B = $("badge_membres"); if (B) { B.textContent = n[0] + n[1]; B.classList.toggle("hidden", !(n[0] + n[1])); } };
+    desab.push(SV.ecouterDemandes(cb.id, l => { n[0] = l.length; maj(); }), SV.ecouterMembres(cb.id, l => { n[1] = l.reduce((a, m) => a + (m.secDem || []).filter(id => sectionsDe(cb).some(x => x.id === id)).length, 0); maj(); })); }
   ({ seances: ongSeances, chat: ongChat, membres: ongMembres, suivi: ongSuivi, reglages: ongReglages })[CL.onglet]($("clOng"), cb);
 }
 
@@ -206,8 +207,9 @@ function ongSeances(Z, cb) {
   if (staff()) $("spNouv").onclick = () => feuillePublier(); prevCarte($("prevZone"), cb);
   const filtres = sectionsDe(cb).length && mesSections(cb).length ? [["*", L("Tout", "All")], ["", L("Club", "Club")], ...mesSections(cb).map(id => [id, nomSec(cb, id)])] : [];
   if (!filtres.some(f => f[0] === CL.filtre)) CL.filtre = "*";
-  if (sectionsDe(cb).length && !staff() && !mesSections(cb).length) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>🏷️ ${L("Ce club a des sections (", "This club has sections (")}${sectionsDe(cb).map(x => echap(x.nom)).join(", ")}${L(") : choisis les tiennes pour voir leurs séances et leur chat.", "): pick yours to see their workouts and chat.")}</p><button class="toggle" id="spChoisirSec">${L("Choisir", "Choose")}</button></div>`);
-    $("spChoisirSec").onclick = () => feuilleSections(cb, CL.u.uid, [], async l => { await SV.changerMembre(cb.id, CL.u.uid, { sections: l }); cb.mesSec = l; rendu(); }); }
+  if (sectionsDe(cb).length && !staff() && !mesSections(cb).length && (cb.mesDem || []).length) $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>⏳ ${L("Demande envoyée pour ", "Request sent for ")}${cb.mesDem.map(id => echap(nomSec(cb, id))).join(", ")}${L(" : le coach doit la valider.", ": the coach has to approve it.")}</p></div>`);
+  else if (sectionsDe(cb).length && !staff() && !mesSections(cb).length) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>🏷️ ${L("Ce club a des sections (", "This club has sections (")}${sectionsDe(cb).map(x => echap(x.nom)).join(", ")}${L(") : choisis les tiennes pour voir leurs séances et leur chat.", "): pick yours to see their workouts and chat.")}</p><button class="toggle" id="spChoisirSec">${L("Choisir", "Choose")}</button></div>`);
+    $("spChoisirSec").onclick = () => mesSectionsFeuille(cb); }
   if (filtres.length) $("prevZone").insertAdjacentHTML("afterend", `<div class="chips cl-filtre" id="spFiltre">${filtres.map(([k, n]) => `<button class="toggle" data-f="${k}" aria-pressed="${(CL.filtre ?? "*") === k}">${echap(n)}</button>`).join("")}</div>`);
   if ($("spFiltre")) $("spFiltre").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.filtre = b.dataset.f; rendu(); } };
   let ecoutesFaits = []; desab.push(() => ecoutesFaits.forEach(f => f()));
@@ -321,19 +323,19 @@ function ongChat(Z, cb) {
 
 /* Membres : demandes à valider (staff), rôles, muet, exclusion ; chacun peut quitter */
 function ongMembres(Z, cb) {
-  Z.innerHTML = `<div id="mbDem"></div>${sectionsDe(cb).length && !staff() ? `<button class="toggle cl-messec" id="mbMesSec">🏷️ ${L("Mes sections", "My sections")} : ${(cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => echap(nomSec(cb, id))).join(", ") || L("aucune", "none")} ›</button>` : ""}<ul class="list" id="mbListe"></ul><button class="toggle contour cl-danger" id="mbQuit">${cb.role === "coach" ? L("Supprimer le club (onglet Club)", "Delete the club (Club tab)") : L("Quitter le club", "Leave the club")}</button>`;
+  Z.innerHTML = `<div id="mbDem"></div>${sectionsDe(cb).length && !staff() ? `<button class="toggle cl-messec" id="mbMesSec">🏷️ ${L("Mes sections", "My sections")} : ${(cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => echap(nomSec(cb, id))).join(", ") || L("aucune", "none")}${(cb.mesDem || []).length ? " · ⏳ " + cb.mesDem.map(id => echap(nomSec(cb, id))).join(", ") : ""} ›</button>` : ""}<div id="mbSecDem"></div><ul class="list" id="mbListe"></ul><button class="toggle contour cl-danger" id="mbQuit">${cb.role === "coach" ? L("Supprimer le club (onglet Club)", "Delete the club (Club tab)") : L("Quitter le club", "Leave the club")}</button>`;
   if (staff()) desab.push(SV.ecouterDemandes(cb.id, l => { $("mbDem").innerHTML = l.length ? `<h2 class="sec">${L("Demandes", "Requests")} · ${l.length}</h2><ul class="list">${l.map(d => `<li><div><b style="color:${couleurPseudo(d.pseudo)}">${echap(d.pseudo)}</b><small>${L("veut rejoindre le club", "wants to join the club")}</small></div><button class="toggle" data-ok="${d.id}" data-p="${echap(d.pseudo)}">✓</button><button class="toggle contour" data-non="${d.id}">✕</button></li>`).join("")}</ul>` : "";
     $("mbDem").onclick = e => { const b = e.target.closest("button"); if (!b) return; b.disabled = true; (b.dataset.ok ? SV.accepter(cb.id, b.dataset.ok, b.dataset.p) : SV.refuser(cb.id, b.dataset.non)).catch(x => alert(msgErr(x))); }; }));
   let mb = [];
-  desab.push(SV.ecouterMembres(cb.id, l => { mb = l.sort((a, b) => ["coach", "cocoach", "membre"].indexOf(a.role) - ["coach", "cocoach", "membre"].indexOf(b.role) || a.pseudo.localeCompare(b.pseudo));
+  desab.push(SV.ecouterMembres(cb.id, l => { if (staff()) demandesSection(cb, l); mb = l.sort((a, b) => ["coach", "cocoach", "membre"].indexOf(a.role) - ["coach", "cocoach", "membre"].indexOf(b.role) || a.pseudo.localeCompare(b.pseudo));
     $("mbListe").innerHTML = `<li class="bloc-titre"><b>${l.length} ${L(l.length > 1 ? "membres" : "membre", l.length > 1 ? "members" : "member")}</b></li>` + mb.map(m => `<li data-mb="${m.id}"><div><b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}${m.id === CL.u.uid ? " " + L("(toi)", "(you)") : ""}</b><small>${L(...ROLES[m.role])}${m.muet ? " · 🔇 " + L("muet", "muted") : ""}${(m.sections || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => ` <span class="cl-sec">${echap(nomSec(cb, id))}</span>`).join("")}</small></div>${staff() && m.role !== "coach" && m.id !== CL.u.uid ? '<span class="duree">⋯</span>' : ""}</li>`).join(""); }));
-  if ($("mbMesSec")) $("mbMesSec").onclick = () => feuilleSections(cb, CL.u.uid, cb.mesSec || [], async l => { await SV.changerMembre(cb.id, CL.u.uid, { sections: l }); cb.mesSec = l; rendu(); });
+  if ($("mbMesSec")) $("mbMesSec").onclick = () => mesSectionsFeuille(cb);
   $("mbListe").onclick = e => { const li = e.target.closest("[data-mb]"); if (!li || !staff()) return; const m = mb.find(x => x.id === li.dataset.mb); if (!m || m.role === "coach" || m.id === CL.u.uid) return;
     ouvrirFeuilleInfo(echap(m.pseudo), `<div class="infos-liens">${cb.role === "coach" ? `<button class="toggle" id="maRole">${m.role === "cocoach" ? L("Retirer le rôle de co-coach", "Remove co-coach role") : L("Nommer co-coach", "Make co-coach")}</button>` : ""}
       ${sectionsDe(cb).length ? `<button class="toggle contour" id="maSec">🏷️ ${L("Ses sections", "Their sections")}</button>` : ""}
       <button class="toggle contour" id="maMuet">${m.muet ? "🔊 " + L("Lui rendre la parole", "Unmute") : "🔇 " + L("Rendre muet dans le chat", "Mute in the chat")}</button><button class="toggle contour cl-danger" id="maExcl">${L("Exclure du club", "Remove from the club")}</button></div>`);
     const act = p => p.then(fermerFeuille).catch(x => alert(msgErr(x)));
-    if ($("maSec")) $("maSec").onclick = () => { fermerFeuille(); feuilleSections(cb, m.id, m.sections || [], l => SV.changerMembre(cb.id, m.id, { sections: l })); };
+    if ($("maSec")) $("maSec").onclick = () => { fermerFeuille(); feuilleSections(cb, m.id, m.sections || [], l => SV.changerMembre(cb.id, m.id, { sections: l, secDem: (m.secDem || []).filter(x => !l.includes(x)) })); };
     if ($("maRole")) $("maRole").onclick = () => act(SV.changerMembre(cb.id, m.id, { role: m.role === "cocoach" ? "membre" : "cocoach" }));
     $("maMuet").onclick = () => m.muet ? act(SV.changerMembre(cb.id, m.id, { muet: false, motif: "" })) : (fermerFeuille(), choisirMotif(L("Rendre muet", "Mute"), k => SV.changerMembre(cb.id, m.id, { muet: true, motif: k }).catch(x => alert(msgErr(x)))));
     $("maExcl").onclick = () => { fermerFeuille(); choisirMotif(L("Exclure ", "Remove ") + m.pseudo, k => SV.exclure(cb.id, m.id, k, cb.nom).catch(x => alert(msgErr(x)))); };
@@ -343,17 +345,32 @@ function ongMembres(Z, cb) {
     await SV.quitter(cb.id).catch(() => {}); await rafraichir(); CL.vue = "liste"; rendu(); };
 }
 
-function feuilleSections(cb, uid, act, garder) {
+// le membre demande une section (le staff valide) ou en quitte une ; il ne peut pas s'y ajouter seul (règles Firestore)
+function mesSectionsFeuille(cb) {
+  const ok = cb.mesSec || [], dem = cb.mesDem || [];
+  feuilleSections(cb, CL.u.uid, [...ok, ...dem], async l => {
+    const garde = ok.filter(x => l.includes(x)), nd = l.filter(x => !ok.includes(x));
+    if (garde.length !== ok.length) await SV.changerMembre(cb.id, CL.u.uid, { sections: garde });
+    if (nd.join() !== dem.join()) await SV.changerMembre(cb.id, CL.u.uid, { secDem: nd });
+    cb.mesSec = garde; cb.mesDem = nd; rendu(); }, dem);
+}
+function demandesSection(cb, l) {   // staff : une ligne par demande (membre, section), accepter ou refuser
+  const Z = $("mbSecDem"); if (!Z) return; const d = l.flatMap(m => (m.secDem || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => [m, id]));
+  Z.innerHTML = d.length ? `<h2 class="sec">${L("Demandes de section", "Section requests")} · ${d.length}</h2><ul class="list">${d.map(([m, id]) => `<li><div><b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}</b><small>${L("veut rejoindre", "wants to join")} <span class="cl-sec">${echap(nomSec(cb, id))}</span></small></div><button class="toggle" data-u="${m.id}" data-s="${id}" data-ok="1">✓</button><button class="toggle contour" data-u="${m.id}" data-s="${id}">✕</button></li>`).join("")}</ul>` : "";
+  Z.onclick = e => { const b = e.target.closest("[data-u]"); if (!b) return; const m = l.find(x => x.id === b.dataset.u), id = b.dataset.s; b.disabled = true;
+    SV.changerMembre(cb.id, m.id, { sections: [...new Set([...(m.sections || []), ...(b.dataset.ok ? [id] : [])])].slice(0, 12), secDem: (m.secDem || []).filter(x => x !== id) }).catch(x => alert(msgErr(x))); };
+}
+function feuilleSections(cb, uid, act, garder, dem = []) {
   const moi = uid === CL.u.uid;
-  ouvrirFeuilleInfo(moi ? L("Mes sections", "My sections") : L("Ses sections", "Their sections"), `<p class="sh-aide">${moi ? L("Coche les sections où tu t’entraînes : tu verras leurs séances et leur chat.", "Tick the sections you train in: you will see their workouts and chat.") : L("Le membre voit les séances et le chat des sections cochées.", "The member sees the workouts and chat of the ticked sections.")}</p>
-    <div class="chips cl-choix-sec" id="fsSec">${sectionsDe(cb).map(x => `<button class="toggle" data-s="${x.id}" aria-pressed="${act.includes(x.id)}">${echap(x.nom)}</button>`).join("")}</div><p class="cl-erreur" id="fsErr"></p><button class="primary" id="fsOk">${L("Enregistrer", "Save")}</button>`);
+  ouvrirFeuilleInfo(moi ? L("Mes sections", "My sections") : L("Ses sections", "Their sections"), `<p class="sh-aide">${moi ? L("Coche les sections où tu t’entraînes : le coach valide ta demande (⏳), puis tu vois leurs séances et leur chat.", "Tick the sections you train in: you will see their workouts and chat.") : L("Le membre voit les séances et le chat des sections cochées.", "The member sees the workouts and chat of the ticked sections.")}</p>
+    <div class="chips cl-choix-sec" id="fsSec">${sectionsDe(cb).map(x => `<button class="toggle" data-s="${x.id}" aria-pressed="${act.includes(x.id)}">${echap(x.nom)}${dem.includes(x.id) ? " ⏳" : ""}</button>`).join("")}</div><p class="cl-erreur" id="fsErr"></p><button class="primary" id="fsOk">${L("Enregistrer", "Save")}</button>`);
   $("fsSec").onclick = e => { const b = e.target.closest("[data-s]"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); };
   $("fsOk").onclick = async () => { const l = [...$("fsSec").querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.s).slice(0, 12); $("fsOk").disabled = true;
     try { await garder(l); fermerFeuille(); } catch (x) { $("fsErr").textContent = msgErr(x); $("fsOk").disabled = false; } };
 }
 function reglagesSections(Z, cb) {   // staff : ajouter, renommer ou supprimer une section (12 au plus)
   const l = sectionsDe(cb).map(x => ({ ...x }));
-  Z.innerHTML = `<h2 class="sec">🏷️ ${L("Sections du club", "Club sections")}</h2><div class="carnet cl-form"><p class="sh-aide">${L("Pour un club à plusieurs disciplines ou groupes (ex. boxe anglaise, MMA, JJB, boxe thaï, kick-boxing ; ou U13, U15, seniors). Chaque section a ses séances et son chat, visibles seulement de ses membres et du staff ; chaque membre coche les siennes dans l’onglet Membres.", "For a club with several disciplines or groups (e.g. boxing, MMA, BJJ, Muay Thai, kickboxing; or U13, U15, seniors). Each section has its own workouts and chat, visible only to its members and staff; each member ticks theirs in the Members tab.")}</p>
+  Z.innerHTML = `<h2 class="sec">🏷️ ${L("Sections du club", "Club sections")}</h2><div class="carnet cl-form"><p class="sh-aide">${L("Pour un club à plusieurs disciplines ou groupes (ex. boxe anglaise, MMA, JJB, boxe thaï, kick-boxing ; ou U13, U15, seniors). Chaque section a ses séances et son chat, visibles seulement de ses membres et du staff ; chaque membre demande les siennes dans l’onglet Membres et le staff valide.", "For a club with several disciplines or groups (e.g. boxing, MMA, BJJ, Muay Thai, kickboxing; or U13, U15, seniors). Each section has its own workouts and chat, visible only to its members and staff; each member requests theirs in the Members tab and staff approve.")}</p>
     <ul class="list" id="secListe">${l.map(x => `<li><div><b>${echap(x.nom)}</b></div><button class="lien" data-ren="${x.id}">✏️</button><button class="lien" data-sup="${x.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button></li>`).join("") || `<li><small>${L("Aucune section : tout le club est ensemble.", "No sections: the whole club is together.")}</small></li>`}</ul>
     ${l.length < 12 ? `<div class="cl-ajout"><input id="secNom" class="choixVoix" maxlength="30" placeholder="${L("Nouvelle section, ex. MMA", "New section, e.g. MMA")}"><button class="toggle" id="secAjout">＋</button></div>` : ""}<p class="cl-erreur" id="secErr"></p></div>`;
   const garder = async nl => { try { await SV.modifierClub(cb.id, { sections: nl }); cb.sections = nl; reglagesSections(Z, cb); } catch (x) { $("secErr").textContent = msgErr(x); } };

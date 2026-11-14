@@ -53,7 +53,7 @@ export async function mesClubs() {
     const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif });   // accepté puis exclu avant d'avoir rouvert l'appli
   }
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
-    if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: m.motif || "", mesSec: m.sections || [] });
+    if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
   return { clubs: nc, attente: na, retraits: nr };

@@ -110,8 +110,10 @@ service cloud.firestore {
             || (staff(c) && D().role == 'membre' && D().pseudo == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.pseudo));
         // le coach nomme ou retire les co-coachs ; le staff rend muet ; personne ne touche au rôle du coach ni ne se modifie soi-même
         allow update: if (connecte() && moi() == uid && seulement(['dernier']) && maintenant(D().dernier))   // horodatage anti-spam, écrit avec chaque message
-          || (connecte() && moi() == uid && seulement(['sections']) && D().sections is list && D().sections.size() <= 12)   // mes sections
-          || (staff(c) && uid != moi() && seulement(['sections']) && D().sections is list && D().sections.size() <= 12)
+          // sections : le membre demande (secDem) ou quitte une section, il ne peut pas s'y ajouter lui-même ; le staff valide ou range directement
+          || (connecte() && moi() == uid && seulement(['secDem']) && D().secDem is list && D().secDem.size() <= 12)
+          || (connecte() && moi() == uid && seulement(['sections']) && D().sections is list && D().sections.hasOnly(resource.data.get('sections', [])))
+          || (staff(c) && seulement(['sections', 'secDem']) && D().sections is list && D().sections.size() <= 12 && D().get('secDem', []) is list)
           || resource.data.role != 'coach' && uid != moi() && D().muet is bool && (!('motif' in D()) || texteVide(D().motif, 60))
           && ((coach(c) && seulement(['role', 'muet', 'motif']) && D().role in ['membre', 'cocoach'])
             || (staff(c) && resource.data.role == 'membre' && seulement(['muet', 'motif'])));
