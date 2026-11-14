@@ -55,26 +55,30 @@ function prevReglages(Z, cb) {
 async function ongSuivi(Z, cb) {
   Z.innerHTML = `<p class="vide">…</p>`;
   const auj = jourCle(), d28 = decaler(auj, -27), d14 = decaler(auj, -13), p = prevCfg(cb), sems = [0, 1, 2, 3].map(i => decaler(lundiCle(auj), -7 * i)).reverse();
-  const [mb, ses] = await Promise.all([unePhoto(f => SV.ecouterMembres(cb.id, f)), unePhoto(f => SV.ecouterSeances(cb.id, f))]);
-  const passe = ses.filter(s => s.date <= auj && s.date >= d28), faits = await SV.faitsDe(cb.id, passe.map(s => s.id)),
+  const SC = sectionsDe(cb); if (!SC.some(x => x.id === CL.suiviSec)) CL.suiviSec = "*"; const fs = CL.suiviSec;
+  const [mbT, sesT] = await Promise.all([unePhoto(f => SV.ecouterMembres(cb.id, f)), unePhoto(f => ecouterSeancesClub(cb, f))]);
+  const dans = (m, s) => !s.sec || (m.sections || []).includes(s.sec),   // une séance de section ne compte que pour ses membres
+    mb = fs === "*" ? mbT : mbT.filter(m => (m.sections || []).includes(fs)), ses = fs === "*" ? sesT : sesT.filter(s => !s.sec || s.sec === fs);
+  const passe = ses.filter(s => s.date <= auj && s.date >= d28), faits = await SV.faitsDe(cb.id, passe),
     agg = p ? await SV.prevSemaines(cb.id, sems) : {}, noms = p && p.vue === "noms" ? await SV.prevNoms(cb.id, sems[0]) : null;
   if (CL.onglet !== "suivi" || !Z.isConnected) return;   // onglet quitté pendant le chargement
   const arrivee = m => m.depuis && m.depuis.toDate ? jourCle(m.depuis.toDate()) : d28,
-    l = mb.map(m => { const dues = passe.filter(s => s.date >= arrivee(m)), ok = dues.filter(s => faits[s.id].includes(m.id)), rec = dues.filter(s => s.date >= d14),
+    l = mb.map(m => { const dues = passe.filter(s => s.date >= arrivee(m) && dans(m, s)), ok = dues.filter(s => faits[s.id].includes(m.id)), rec = dues.filter(s => s.date >= d14),
       pv = noms ? noms.filter(x => x.uid === m.id) : [], pvSem = (pv.find(x => x.s === sems[3]) || {}).n || 0;
       return { m, dues: dues.length, ok: ok.length, decroche: m.role === "membre" && arrivee(m) <= d14 && rec.length >= 1 && !rec.some(s => faits[s.id].includes(m.id)), pv4: pv.reduce((a, x) => a + x.n, 0), pvSem }; }).sort((a, b) => a.ok / (a.dues || 1) - b.ok / (b.dues || 1));
   const dec = l.filter(x => x.decroche), moy = l.reduce((a, x) => a + x.ok, 0) / Math.max(1, l.reduce((a, x) => a + x.dues, 0)),
-    top = passe.map(s => [s, faits[s.id].length]).sort((a, b) => b[1] - a[1]).slice(0, 5), court = j => j.slice(8) + "/" + j.slice(5, 7);
-  Z.innerHTML = `<div id="suiviOk" class="cl-stats"><div class="carnet"><b>${passe.length}</b><small>${L("séances sur 4 semaines", "workouts over 4 weeks")}</small></div><div class="carnet"><b>${pctTxt(moy, 1)}</b><small>${L("de séances faites", "of workouts done")}</small></div><div class="carnet"><b>${dec.length}</b><small>${L("à relancer", "to nudge")}</small></div></div>
+    top = passe.map(s => [s, faits[s.id].length, mb.filter(m => dans(m, s)).length]).sort((a, b) => b[1] - a[1]).slice(0, 5), court = j => j.slice(8) + "/" + j.slice(5, 7);
+  Z.innerHTML = `${SC.length ? `<div class="chips cl-filtre" id="suSec">${[["*", L("Tout le club", "Whole club")], ...SC.map(x => [x.id, x.nom])].map(([k, n]) => `<button class="toggle" data-f="${k}" aria-pressed="${fs === k}">${echap(n)}</button>`).join("")}</div>` : ""}<div id="suiviOk" class="cl-stats"><div class="carnet"><b>${passe.length}</b><small>${L("séances sur 4 semaines", "workouts over 4 weeks")}</small></div><div class="carnet"><b>${pctTxt(moy, 1)}</b><small>${L("de séances faites", "of workouts done")}</small></div><div class="carnet"><b>${dec.length}</b><small>${L("à relancer", "to nudge")}</small></div></div>
     ${dec.length ? `<h2 class="sec">${L("À relancer", "To nudge")}</h2><div class="carnet"><p class="sh-aide">${L("Aucune séance du club cochée depuis 2 semaines.", "No club workout ticked for 2 weeks.")}</p><p>${dec.map(x => `<span class="cl-qui">${echap(x.m.pseudo)}</span>`).join(" ")}</p><button class="toggle" id="suRelance">💬 ${L("Écrire un message de relance", "Write a nudge message")}</button></div>` : ""}
-    ${p ? `<h2 class="sec">🛡️ ${L("Prévention", "Prevention")} · ${L(`objectif ${p.obj}×/semaine`, `goal ${p.obj}×/week`)}</h2><div class="carnet cl-sem">${sems.map(s => { const a = agg[s] || { n: 0, j: 0 }; return `<div><small>${L("Sem. du", "Week of")} ${court(s)}</small>${barre(a.j, mb.length)}<small>${a.j}/${mb.length} ${L("joueurs", "players")} · ${a.n} ${L("séances", "sessions")}</small></div>`; }).join("")}
+    ${p && fs === "*" ? `<h2 class="sec">🛡️ ${L("Prévention", "Prevention")} · ${L(`objectif ${p.obj}×/semaine`, `goal ${p.obj}×/week`)}</h2><div class="carnet cl-sem">${sems.map(s => { const a = agg[s] || { n: 0, j: 0 }; return `<div><small>${L("Sem. du", "Week of")} ${court(s)}</small>${barre(a.j, mb.length)}<small>${a.j}/${mb.length} ${L("joueurs", "players")} · ${a.n} ${L("séances", "sessions")}</small></div>`; }).join("")}
       ${noms ? "" : `<p class="sh-aide">${L("Vue « total de l’équipe » : le détail par joueur n’est pas visible (réglage dans l’onglet Club).", "“Team total” view: per-player detail is hidden (setting in the Club tab).")}</p>`}</div>` : ""}
     <h2 class="sec">${L("Assiduité · 4 semaines", "Attendance · 4 weeks")}</h2><ul class="list cl-assid">${l.map(x => `<li><div><b style="color:${couleurPseudo(x.m.pseudo)}">${echap(x.m.pseudo)}</b>${barre(x.ok, x.dues)}<small>${x.dues ? `${x.ok}/${x.dues} ${L("séances", "workouts")} · ${pctTxt(x.ok, x.dues)}` : L("Aucune séance depuis son arrivée", "No workout since joining")}${noms ? ` · 🛡️ ${x.pvSem}/${p.obj} ${L("cette semaine", "this week")}, ${x.pv4} ${L("en 4 sem.", "in 4 wks")}` : ""}</small></div></li>`).join("")}</ul>
-    ${top.length ? `<h2 class="sec">${L("Séances les plus suivies", "Most followed workouts")}</h2><ul class="list">${top.map(([s, n]) => `<li><div><b>${echap(s.titre)}</b><small>${dateLisible(s.date)}</small></div><span class="duree">${n}/${mb.length}</span></li>`).join("")}</ul>` : `<p class="vide">${L("Publie des séances pour voir l’assiduité de ton équipe.", "Post workouts to see your team’s attendance.")}</p>`}`;
+    ${top.length ? `<h2 class="sec">${L("Séances les plus suivies", "Most followed workouts")}</h2><ul class="list">${top.map(([s, n, t]) => `<li><div><b>${echap(s.titre)}</b><small>${s.sec ? echap(nomSec(cb, s.sec)) + " · " : ""}${dateLisible(s.date)}</small></div><span class="duree">${n}/${t}</span></li>`).join("")}</ul>` : `<p class="vide">${L("Publie des séances pour voir l’assiduité de ton équipe.", "Post workouts to see your team’s attendance.")}</p>`}`;
+  if ($("suSec")) $("suSec").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.suiviSec = b.dataset.f; rendu(); } };
   if ($("suRelance")) $("suRelance").onclick = () => { const pro = ses.filter(s => s.date >= auj).pop();
     CL.brouillon = L(`${dec.map(x => "@" + x.m.pseudo).join(" ")} on ne vous a pas vus sur les dernières séances 💪 ${pro ? `Prochaine : « ${pro.titre} » (${dateLisible(pro.date).toLowerCase()}).` : "Une petite séance cette semaine ?"} Dites-nous si quelque chose bloque !`,
       `${dec.map(x => "@" + x.m.pseudo).join(" ")} we haven’t seen you on the last workouts 💪 ${pro ? `Next one: “${pro.titre}” (${dateLisible(pro.date).toLowerCase()}).` : "A short workout this week?"} Let us know if anything is in the way!`);
-    CL.onglet = "chat"; rendu(); };
+    CL.sal = fs === "*" ? "" : fs; CL.onglet = "chat"; rendu(); };
 }
 
 /* --- Modèles de séances (fenêtre « Publier ») : [titre fr, titre en, routine, consigne fr, consigne en] --- */

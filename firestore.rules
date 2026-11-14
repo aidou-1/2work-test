@@ -28,6 +28,26 @@ service cloud.firestore {
     function prevOk(p) { return p is map && p.keys().hasOnly(['on', 'sp', 'obj', 'vue', 'depuis']) && p.on is bool && p.sp is string && p.sp.matches('^[a-z]{2,12}$')
       && p.obj is int && p.obj >= 1 && p.obj <= 3 && p.vue in ['noms', 'total'] && jour(p.depuis); }
     function poli(t) { return !t.lower().matches('(?s)(.*[^a-z])?(connard|connasse|salope|salaud|pute|encul|ntm|nique ta|niquer ta|fdp|fils de pute|batard|bâtard|pédé|negre|nègre|bougnoul|youpin|bitch|fuck|motherf|cunt|nigg|faggot|retardé mental|suicide-toi|va te pendre).*'); }
+    // séances, coches et messages : mêmes vérifications pour tout le club et pour chaque section
+    function seanceOk() { return champs(['titre', 'date', 'note', 'auteur', 'cree'], ['titre', 'date', 'note', 'auteur', 'cree', 'base', 'ids', 'prog'])
+      && texte(D().titre, 60) && jour(D().date) && texteVide(D().note, 300) && D().auteur == moi()
+      && (!('base' in D()) || id(D().base)) && (!('prog' in D()) || id(D().prog)) && (!('ids' in D()) || (D().ids is list && D().ids.size() <= 60)); }
+    function faitOk() { return champs(['pseudo', 't'], ['pseudo', 't']) && D().pseudo == monPseudo() && maintenant(D().t); }
+    function dansSection(c, sal) { return staff(c) || (membre(c) && sal in get(membreDoc(c)).data.get('sections', [])); }
+    function reac(e) {
+      let avant = resource.data.reac.get(e, []);
+      let apres = D().reac.get(e, []);
+      return D().reac.diff(resource.data.reac).affectedKeys().hasOnly([e]) && apres is list && apres.size() == apres.toSet().size()
+        && (apres.toSet() == avant.toSet().union([moi()].toSet()) || apres.toSet() == avant.toSet().difference([moi()].toSet()));
+    }
+    function msgCreeOk(c) { return membre(c) && get(membreDoc(c)).data.muet != true && champs(['uid', 'pseudo', 'texte', 't', 'reac'], ['uid', 'pseudo', 'texte', 't', 'reac', 'rep'])
+      && D().uid == moi() && D().pseudo == monPseudo() && texte(D().texte, 1000) && maintenant(D().t) && D().reac == {}
+      && pasTropVite(c) && sansLien(c, D().texte) && poli(D().texte)
+      && (!('rep' in D()) || (D().rep is map && D().rep.keys().hasOnly(['m', 'pseudo', 'extrait']) && texteVide(D().rep.extrait, 80) && texteVide(D().rep.pseudo, 20))); }
+    // réactions : chacun ajoute ou retire seulement la sienne, parmi 5 emojis ; suppression (texte effacé) : l'auteur ou le staff
+    function msgMajOk(c) { return membre(c) && ((seulement(['reac']) && (reac('👍') || reac('❤️') || reac('💪') || reac('🔥') || reac('😂')))
+      || (resource.data.uid == moi() && seulement(['suppr', 'texte']) && D().suppr == true && D().texte == '')
+      || (staff(c) && seulement(['suppr', 'texte', 'motif']) && D().suppr == true && D().texte == '' && texte(D().motif, 60))); }
 
     // compte privé : seulement soi (date de naissance, accord parental, liste de ses clubs)
     match /comptes/{uid} {
@@ -64,7 +84,8 @@ service cloud.firestore {
       allow create: if connecte() && champs(['nom', 'sport', 'desc', 'coach', 'cree'], ['nom', 'sport', 'desc', 'coach', 'cree'])
         && D().coach == moi() && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300) && maintenant(D().cree)
         && getAfter(/databases/$(db)/documents/clubs/$(c)/membres/$(moi())).data.role == 'coach';
-      allow update: if staff(c) && seulement(['nom', 'sport', 'desc']) && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300)
+      allow update: if staff(c) && seulement(['nom', 'sport', 'desc', 'sections']) && texte(D().nom, 40) && texteVide(D().sport, 30) && texteVide(D().desc, 300)
+          && (!('sections' in D()) || (D().sections is list && D().sections.size() <= 12))
         || (coach(c) && seulement(['prev']) && prevOk(D().prev));   // prévention des blessures : réglée par le coach seul (dont qui voit le détail)
       allow delete: if coach(c);
 
@@ -89,6 +110,8 @@ service cloud.firestore {
             || (staff(c) && D().role == 'membre' && D().pseudo == get(/databases/$(db)/documents/clubs/$(c)/demandes/$(uid)).data.pseudo));
         // le coach nomme ou retire les co-coachs ; le staff rend muet ; personne ne touche au rôle du coach ni ne se modifie soi-même
         allow update: if (connecte() && moi() == uid && seulement(['dernier']) && maintenant(D().dernier))   // horodatage anti-spam, écrit avec chaque message
+          || (connecte() && moi() == uid && seulement(['sections']) && D().sections is list && D().sections.size() <= 12)   // mes sections
+          || (staff(c) && uid != moi() && seulement(['sections']) && D().sections is list && D().sections.size() <= 12)
           || resource.data.role != 'coach' && uid != moi() && D().muet is bool && (!('motif' in D()) || texteVide(D().motif, 60))
           && ((coach(c) && seulement(['role', 'muet', 'motif']) && D().role in ['membre', 'cocoach'])
             || (staff(c) && resource.data.role == 'membre' && seulement(['muet', 'motif'])));
@@ -105,33 +128,38 @@ service cloud.firestore {
       }
       match /seances/{s} {
         allow read: if membre(c);
-        allow create, update: if staff(c) && champs(['titre', 'date', 'note', 'auteur', 'cree'], ['titre', 'date', 'note', 'auteur', 'cree', 'base', 'ids', 'prog'])
-          && texte(D().titre, 60) && jour(D().date) && texteVide(D().note, 300) && D().auteur == moi()
-          && (!('base' in D()) || id(D().base)) && (!('prog' in D()) || id(D().prog)) && (!('ids' in D()) || (D().ids is list && D().ids.size() <= 60));
+        allow create, update: if staff(c) && seanceOk();
         allow delete: if staff(c);
         match /faits/{uid} {
-          allow read: if membre(c);
-          allow create, update: if membre(c) && moi() == uid && champs(['pseudo', 't'], ['pseudo', 't']) && D().pseudo == monPseudo() && maintenant(D().t);
+          allow read: if staff(c) || (connecte() && moi() == uid);
+          allow create, update: if membre(c) && moi() == uid && faitOk();
           allow delete: if (connecte() && moi() == uid) || staff(c);
         }
       }
       match /messages/{m} {
-        function reac(e) {
-          let avant = resource.data.reac.get(e, []);
-          let apres = D().reac.get(e, []);
-          return D().reac.diff(resource.data.reac).affectedKeys().hasOnly([e]) && apres is list && apres.size() == apres.toSet().size()
-            && (apres.toSet() == avant.toSet().union([moi()].toSet()) || apres.toSet() == avant.toSet().difference([moi()].toSet()));
-        }
         allow read: if membre(c);
-        allow create: if membre(c) && get(membreDoc(c)).data.muet != true && champs(['uid', 'pseudo', 'texte', 't', 'reac'], ['uid', 'pseudo', 'texte', 't', 'reac', 'rep'])
-          && D().uid == moi() && D().pseudo == monPseudo() && texte(D().texte, 1000) && maintenant(D().t) && D().reac == {}
-          && pasTropVite(c) && sansLien(c, D().texte) && poli(D().texte)
-          && (!('rep' in D()) || (D().rep is map && D().rep.keys().hasOnly(['m', 'pseudo', 'extrait']) && texteVide(D().rep.extrait, 80) && texteVide(D().rep.pseudo, 20)));
-        // réactions : chacun ajoute ou retire seulement la sienne, parmi 5 emojis ; suppression (texte effacé) : l'auteur ou le staff
-        allow update: if membre(c) && ((seulement(['reac']) && (reac('👍') || reac('❤️') || reac('💪') || reac('🔥') || reac('😂')))
-          || (resource.data.uid == moi() && seulement(['suppr', 'texte']) && D().suppr == true && D().texte == '')
-          || (staff(c) && seulement(['suppr', 'texte', 'motif']) && D().suppr == true && D().texte == '' && texte(D().motif, 60)));
+        allow create: if msgCreeOk(c);
+        allow update: if msgMajOk(c);
         allow delete: if coach(c);   // seulement pour supprimer le club entier
+      }
+      // sections du club (ex. MMA, JJB) : mêmes règles, réservées aux membres de la section (choisies par eux, corrigées par le staff) et au staff
+      match /salons/{sal} {
+        match /seances/{s} {
+          allow read: if dansSection(c, sal);
+          allow create, update: if staff(c) && seanceOk();
+          allow delete: if staff(c);
+          match /faits/{uid} {
+            allow read: if staff(c) || (connecte() && moi() == uid);
+            allow create, update: if dansSection(c, sal) && moi() == uid && faitOk();
+            allow delete: if (connecte() && moi() == uid) || staff(c);
+          }
+        }
+        match /messages/{m} {
+          allow read: if dansSection(c, sal);
+          allow create: if dansSection(c, sal) && msgCreeOk(c);
+          allow update: if dansSection(c, sal) && msgMajOk(c);
+          allow delete: if staff(c);   // section ou club supprimés
+        }
       }
       // prévention : chacun écrit sa propre fiche de la semaine (+1 à chaque fois) ; le staff ne la lit que si le coach a choisi « nom par nom »
       match /prev/{p} {
@@ -151,8 +179,8 @@ service cloud.firestore {
       }
       match /signalements/{r} {
         allow read, delete: if staff(c);
-        allow create: if membre(c) && champs(['m', 'extrait', 'auteur', 'par', 't'], ['m', 'extrait', 'auteur', 'par', 't']) && D().par == moi()
-          && id(D().m) && texteVide(D().extrait, 200) && texteVide(D().auteur, 20) && maintenant(D().t);
+        allow create: if membre(c) && champs(['m', 'extrait', 'auteur', 'par', 't'], ['m', 'extrait', 'auteur', 'par', 't', 'sal']) && D().par == moi()
+          && (!('sal' in D()) || id(D().sal)) && id(D().m) && texteVide(D().extrait, 200) && texteVide(D().auteur, 20) && maintenant(D().t);
       }
     }
     // compteurs anonymes (avec l'accord de l'utilisateur) : un total par jour et par événement, sans identifiant ;

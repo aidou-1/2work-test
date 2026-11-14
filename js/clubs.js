@@ -9,6 +9,14 @@ const ERR = { "auth/email-already-in-use": ["Cet email a déjà un compte : conn
 const msgErr = e => L(...(ERR[e && e.code] || ["Une erreur est survenue, réessaie.", "Something went wrong, try again."]));
 const ageDe = n => { const a = new Date(n), j = new Date(); return j.getFullYear() - a.getFullYear() - (j < new Date(j.getFullYear(), a.getMonth(), a.getDate()) ? 1 : 0); };
 const club = () => CL.clubs.find(x => x.id === CL.c), staff = () => ["coach", "cocoach"].includes((club() || {}).role);
+/* Sections d'un club (ex. club de boxe : boxe anglaise, MMA, JJB…) : cb.sections = [{ id, nom }], tenues par le staff ;
+   chaque membre coche les siennes (cb.mesSec), le staff peut corriger. Une séance ou un chat de section n'est visible que de ses membres et du staff. */
+const sectionsDe = cb => (cb && cb.sections) || [], nomSec = (cb, id) => (sectionsDe(cb).find(x => x.id === id) || { nom: "?" }).nom;
+const mesSections = cb => ["coach", "cocoach"].includes(cb.role) ? sectionsDe(cb).map(x => x.id) : (cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id));
+function ecouterSeancesClub(cb, f) {   // séances du club entier + de mes sections, fusionnées par date (plus récentes d'abord)
+  const parts = {}, ids = ["", ...mesSections(cb)], tout = () => f(ids.flatMap(k => parts[k] || []).sort((a, b) => a.date < b.date ? 1 : -1));
+  const stops = ids.map(k => SV.ecouterSeances(cb.id, l => { parts[k] = l; if (ids.every(x => parts[x])) tout(); }, k)); return () => stops.forEach(x => x());
+}
 const ROLES = { coach: ["Coach", "Coach"], cocoach: ["Co-coach", "Co-coach"], membre: ["Membre", "Member"] };
 const dateLisible = j => { const a = jourCle(), dm = decaler(a, 1); return j === a ? L("Aujourd’hui", "Today") : j === dm ? L("Demain", "Tomorrow") : new Date(j + "T12:00").toLocaleDateString(LANGUE === "en" ? "en-GB" : "fr-FR", { weekday: "short", day: "numeric", month: "short" }); };
 const heure = t => t && t.toDate ? t.toDate().toLocaleTimeString(LANGUE === "en" ? "en-GB" : "fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -189,16 +197,22 @@ function renduClub(C) {
 function routineClub(s) {   // séance du club → routine locale « club_<id> » (même moteur que les favoris), pour la lancer et la cocher à la fin
   const b = ROUTINES[s.base]; if (!b) return null; const k = "club_" + s.id;
   const t = String(s.titre).replace(/[<>"'`&]/g, "").slice(0, 60);   // titre écrit par un coach : jamais de balise ni de guillemet
-  ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, titre: t }, exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
+  ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, sec: s.sec || "", titre: t }, exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
   if (typeof CONSEILLES !== "undefined") CONSEILLES[k] = CONSEILLES[s.base] || ROUTINES[k].exercices; return k;
 }
 function ongSeances(Z, cb) {
   Z.innerHTML = `${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="prevZone"></div><div id="spListe"><p class="vide">…</p></div>`;
   if (staff()) $("spNouv").onclick = () => feuillePublier(); prevCarte($("prevZone"), cb);
-  desab.push(SV.ecouterSeances(cb.id, async l => {
-    const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l.map(s => s.id));
+  const filtres = sectionsDe(cb).length && mesSections(cb).length ? [["*", L("Tout", "All")], ["", L("Club", "Club")], ...mesSections(cb).map(id => [id, nomSec(cb, id)])] : [];
+  if (!filtres.some(f => f[0] === CL.filtre)) CL.filtre = "*";
+  if (sectionsDe(cb).length && !staff() && !mesSections(cb).length) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>🏷️ ${L("Ce club a des sections (", "This club has sections (")}${sectionsDe(cb).map(x => echap(x.nom)).join(", ")}${L(") : choisis les tiennes pour voir leurs séances et leur chat.", "): pick yours to see their workouts and chat.")}</p><button class="toggle" id="spChoisirSec">${L("Choisir", "Choose")}</button></div>`);
+    $("spChoisirSec").onclick = () => feuilleSections(cb, CL.u.uid, [], async l => { await SV.changerMembre(cb.id, CL.u.uid, { sections: l }); cb.mesSec = l; rendu(); }); }
+  if (filtres.length) $("prevZone").insertAdjacentHTML("afterend", `<div class="chips cl-filtre" id="spFiltre">${filtres.map(([k, n]) => `<button class="toggle" data-f="${k}" aria-pressed="${(CL.filtre ?? "*") === k}">${echap(n)}</button>`).join("")}</div>`);
+  if ($("spFiltre")) $("spFiltre").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.filtre = b.dataset.f; rendu(); } };
+  desab.push(ecouterSeancesClub(cb, async tout => { const l = tout.filter(s => !filtres.length || (CL.filtre ?? "*") === "*" || s.sec === CL.filtre);
+    const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l);
     const carte = s => { const P = s.prog && PROGRAMMES.find(p => p[0] === s.prog);
-      return `<div class="carnet cl-seance" data-s="${s.id}"><div class="cl-s-haut"><small>${P ? L("Programme · ", "Programme · ") : ""}${dateLisible(s.date)}</small>${staff() ? `<button class="lien" data-sup="${s.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button>` : ""}</div>
+      return `<div class="carnet cl-seance" data-s="${s.id}"><div class="cl-s-haut"><small>${s.sec ? `<span class="cl-sec">${echap(nomSec(cb, s.sec))}</span> ` : ""}${P ? L("Programme · ", "Programme · ") : ""}${dateLisible(s.date)}</small>${staff() ? `<button class="lien" data-sup="${s.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button>` : ""}</div>
         <b>${echap(s.titre)}</b>${s.note ? `<p>${echap(s.note)}</p>` : ""}
         <div class="partage-btns"><button class="toggle" data-go="${s.id}">▶ ${P ? L("Ouvrir le programme", "Open the programme") : L("Lancer", "Start")}</button><button class="toggle contour${faits[s.id] ? " cl-fait" : ""}" data-fait="${s.id}">${faits[s.id] ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done")}</button></div>
         ${staff() ? `<details class="cl-suivi" data-suivi="${s.id}"><summary>${L("Qui l’a faite ?", "Who did it?")} <span id="nb_${s.id}"></span></summary><div id="qui_${s.id}"></div></details>` : ""}</div>`; };
@@ -206,12 +220,13 @@ function ongSeances(Z, cb) {
       + (pa.length ? `<h2 class="sec">${L("Passées", "Past")}</h2>${pa.slice(0, 15).map(carte).join("")}` : "");
     $("spListe").onclick = async e => { const b = e.target.closest("button"); if (!b) return; const d = b.dataset, s = l.find(x => x.id === (d.go || d.fait || d.sup));
       if (d.go) { if (s.prog) return PROGRAMMES.some(p => p[0] === s.prog) && ouvrirProg(s.prog); const k = routineClub(s); k ? ouvrirRoutine(k) : alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); }
-      if (d.fait) { const oui = !b.classList.contains("cl-fait"); b.disabled = true; await SV.marquerFait(cb.id, s.id, CL.u.pseudo, oui).catch(() => {}); b.disabled = false; b.classList.toggle("cl-fait", oui); b.textContent = oui ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done"); }
-      if (d.sup && b.dataset.conf) await SV.supprimerSeance(cb.id, s.id); else if (d.sup) { b.dataset.conf = 1; b.textContent = L("Supprimer ?", "Delete?"); }
+      if (d.fait) { const oui = !b.classList.contains("cl-fait"); b.disabled = true; await SV.marquerFait(cb.id, s.id, CL.u.pseudo, oui, s.sec).catch(() => {}); b.disabled = false; b.classList.toggle("cl-fait", oui); b.textContent = oui ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done"); }
+      if (d.sup && b.dataset.conf) await SV.supprimerSeance(cb.id, s.id, s.sec); else if (d.sup) { b.dataset.conf = 1; b.textContent = L("Supprimer ?", "Delete?"); }
     };
     if (staff()) { const mb = await new Promise(r => { const f = SV.ecouterMembres(cb.id, x => { r(x); f(); }); });
-      Z.querySelectorAll("[data-suivi]").forEach(D => { const s = D.dataset.suivi; desab.push(SV.ecouterFaits(cb.id, s, f => { const ok = new Set(f.map(x => x.id));
-        $("nb_" + s).textContent = `${ok.size}/${mb.length}`; $("qui_" + s).innerHTML = mb.map(m => `<span class="cl-qui${ok.has(m.id) ? " ok" : ""}">${ok.has(m.id) ? "✓" : "✗"} ${echap(m.pseudo)}</span>`).join(""); })); }); }
+      Z.querySelectorAll("[data-suivi]").forEach(D => { const s = D.dataset.suivi; const sec = (l.find(x => x.id === s) || {}).sec, mbS = sec ? mb.filter(m => (m.sections || []).includes(sec) || ["coach", "cocoach"].includes(m.role)) : mb;
+        desab.push(SV.ecouterFaits(cb.id, s, f => { const ok = new Set(f.map(x => x.id));
+        $("nb_" + s).textContent = `${ok.size}/${mbS.length}`; $("qui_" + s).innerHTML = mbS.map(m => `<span class="cl-qui${ok.has(m.id) ? " ok" : ""}">${ok.has(m.id) ? "✓" : "✗"} ${echap(m.pseudo)}</span>`).join(""); }, sec)); }); }
   }));
 }
 function feuillePublier() {
@@ -225,6 +240,7 @@ function feuillePublier() {
   ouvrirFeuilleInfo(L("Publier une séance", "Post a workout"), `<div class="chips" id="pbType">${[["cat", "Parcourir", "Browse"], ["mod", "Modèles", "Templates"], ["fav", "Mes séances", "My workouts"], ["prog", "Programmes", "Programmes"]].map(([k, f, e]) => `<button class="toggle" data-t="${k}" aria-pressed="${k === type}">${L(f, e)}</button>`).join("")}</div>
     <label class="recherche"><input id="pbQ" type="search" placeholder="${L("Rechercher", "Search")}" autocomplete="off"></label><ul class="list cl-choix" id="pbListe"></ul>
     <div class="champ-duo"><label class="champ"><span id="pbDateT">${L("Date", "Date")}</span><input type="date" id="pbDate" value="${jourCle()}" min="${decaler(jourCle(), -30)}"></label><label class="champ"><span>${L("Titre affiché", "Displayed title")}</span><input id="pbTitre" maxlength="60"></label></div>
+    ${sectionsDe(club()).length ? `<label class="champ"><span>${L("Pour", "For")}</span><select id="pbSec"><option value="">${L("Tout le club", "The whole club")}</option>${sectionsDe(club()).map(x => `<option value="${x.id}"${CL.filtre === x.id ? " selected" : ""}>${echap(x.nom)}</option>`).join("")}</select></label>` : ""}
     <label class="champ"><span>${L("Consigne pour le groupe (facultatif)", "Note for the group (optional)")}</span><textarea id="pbNote" class="choixVoix" rows="2" maxlength="300" placeholder="${L("ex. À faire avant l’entraînement de jeudi", "e.g. Do it before Thursday’s practice")}"></textarea></label><p class="cl-erreur" id="pbErr"></p>
     <button class="primary" id="pbOk">${L("Publier pour tout le club", "Post to the whole club")}</button>`);
   const liste = () => { const q = plat($("pbQ").value.trim());
@@ -240,11 +256,11 @@ function feuillePublier() {
     if (!choix) return $("pbErr").textContent = L("Choisis une séance dans la liste.", "Pick a workout from the list.");
     const v = { titre: propre($("pbTitre").value.trim()).slice(0, 60) || "?", date: $("pbDate").value || jourCle(), note: propre($("pbNote").value.trim()) };
     if (choix.startsWith("prog:")) v.prog = choix.slice(5); else if (choix.startsWith("mod:")) v.base = MOD[+choix.slice(4)][2]; else if (choix.startsWith("fav:")) { const f = fav.find(x => x.id === choix.slice(4)); v.base = f.base; v.ids = f.ids; } else v.base = choix;
-    $("pbOk").disabled = true; try { await SV.publier(CL.c, v); fermerFeuille(); } catch (x) { $("pbErr").textContent = msgErr(x); $("pbOk").disabled = false; }
+    $("pbOk").disabled = true; try { await SV.publier(CL.c, v, $("pbSec") ? $("pbSec").value : ""); fermerFeuille(); } catch (x) { $("pbErr").textContent = msgErr(x); $("pbOk").disabled = false; }
   };
 }
 // fin d'une séance lancée depuis un club : cochée automatiquement (appelé par celebrer, js/progres.js)
-function clubSeanceFinie(r) { if (r && r.club && SV && CL.u) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true).catch(() => {}); }
+function clubSeanceFinie(r) { if (r && r.club && SV && CL.u) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true, r.club.sec).catch(() => {}); }
 
 /* Chat : pseudo en couleur, réponses citées, réactions, suppression, signalement ; le staff modère */
 const REAC = ["👍", "❤️", "💪", "🔥", "😂"];
@@ -260,8 +276,8 @@ function choisirMotif(titre, fin) {
 }
 const nonLu = c => { const d = CL.der && CL.der[c]; return !!(d && d.t && d.uid !== (CL.u && CL.u.uid) && d.t.toMillis() > +(lire("clubLu_" + c) || 0)); };
 function ongChat(Z, cb) {
-  const muet = cb.muet;
-  Z.innerHTML = `<div class="cl-chat" id="chFil"><p class="vide">…</p></div>
+  const muet = cb.muet, salons = mesSections(cb); if (!salons.includes(CL.sal)) CL.sal = ""; const sal = CL.sal;
+  Z.innerHTML = `${salons.length ? `<div class="chips cl-filtre" id="chSalons">${[["", L("Club", "Club")], ...salons.map(id => [id, nomSec(cb, id)])].map(([k, n]) => `<button class="toggle" data-sal="${k}" aria-pressed="${sal === k}">${echap(n)}</button>`).join("")}</div>` : ""}<div class="cl-chat" id="chFil"><p class="vide">…</p></div>
     <form class="cl-saisie" id="chForm">${muet ? `<p class="sh-aide">🔇 ${L("L’équipe du club t’a rendu muet", "The club staff has muted you")}${cb.motif ? L(" · motif : ", " · reason: ") + echap(motifLisible(cb.motif)) : ""}. ${L("Tu peux en parler au coach.", "You can talk to the coach about it.")}</p>` : `<p class="cl-erreur" id="chErr"></p><div class="cl-rep hidden" id="chRep"></div><textarea id="chTxt" rows="1" maxlength="1000" placeholder="${L("Écrire au club…", "Message the club…")}" enterkeyhint="send"></textarea><button class="toggle" id="chEnv" aria-label="${L("Envoyer", "Send")}">➤</button>`}</form>`;
   let msgs = [], bas = true;
   desab.push(SV.ecouterMessages(cb.id, l => { msgs = l; const F = $("chFil"); if (!F) return; bas = bas || F.scrollTop + F.clientHeight > F.scrollHeight - 80;
@@ -271,13 +287,14 @@ function ongChat(Z, cb) {
         ${Object.entries(m.reac || {}).filter(([, u]) => u.length).map(([e, u]) => `<button class="cl-reac${u.includes(CL.u.uid) ? " moi" : ""}" data-r="${e}">${e} ${u.length}</button>`).join("")}</div>`; }).join("")
       : `<p class="vide">${L("Aucun message. Lance la discussion !", "No messages yet. Start the conversation!")}</p>`;
     if (bas) requestAnimationFrame(() => { F.scrollTop = F.scrollHeight; }); bas = false;
-    if (l.length) { stocker("clubLu_" + cb.id, Date.now()); (CL.der = CL.der || {})[cb.id] = l[l.length - 1]; }
-  }));
+    if (l.length && !sal) { stocker("clubLu_" + cb.id, Date.now()); (CL.der = CL.der || {})[cb.id] = l[l.length - 1]; }
+  }, sal));
+  if ($("chSalons")) $("chSalons").onclick = e => { const b = e.target.closest("[data-sal]"); if (b) { CL.sal = b.dataset.sal; rendu(); } };
   if (!muet) {
     const T2 = $("chTxt"), env = async () => { const t = T2.value.trim(); if (!t) return;
       const refus = !poliTexte(t) ? L("Ce message contient un mot interdit par les règles du chat.", "This message contains a word banned by the chat rules.") : cb.role === "membre" && LIEN.test(t.toLowerCase()) ? L("Seuls le coach et les co-coachs peuvent partager des liens.", "Only the coach and co-coaches can share links.") : Date.now() - (CL.envoi || 0) < 2100 ? L("Doucement 🙂 un message toutes les 2 secondes.", "Easy 🙂 one message every 2 seconds.") : "";
       if (refus) { $("chErr").textContent = refus; return; } $("chErr").textContent = ""; CL.envoi = Date.now(); T2.value = ""; T2.style.height = ""; const rep = CL.rep; CL.rep = null; $("chRep").classList.add("hidden"); bas = true;
-      try { await SV.envoyer(cb.id, t.slice(0, 1000), CL.u.pseudo, rep); } catch (x) { T2.value = t; alert(msgErr(x)); } };
+      try { await SV.envoyer(cb.id, t.slice(0, 1000), CL.u.pseudo, rep, sal); } catch (x) { T2.value = t; alert(msgErr(x)); } };
     $("chForm").onsubmit = e => { e.preventDefault(); env(); };
     if (CL.brouillon) { T2.value = CL.brouillon; CL.brouillon = null; T2.focus(); T2.dispatchEvent(new Event("input")); }
     T2.oninput = () => { T2.style.height = ""; T2.style.height = Math.min(120, T2.scrollHeight) + "px"; };
@@ -285,29 +302,32 @@ function ongChat(Z, cb) {
   }
   $("chFil").onclick = e => {
     const r = e.target.closest("[data-r]"), M = e.target.closest("[data-m]"); if (!M) return; const m = msgs.find(x => x.id === M.dataset.m); if (!m || m.suppr) return;
-    if (r) return SV.reagir(cb.id, m.id, r.dataset.r, !(m.reac[r.dataset.r] || []).includes(CL.u.uid)).catch(() => {});
+    if (r) return SV.reagir(cb.id, m.id, r.dataset.r, !(m.reac[r.dataset.r] || []).includes(CL.u.uid), sal).catch(() => {});
     const auteur = m.uid === CL.u.uid;
     ouvrirFeuilleInfo(L("Message", "Message"), `<p class="cl-apercu"><b>${echap(m.pseudo)}</b> ${echap(m.texte.slice(0, 140))}</p><div class="cl-emojis">${REAC.map(e => `<button data-e="${e}">${e}</button>`).join("")}</div>
       <div class="infos-liens">${muet ? "" : `<button class="toggle" id="mRep">↩ ${L("Répondre", "Reply")}</button>`}${auteur || staff() ? `<button class="toggle contour cl-danger" id="mSup">🗑 ${L("Supprimer le message", "Delete message")}</button>` : ""}${auteur ? "" : `<button class="toggle contour" id="mSig">⚑ ${L("Signaler au coach", "Report to the coach")}</button>`}</div>${auteur ? "" : `<p class="sh-aide">${L("Contenu illégal ou grave ? Écris aussi à ", "Illegal or serious content? Also write to ")}${contactLien()}.</p>`}`);
-    document.querySelectorAll(".cl-emojis [data-e]").forEach(b => b.onclick = () => { fermerFeuille(); SV.reagir(cb.id, m.id, b.dataset.e, !(m.reac[b.dataset.e] || []).includes(CL.u.uid)).catch(() => {}); });
+    document.querySelectorAll(".cl-emojis [data-e]").forEach(b => b.onclick = () => { fermerFeuille(); SV.reagir(cb.id, m.id, b.dataset.e, !(m.reac[b.dataset.e] || []).includes(CL.u.uid), sal).catch(() => {}); });
     if ($("mRep")) $("mRep").onclick = () => { fermerFeuille(); CL.rep = { m: m.id, pseudo: m.pseudo, extrait: m.texte.slice(0, 80) }; $("chRep").innerHTML = `↩ <b>${echap(m.pseudo)}</b> ${echap(CL.rep.extrait)} <button type="button" id="chRepX" aria-label="${L("Annuler", "Cancel")}">✕</button>`; $("chRep").classList.remove("hidden"); $("chRepX").onclick = () => { CL.rep = null; $("chRep").classList.add("hidden"); }; $("chTxt").focus(); };
-    if ($("mSup")) $("mSup").onclick = () => { fermerFeuille(); auteur ? SV.effacerMessage(cb.id, m.id).catch(x => alert(msgErr(x))) : choisirMotif(L("Retirer ce message", "Remove this message"), k => SV.effacerMessage(cb.id, m.id, k).catch(x => alert(msgErr(x)))); };
-    if ($("mSig")) $("mSig").onclick = async () => { await SV.signaler(cb.id, m.id, m.texte.slice(0, 200), m.pseudo).catch(() => {}); $("mSig").textContent = "✓ " + L("Signalé au coach", "Reported to the coach"); $("mSig").disabled = true; };
+    if ($("mSup")) $("mSup").onclick = () => { fermerFeuille(); auteur ? SV.effacerMessage(cb.id, m.id, "", sal).catch(x => alert(msgErr(x))) : choisirMotif(L("Retirer ce message", "Remove this message"), k => SV.effacerMessage(cb.id, m.id, k, sal).catch(x => alert(msgErr(x)))); };
+    if ($("mSig")) $("mSig").onclick = async () => { await SV.signaler(cb.id, m.id, m.texte.slice(0, 200), m.pseudo, sal).catch(() => {}); $("mSig").textContent = "✓ " + L("Signalé au coach", "Reported to the coach"); $("mSig").disabled = true; };
   };
 }
 
 /* Membres : demandes à valider (staff), rôles, muet, exclusion ; chacun peut quitter */
 function ongMembres(Z, cb) {
-  Z.innerHTML = `<div id="mbDem"></div><ul class="list" id="mbListe"></ul><button class="toggle contour cl-danger" id="mbQuit">${cb.role === "coach" ? L("Supprimer le club (onglet Club)", "Delete the club (Club tab)") : L("Quitter le club", "Leave the club")}</button>`;
+  Z.innerHTML = `<div id="mbDem"></div>${sectionsDe(cb).length && !staff() ? `<button class="toggle cl-messec" id="mbMesSec">🏷️ ${L("Mes sections", "My sections")} : ${(cb.mesSec || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => echap(nomSec(cb, id))).join(", ") || L("aucune", "none")} ›</button>` : ""}<ul class="list" id="mbListe"></ul><button class="toggle contour cl-danger" id="mbQuit">${cb.role === "coach" ? L("Supprimer le club (onglet Club)", "Delete the club (Club tab)") : L("Quitter le club", "Leave the club")}</button>`;
   if (staff()) desab.push(SV.ecouterDemandes(cb.id, l => { $("mbDem").innerHTML = l.length ? `<h2 class="sec">${L("Demandes", "Requests")} · ${l.length}</h2><ul class="list">${l.map(d => `<li><div><b style="color:${couleurPseudo(d.pseudo)}">${echap(d.pseudo)}</b><small>${L("veut rejoindre le club", "wants to join the club")}</small></div><button class="toggle" data-ok="${d.id}" data-p="${echap(d.pseudo)}">✓</button><button class="toggle contour" data-non="${d.id}">✕</button></li>`).join("")}</ul>` : "";
     $("mbDem").onclick = e => { const b = e.target.closest("button"); if (!b) return; b.disabled = true; (b.dataset.ok ? SV.accepter(cb.id, b.dataset.ok, b.dataset.p) : SV.refuser(cb.id, b.dataset.non)).catch(x => alert(msgErr(x))); }; }));
   let mb = [];
   desab.push(SV.ecouterMembres(cb.id, l => { mb = l.sort((a, b) => ["coach", "cocoach", "membre"].indexOf(a.role) - ["coach", "cocoach", "membre"].indexOf(b.role) || a.pseudo.localeCompare(b.pseudo));
-    $("mbListe").innerHTML = `<li class="bloc-titre"><b>${l.length} ${L(l.length > 1 ? "membres" : "membre", l.length > 1 ? "members" : "member")}</b></li>` + mb.map(m => `<li data-mb="${m.id}"><div><b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}${m.id === CL.u.uid ? " " + L("(toi)", "(you)") : ""}</b><small>${L(...ROLES[m.role])}${m.muet ? " · 🔇 " + L("muet", "muted") : ""}</small></div>${staff() && m.role !== "coach" && m.id !== CL.u.uid ? '<span class="duree">⋯</span>' : ""}</li>`).join(""); }));
+    $("mbListe").innerHTML = `<li class="bloc-titre"><b>${l.length} ${L(l.length > 1 ? "membres" : "membre", l.length > 1 ? "members" : "member")}</b></li>` + mb.map(m => `<li data-mb="${m.id}"><div><b style="color:${couleurPseudo(m.pseudo)}">${echap(m.pseudo)}${m.id === CL.u.uid ? " " + L("(toi)", "(you)") : ""}</b><small>${L(...ROLES[m.role])}${m.muet ? " · 🔇 " + L("muet", "muted") : ""}${(m.sections || []).filter(id => sectionsDe(cb).some(x => x.id === id)).map(id => ` <span class="cl-sec">${echap(nomSec(cb, id))}</span>`).join("")}</small></div>${staff() && m.role !== "coach" && m.id !== CL.u.uid ? '<span class="duree">⋯</span>' : ""}</li>`).join(""); }));
+  if ($("mbMesSec")) $("mbMesSec").onclick = () => feuilleSections(cb, CL.u.uid, cb.mesSec || [], async l => { await SV.changerMembre(cb.id, CL.u.uid, { sections: l }); cb.mesSec = l; rendu(); });
   $("mbListe").onclick = e => { const li = e.target.closest("[data-mb]"); if (!li || !staff()) return; const m = mb.find(x => x.id === li.dataset.mb); if (!m || m.role === "coach" || m.id === CL.u.uid) return;
     ouvrirFeuilleInfo(echap(m.pseudo), `<div class="infos-liens">${cb.role === "coach" ? `<button class="toggle" id="maRole">${m.role === "cocoach" ? L("Retirer le rôle de co-coach", "Remove co-coach role") : L("Nommer co-coach", "Make co-coach")}</button>` : ""}
+      ${sectionsDe(cb).length ? `<button class="toggle contour" id="maSec">🏷️ ${L("Ses sections", "Their sections")}</button>` : ""}
       <button class="toggle contour" id="maMuet">${m.muet ? "🔊 " + L("Lui rendre la parole", "Unmute") : "🔇 " + L("Rendre muet dans le chat", "Mute in the chat")}</button><button class="toggle contour cl-danger" id="maExcl">${L("Exclure du club", "Remove from the club")}</button></div>`);
     const act = p => p.then(fermerFeuille).catch(x => alert(msgErr(x)));
+    if ($("maSec")) $("maSec").onclick = () => { fermerFeuille(); feuilleSections(cb, m.id, m.sections || [], l => SV.changerMembre(cb.id, m.id, { sections: l })); };
     if ($("maRole")) $("maRole").onclick = () => act(SV.changerMembre(cb.id, m.id, { role: m.role === "cocoach" ? "membre" : "cocoach" }));
     $("maMuet").onclick = () => m.muet ? act(SV.changerMembre(cb.id, m.id, { muet: false, motif: "" })) : (fermerFeuille(), choisirMotif(L("Rendre muet", "Mute"), k => SV.changerMembre(cb.id, m.id, { muet: true, motif: k }).catch(x => alert(msgErr(x)))));
     $("maExcl").onclick = () => { fermerFeuille(); choisirMotif(L("Exclure ", "Remove ") + m.pseudo, k => SV.exclure(cb.id, m.id, k, cb.nom).catch(x => alert(msgErr(x)))); };
@@ -317,17 +337,41 @@ function ongMembres(Z, cb) {
     await SV.quitter(cb.id).catch(() => {}); await rafraichir(); CL.vue = "liste"; rendu(); };
 }
 
+function feuilleSections(cb, uid, act, garder) {
+  const moi = uid === CL.u.uid;
+  ouvrirFeuilleInfo(moi ? L("Mes sections", "My sections") : L("Ses sections", "Their sections"), `<p class="sh-aide">${moi ? L("Coche les sections où tu t’entraînes : tu verras leurs séances et leur chat.", "Tick the sections you train in: you will see their workouts and chat.") : L("Le membre voit les séances et le chat des sections cochées.", "The member sees the workouts and chat of the ticked sections.")}</p>
+    <div class="chips" id="fsSec">${sectionsDe(cb).map(x => `<button class="toggle" data-s="${x.id}" aria-pressed="${act.includes(x.id)}">${echap(x.nom)}</button>`).join("")}</div><p class="cl-erreur" id="fsErr"></p><button class="primary" id="fsOk">${L("Enregistrer", "Save")}</button>`);
+  $("fsSec").onclick = e => { const b = e.target.closest("[data-s]"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); };
+  $("fsOk").onclick = async () => { const l = [...$("fsSec").querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.s).slice(0, 12); $("fsOk").disabled = true;
+    try { await garder(l); fermerFeuille(); } catch (x) { $("fsErr").textContent = msgErr(x); $("fsOk").disabled = false; } };
+}
+function reglagesSections(Z, cb) {   // staff : ajouter, renommer ou supprimer une section (12 au plus)
+  const l = sectionsDe(cb).map(x => ({ ...x }));
+  Z.innerHTML = `<h2 class="sec">🏷️ ${L("Sections du club", "Club sections")}</h2><div class="carnet cl-form"><p class="sh-aide">${L("Pour un club à plusieurs disciplines ou groupes (ex. boxe anglaise, MMA, JJB, boxe thaï, kick-boxing ; ou U13, U15, seniors). Chaque section a ses séances et son chat, visibles seulement de ses membres et du staff ; chaque membre coche les siennes dans l’onglet Membres.", "For a club with several disciplines or groups (e.g. boxing, MMA, BJJ, Muay Thai, kickboxing; or U13, U15, seniors). Each section has its own workouts and chat, visible only to its members and staff; each member ticks theirs in the Members tab.")}</p>
+    <ul class="list" id="secListe">${l.map(x => `<li><div><b>${echap(x.nom)}</b></div><button class="lien" data-ren="${x.id}">✏️</button><button class="lien" data-sup="${x.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button></li>`).join("") || `<li><small>${L("Aucune section : tout le club est ensemble.", "No sections: the whole club is together.")}</small></li>`}</ul>
+    ${l.length < 12 ? `<div class="cl-ajout"><input id="secNom" class="choixVoix" maxlength="30" placeholder="${L("Nouvelle section, ex. MMA", "New section, e.g. MMA")}"><button class="toggle" id="secAjout">＋</button></div>` : ""}<p class="cl-erreur" id="secErr"></p></div>`;
+  const garder = async nl => { try { await SV.modifierClub(cb.id, { sections: nl }); cb.sections = nl; reglagesSections(Z, cb); } catch (x) { $("secErr").textContent = msgErr(x); } };
+  if ($("secAjout")) $("secAjout").onclick = () => { const n = propre($("secNom").value.trim()).slice(0, 30); if (!n) return;
+    if (l.some(x => plat(x.nom) === plat(n))) return $("secErr").textContent = L("Cette section existe déjà.", "This section already exists.");
+    garder([...l, { id: (plat(n).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "s") + "-" + Math.random().toString(36).slice(2, 6), nom: n }]); };
+  $("secListe").onclick = async e => { const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.ren) { const x = l.find(y => y.id === b.dataset.ren), n = prompt(L("Nouveau nom", "New name"), x.nom); if (n && propre(n.trim())) { x.nom = propre(n.trim()).slice(0, 30); garder(l); } return; }
+    if (!b.dataset.conf) { b.dataset.conf = 1; b.textContent = L("Supprimer ses séances et son chat ?", "Delete its workouts and chat?"); return; }
+    b.disabled = true; b.textContent = "…"; try { await SV.supprimerSection(cb.id, b.dataset.sup); } catch (x) {} garder(l.filter(x => x.id !== b.dataset.sup)); };
+}
+
 /* Réglages du club : lien d'invitation + QR code (staff), signalements, nom ; suppression (coach) */
 function ongReglages(Z, cb) {
   Z.innerHTML = `${cb.desc ? `<p class="cl-desc">${echap(cb.desc)}</p>` : ""}${staff() ? `<h2 class="sec">${L("Inviter des membres", "Invite members")}</h2><div class="carnet cl-inv"><div id="rgQr" class="cl-qr"></div><p class="sh-aide">${L("Montre ce QR code ou envoie le lien. Chaque demande arrive dans l’onglet Membres, à valider.", "Show this QR code or send the link. Each request arrives in the Members tab for approval.")}</p><input id="rgLien" readonly>
       <div class="partage-btns"><button class="toggle" id="rgPart">${L("Partager le lien", "Share the link")}</button><button class="toggle contour" id="rgNeuf">${L("Nouveau lien", "New link")}</button></div></div>
-    <div id="rgSig"></div><h2 class="sec">${L("Infos du club", "Club info")}</h2><div class="carnet cl-form"><label class="champ"><span>${L("Nom", "Name")}</span><input id="rgNom" maxlength="40" value="${echap(cb.nom)}"></label><label class="champ"><span>${L("Sport", "Sport")}</span><input id="rgSport" maxlength="30" value="${echap(cb.sport)}"></label><label class="champ"><span>${L("Description", "Description")}</span><textarea id="rgDesc" class="choixVoix" rows="2" maxlength="300">${echap(cb.desc)}</textarea></label><button class="toggle" id="rgSauve">${L("Enregistrer", "Save")}</button></div>` : ""}
+    <div id="rgSig"></div><div id="rgSections"></div><h2 class="sec">${L("Infos du club", "Club info")}</h2><div class="carnet cl-form"><label class="champ"><span>${L("Nom", "Name")}</span><input id="rgNom" maxlength="40" value="${echap(cb.nom)}"></label><label class="champ"><span>${L("Sport", "Sport")}</span><input id="rgSport" maxlength="30" value="${echap(cb.sport)}"></label><label class="champ"><span>${L("Description", "Description")}</span><textarea id="rgDesc" class="choixVoix" rows="2" maxlength="300">${echap(cb.desc)}</textarea></label><button class="toggle" id="rgSauve">${L("Enregistrer", "Save")}</button></div>` : ""}
     <div id="rgPrev"></div>${cb.role === "coach" ? `<button class="toggle contour cl-danger" id="rgSuppr">${L("Supprimer le club", "Delete the club")}</button><p class="sh-aide">${L("Supprime le club, ses séances et tous ses messages, pour tous les membres.", "Deletes the club, its workouts and all its messages, for every member.")}</p>` : `<button class="toggle contour cl-danger" id="rgQuit">${L("Quitter le club", "Leave the club")}</button>`}`;
   if ($("rgQuit")) $("rgQuit").onclick = () => { CL.onglet = "membres"; rendu(); setTimeout(() => $("mbQuit").click(), 300); };
   if ($("rgSuppr")) $("rgSuppr").onclick = async () => { const b = $("rgSuppr"); if (!b.dataset.conf) { b.dataset.conf = 1; return b.textContent = L("Confirmer la suppression définitive", "Confirm permanent deletion"); }
     b.disabled = true; b.textContent = L("Suppression…", "Deleting…"); try { await SV.supprimerClub(cb.id); await rafraichir(); CL.vue = "liste"; rendu(); } catch (x) { b.textContent = msgErr(x); } };
   prevReglages($("rgPrev"), cb);
   if (!staff()) return;
+  reglagesSections($("rgSections"), cb);
   const lien = k => `${location.origin}${location.pathname}?club=${cb.id}&code=${k}`;
   const montrer = async k => { $("rgLien").value = lien(k); $("rgQr").innerHTML = await qrSvg(lien(k)).catch(() => ""); };
   SV.invitation(cb.id).then(k => k ? montrer(k) : SV.nouvelleInvitation(cb.id, cb.nom).then(montrer));
@@ -335,8 +379,8 @@ function ongReglages(Z, cb) {
   $("rgNeuf").onclick = async () => { if (!$("rgNeuf").dataset.conf) { $("rgNeuf").dataset.conf = 1; return $("rgNeuf").textContent = L("L’ancien lien ne marchera plus : confirmer", "The old link will stop working: confirm"); } montrer(await SV.nouvelleInvitation(cb.id, cb.nom)); $("rgNeuf").textContent = "✓"; };
   $("rgSauve").onclick = async () => { const v = { nom: propre($("rgNom").value.trim()).slice(0, 40) || cb.nom, sport: propre($("rgSport").value.trim()), desc: propre($("rgDesc").value.trim()) };
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("rgSauve").textContent = "✓ " + L("Enregistré", "Saved"); $("clTitre").textContent = v.nom; } catch (x) { $("rgSauve").textContent = msgErr(x); } };
-  desab.push(SV.ecouterSignalements(cb.id, l => { $("rgSig").innerHTML = l.length ? `<h2 class="sec">⚑ ${L("Messages signalés", "Reported messages")} · ${l.length}</h2><ul class="list">${l.map(r => `<li><div><b>${echap(r.auteur)}</b><small>${echap(r.extrait)}</small></div><button class="toggle contour cl-danger" data-del="${r.m}" data-r="${r.id}">🗑</button><button class="toggle contour" data-ok="${r.id}">${L("Garder", "Keep")}</button></li>`).join("")}</ul>` : "";
-    $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) return choisirMotif(L("Retirer ce message", "Remove this message"), async k => { await SV.effacerMessage(cb.id, b.dataset.del, k).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r).catch(() => {}); }); await SV.classerSignalement(cb.id, b.dataset.ok).catch(() => {}); }; }));
+  desab.push(SV.ecouterSignalements(cb.id, l => { $("rgSig").innerHTML = l.length ? `<h2 class="sec">⚑ ${L("Messages signalés", "Reported messages")} · ${l.length}</h2><ul class="list">${l.map(r => `<li><div><b>${echap(r.auteur)}${r.sal ? " · " + echap(nomSec(cb, r.sal)) : ""}</b><small>${echap(r.extrait)}</small></div><button class="toggle contour cl-danger" data-del="${r.m}" data-sal="${r.sal || ""}" data-r="${r.id}">🗑</button><button class="toggle contour" data-ok="${r.id}">${L("Garder", "Keep")}</button></li>`).join("")}</ul>` : "";
+    $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) return choisirMotif(L("Retirer ce message", "Remove this message"), async k => { await SV.effacerMessage(cb.id, b.dataset.del, k, b.dataset.sal).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r).catch(() => {}); }); await SV.classerSignalement(cb.id, b.dataset.ok).catch(() => {}); }; }));
 }
 // QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
@@ -350,7 +394,7 @@ async function majCarteClubs() {
   const vide = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${L("Clubs", "Clubs")}</strong><small>${L("Rejoins le club de ton coach ou crée le tien", "Join your coach’s club or create your own")}</small></span></button>`;
   if (!lire("clubCompte") || !CL.u) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); if (lire("clubCompte") && CL.u === undefined) chargerServeur().catch(() => {}); return; }
   if (!CL.clubs.length) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); return; }
-  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj))[0], m: await SV.dernierMessage(c.id) })));
+  const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, mesSections(c)))[0], m: await SV.dernierMessage(c.id) })));
   CL.der = Object.fromEntries(info.map(x => [x.c.id, x.m]));
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances" }) : ouvrirClubs({ vue: "liste" });
