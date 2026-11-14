@@ -122,7 +122,7 @@ async function proposerRestauration() {
 }
 
 /* --- Inscription et connexion --- */
-function renduCompte(C, mode, apres) {   // apres : suite de l’accueil du premier lancement, une fois le compte créé ou connecté
+function renduCompte(C, mode, apres) {   // apres : suite éventuelle, une fois le compte créé ou connecté
   const ins = mode === "inscription";
   C.innerHTML = `<div class="chips cl-mode">${[["inscription", "Créer un compte", "Create an account"], ["connexion", "Se connecter", "Sign in"]].map(([k, f, e]) => `<button class="toggle" data-mode="${k}" aria-pressed="${k === mode}">${L(f, e)}</button>`).join("")}</div>
     <form class="carnet cl-form" id="clForm" novalidate>
