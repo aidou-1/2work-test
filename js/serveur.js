@@ -29,7 +29,7 @@ export async function inscription({ email, mdp, pseudo, naissance, parental }) {
     b.set(d("profils", user.uid), { pseudo });
     b.set(d("comptes", user.uid), { naissance, parental: !!parental, cree: X.serverTimestamp(), clubs: [], attente: [] });
     await b.commit();
-  } catch (e) { await user.delete().catch(() => {}); throw e.code === "permission-denied" ? { code: "2work/pseudo-pris" } : e; }   // pseudo réservé entre-temps
+  } catch (e) { await user.delete().catch(() => {}); throw e.code === "permission-denied" && !(await pseudoLibre(pseudo).catch(() => true)) ? { code: "2work/pseudo-pris" } : e; }   // pseudo réservé entre-temps
   return user.uid;
 }
 export const connexion = (email, mdp) => F.signInWithEmailAndPassword(auth, email, mdp);
@@ -48,9 +48,11 @@ export const accordSauvegarde = async () => { const c = await lireDoc("comptes",
 export const changerAccordSauvegarde = b => X.updateDoc(d("comptes", moi()), { sauvegarde: !!b });
 
 /* --- Mes clubs : liste tenue dans mon compte (clubs, et demandes en attente vérifiées à chaque ouverture) --- */
+// âge à la date du jour (date de naissance AAAA-MM-JJ) : mêmes seuils que les règles Firestore (10 ans pour un compte, 15 ans sans accord parental, 18 ans pour être coach ou co-coach)
+const moins15 = n => !!n && ageDe(n) < 15;   // ageDe : js/clubs.js (jour UTC, comme les règles)
 export async function mesClubs() {
-  const uid = moi(), c = await lireDoc("comptes", uid); if (!c) return { clubs: [], attente: [], retraits: [] };
-  let { clubs = [], attente = [] } = c; const nc = [], na = [], nr = [];
+  const uid = moi(), c = await lireDoc("comptes", uid); if (!c) return { clubs: [], attente: [], retraits: [], nais: "" };
+  let { clubs = [], attente = [] } = c; const nc = [], na = [], nr = [], m15 = moins15(c.naissance);
   for (const id of attente) {   // acceptée ? refusée ? toujours en attente ?
     if (await lireDoc("clubs", id, "membres", uid)) { clubs.includes(id) || clubs.push(id); continue; }
     const dm = await lireDoc("clubs", id, "demandes", uid); if (dm) { na.push({ id, nom: dm.nom || "" }); continue; }
@@ -58,10 +60,11 @@ export async function mesClubs() {
   }
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
     const sa = cl && m && m.muet ? await lireDoc("clubs", id, "sanctions", uid) : null;
+    if (cl && m && !!m.m15 !== m15) await X.updateDoc(d("clubs", id, "membres", uid), { m15 }).catch(() => {});   // badge « -15 » tenu à jour : membres d'avant, 15 ans passés
     if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
-  return { clubs: nc, attente: na, retraits: nr };
+  return { clubs: nc, attente: na, retraits: nr, nais: c.naissance || "" };
 }
 export const lireRetrait = c => X.deleteDoc(d("clubs", c, "exclus", moi())).catch(() => {});
 export async function creerClub({ nom, sport, desc, pseudo }) {
@@ -111,13 +114,13 @@ export async function nouvelleInvitation(c, nom) {
   const k = code(); await X.setDoc(d("clubs", c, "invits", k), { nom, cree: X.serverTimestamp() }); return k;
 }
 export const lireInvitation = (c, k) => lireDoc("clubs", c, "invits", k);
-export async function demander(c, k, pseudo, nom) {
-  await X.setDoc(d("clubs", c, "demandes", moi()), { pseudo, code: k, nom, t: X.serverTimestamp(), exp: exp(DUREES.demandes) });
+export async function demander(c, k, pseudo, nom, nais) {
+  await X.setDoc(d("clubs", c, "demandes", moi()), { pseudo, code: k, nom, t: X.serverTimestamp(), exp: exp(DUREES.demandes), m15: moins15(nais) });
   await X.updateDoc(d("comptes", moi()), { attente: X.arrayUnion(c) });
 }
-export async function accepter(c, uid, pseudo) {
+export async function accepter(c, uid, pseudo, m15) {
   const b = X.writeBatch(db);
-  b.set(d("clubs", c, "membres", uid), { uid, pseudo, role: "membre", muet: false, depuis: X.serverTimestamp() });
+  b.set(d("clubs", c, "membres", uid), { uid, pseudo, role: "membre", muet: false, depuis: X.serverTimestamp(), ...(m15 && { m15: true }) });
   b.delete(d("clubs", c, "demandes", uid)); await b.commit();
 }
 export const refuser = (c, uid) => X.deleteDoc(d("clubs", c, "demandes", uid));
@@ -145,6 +148,27 @@ async function mesTracesEffacer(c, anonyme) {   // mes messages (club et section
   await mesPrevEffacer(c); await X.deleteDoc(d("clubs", c, "sanctions", moi())).catch(() => {});
 }
 export async function quitter(c, anonyme) { await mesTracesEffacer(c, anonyme); await X.deleteDoc(d("clubs", c, "membres", moi())); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }).catch(() => {}); }
+
+/* --- Mes données de compte (droit d'accès et portabilité, RGPD art. 15 et 20) : tout ce que le serveur garde sur moi, en JSON.
+   Le suivi du téléphone a son propre export (Réglages → Mes données). --- */
+export async function exporterCompte() {
+  const uid = moi(), u = auth.currentUser, cpt = await lireDoc("comptes", uid), pr = await lireDoc("profils", uid), sv = await lireDoc("sauvegardes", uid).catch(() => null), clubs = [];
+  for (const c of (cpt && [...new Set([...(cpt.clubs || []), ...(cpt.attente || [])])]) || []) {
+    const cl = await lireDoc("clubs", c).catch(() => null), m = cl && await lireDoc("clubs", c, "membres", uid).catch(() => null), dm = await lireDoc("clubs", c, "demandes", uid).catch(() => null),
+      x = { id: c, nom: cl ? cl.nom : (dm && dm.nom) || "", membre: m, demande: dm, exclusion: m ? null : await lireDoc("clubs", c, "exclus", uid).catch(() => null) };
+    if (m) { x.sanction = await lireDoc("clubs", c, "sanctions", uid).catch(() => null); x.messages = []; x.seancesFaites = [];
+      for (const sal of ["", ...((cl.sections || []).map(s => s.id))]) {
+        const q = await X.getDocs(X.query(col(...B(c, sal), "messages"), X.where("uid", "==", uid))).catch(() => null);
+        x.messages.push(...(q ? vers(q) : []).map(({ reac, rep, ...v }) => ({ section: sal, ...v, mesReactions: Object.keys(reac || {}).filter(e => (reac[e] || []).includes(uid)), ...(rep && { reponseA: rep.m }) })));   // sans les données des autres (leurs réactions, le texte cité)
+        for (const s of ((await X.getDocs(col(...B(c, sal), "seances")).catch(() => null)) || { docs: [] }).docs) { const f = await lireDoc(...B(c, sal), "seances", s.id, "faits", uid).catch(() => null); if (f) x.seancesFaites.push({ section: sal, seance: s.data().titre, date: s.data().date, ...f }); }
+      }
+      const p = await X.getDocs(X.query(col("clubs", c, "prev"), X.where("uid", "==", uid))).catch(() => null); x.prevention = p ? vers(p) : []; }
+    clubs.push(x);
+  }
+  const plat = v => v && typeof v.toDate === "function" ? v.toDate().toISOString() : Array.isArray(v) ? v.map(plat) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plat(x)])) : v;   // dates lisibles
+  return plat({ format: "2 WORK · données du compte", version: 1, exporte: new Date().toISOString(), email: u && u.email, compte: cpt, profil: pr,
+    sauvegardeEnLigne: sv ? { octets: sv.z ? sv.z.toUint8Array().length : 0, elements: sv.n, date: sv.t } : null, clubs });
+}
 
 /* --- Lecture en direct : membres, demandes, séances, messages --- */
 const vers = s => s.docs.map(x => ({ id: x.id, ...x.data({ serverTimestamps: "estimate" }) }));
