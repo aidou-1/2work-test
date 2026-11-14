@@ -18,7 +18,7 @@ export const PSEUDO_OK = /^[A-Za-z0-9_.-]{3,20}$/;
 /* --- Compte --- */
 export const langue = l => { auth.languageCode = l; };
 export function surCompte(cb) { return F.onAuthStateChanged(auth, async u => cb(u ? { uid: u.uid, email: u.email, ...(await lireDoc("profils", u.uid)) } : null)); }
-export async function pseudoLibre(p) { return !(await lireDoc("pseudos", p.toLowerCase())); }
+export async function pseudoLibre(p) { return (!/[a4][i1l]d[o0]u/.test(p.toLowerCase().replace(/[._-]/g, "")) || moi() === "30YnJqhA5NX6vSOy6TbDC6hza9r2") && !(await lireDoc("pseudos", p.toLowerCase())); }   // « aidou » et ses variantes : réservé à l'éditeur (firestore.rules)
 export async function inscription({ email, mdp, pseudo, naissance, parental }) {
   if (!PSEUDO_OK.test(pseudo)) throw { code: "2work/pseudo-format" };
   if (!(await pseudoLibre(pseudo))) throw { code: "2work/pseudo-pris" };
@@ -40,7 +40,8 @@ export async function supprimerCompte(mdp) {   // tout est effacé ; le pseudo r
   const c = await lireDoc("comptes", u.uid);
   for (const id of c ? c.clubs : []) { const m = await lireDoc("clubs", id, "membres", u.uid); if (m && m.role === "coach") await supprimerClub(id); else if (m) await quitter(id, true); }
   for (const id of c ? c.attente : []) await X.deleteDoc(d("clubs", id, "demandes", u.uid)).catch(() => {});
-  await Promise.all([X.deleteDoc(d("profils", u.uid)), X.deleteDoc(d("comptes", u.uid)), X.deleteDoc(d("sauvegardes", u.uid))]);
+  const b = X.writeBatch(db); b.delete(d("profils", u.uid)); b.delete(d("comptes", u.uid)); await b.commit();   // ensemble (règle : la fiche de compte ne part qu'avec le profil)
+  await X.deleteDoc(d("sauvegardes", u.uid)).catch(() => {});
   await F.deleteUser(u);
 }
 // accord à la sauvegarde en ligne, gardé dans le compte : un retrait vaut pour tous les téléphones (règle : pas de copie sans accord)
@@ -51,7 +52,7 @@ export const changerAccordSauvegarde = b => X.updateDoc(d("comptes", moi()), { s
 // âge à la date du jour (date de naissance AAAA-MM-JJ) : mêmes seuils que les règles Firestore (10 ans pour un compte, 15 ans sans accord parental, 18 ans pour être coach ou co-coach)
 const moins15 = n => !!n && ageDe(n) < 15;   // ageDe : js/clubs.js (jour UTC, comme les règles)
 export async function mesClubs() {
-  const uid = moi(), c = await lireDoc("comptes", uid); if (!c) return { clubs: [], attente: [], retraits: [], nais: "" };
+  const uid = moi(), c = await lireDoc("comptes", uid); if (!c) { const cr = Date.parse((auth.currentUser && auth.currentUser.metadata.creationTime) || 0); return { clubs: [], attente: [], retraits: [], nais: "", sansFiche: Date.now() - cr > 120e3 }; }   // compte tout neuf : sa fiche est en cours d'écriture
   let { clubs = [], attente = [] } = c; const nc = [], na = [], nr = [], m15 = moins15(c.naissance);
   for (const id of attente) {   // acceptée ? refusée ? toujours en attente ?
     if (await lireDoc("clubs", id, "membres", uid)) { clubs.includes(id) || clubs.push(id); continue; }
@@ -64,7 +65,7 @@ export async function mesClubs() {
     if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
-  return { clubs: nc, attente: na, retraits: nr, nais: c.naissance || "" };
+  return { clubs: nc, attente: na, retraits: nr, nais: c.naissance || "", sansFiche: false };
 }
 export const lireRetrait = c => X.deleteDoc(d("clubs", c, "exclus", moi())).catch(() => {});
 export async function creerClub({ nom, sport, desc, pseudo }) {
@@ -88,6 +89,8 @@ export async function purgerAnciens(c, estCoach) {
     vieux = async (chemin, champ, lim, n = 100) => ((await X.getDocs(X.query(col(...chemin), X.where(champ, "<", lim), X.limit(n))).catch(() => null)) || { docs: [] }).docs;
   for (const [k, j] of [["signalements", DUREES.signalements], ["demandes", DUREES.demandes], ["exclus", DUREES.exclus]]) for (const x of await vieux(["clubs", c, k], "t", avant(j))) await X.deleteDoc(x.ref).catch(() => {});
   const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
+  const mi = (await X.getDocs(col("clubs", c, "mineurs")).catch(() => null)) || { docs: [] };   // fiches « -15 » restées après un départ (anciennes versions)
+  if (mi.docs.length) { const mbs = await X.getDocs(col("clubs", c, "membres")).catch(() => null), mb = mbs && new Set(mbs.docs.map(x => x.id)); if (mb) for (const x of mi.docs) if (!mb.has(x.id)) await X.deleteDoc(x.ref).catch(() => {}); }
   for (const sal of sals) {
     for (const x of await vieux([...B(c, sal), "seances"], "date", jourAvant(DUREES.faits), 30))   // coches des séances de plus de 3 mois
       for (const f of ((await X.getDocs(col(...B(c, sal), "seances", x.id, "faits")).catch(() => null)) || { docs: [] }).docs) await X.deleteDoc(f.ref).catch(() => {});
@@ -151,6 +154,7 @@ export async function quitter(c, anonyme) { await mesTracesEffacer(c, anonyme); 
 
 /* --- Mes données de compte (droit d'accès et portabilité, RGPD art. 15 et 20) : tout ce que le serveur garde sur moi, en JSON.
    Le suivi du téléphone a son propre export (Réglages → Mes données). --- */
+export const creerFiche = (naissance, parental) => X.setDoc(d("comptes", moi()), { naissance, parental: !!parental, cree: X.serverTimestamp(), clubs: [], attente: [] });   // très ancien compte sans fiche
 export async function exporterCompte() {
   const uid = moi(), u = auth.currentUser, cpt = await lireDoc("comptes", uid), pr = await lireDoc("profils", uid), sv = await lireDoc("sauvegardes", uid).catch(() => null), clubs = [];
   for (const c of (cpt && [...new Set([...(cpt.clubs || []), ...(cpt.attente || [])])]) || []) {

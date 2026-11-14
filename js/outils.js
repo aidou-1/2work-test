@@ -78,19 +78,24 @@ function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal" }) {
   stocker("quickPrefs", JSON.stringify({ z, m, int }));
   const hasard = l => l.map(x => [Math.random() - (int === "intense" && dyn(x) ? 1 : 0) - (m === "mien" && EXERCICES[x].mat ? .6 : 0), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);   // très intense : les exercices dynamiques d'abord ; avec ton matériel : surtout des exercices qui s'en servent
   // tout le corps : on alterne bas, haut et tronc pour ne pas enchaîner deux fois la même zone
-  const paniers = z === "tout" ? ZONES.slice(1).map(x => hasard(pool.filter(id => zoneQuick(id) === x[0]))) : [hasard(pool)], choix = [], [effort, pause, f, e] = INTENSITES[int];
+  const paniers = z === "tout" ? ZONES.slice(1).map(x => hasard(pool.filter(id => zoneQuick(id) === x[0]))) : [hasard(pool)], choix = [], [effort, p0, f, e] = INTENSITES[int], pause = reposLu("express_" + int, p0);   // repos réglé dans l'aperçu, gardé par intensité
   for (let k = 0; choix.length < Math.min(8, pool.length) && k < 60; k++) { const id = paniers[k % paniers.length].shift(); if (id && !choix.includes(id)) choix.push(id); }
   try { localStorage.removeItem("routine_express"); } catch (err) {}
-  // échauffement (2 à 3 exercices) et retour au calme (1 à 2 étirements) compris dans la durée ; sauts jamais en premier et au plus 1 exercice sur 4
+  // échauffement (2 à 3 exercices) et retour au calme (1 à 2 étirements) compris dans la durée ; sauts jamais en premier, au plus 1 exercice sur 4 (sur 3 en très intense)
   const ok = l => l.filter(x => EXERCICES[x]), E = ECHS.complet, long = min >= 8,
     ech = ok([...E[0], ...E[1]]).filter(x => int !== "calme" || !dyn(x)).slice(0, long ? 3 : 2).map(x => [x, 40]), cal = ok(RECUPS.find(r => r[0] === "complet")[7]).slice(0, long ? 2 : 1).map(x => [x, unilat(x) ? 60 : 30]),
     reste = min * 60 - ech.reduce((t, [, d]) => t + d + 5, 0) - cal.reduce((t, [, d]) => t + d + 5, 0), nb = Math.max(3, Math.round(reste / (effort + pause))), main = [];
   const calmes = choix.filter(x => !dyn(x)), dyns = choix.filter(dyn);
-  for (let i = 0, a = 0, b = 0; i < nb; i++) main.push(i > 0 && dyns.length && (main.filter(dyn).length + 1) <= nb / 4 && i % 4 === 3 ? dyns[b++ % dyns.length] : calmes.length ? calmes[a++ % calmes.length] : dyns[b++ % dyns.length]);
+  const k = int === "intense" ? 3 : 4;   // un saut au plus tous les 4 exercices (tous les 3 en très intense), jamais en premier
+  for (let i = 0, a = 0, b = 0; i < nb; i++) main.push(i > 0 && dyns.length && (main.filter(dyn).length + 1) <= Math.max(int === "intense" ? 1 : 0, nb / k) && i % k === k - 1 ? dyns[b++ % dyns.length] : calmes.length ? calmes[a++ % calmes.length] : dyns[b++ % dyns.length]);
   ROUTINES.express = { ...seanceBlocs({ couleur: int === "intense" ? "#DC2626" : "#0EA5E9", rpe: int === "calme" ? "4–5" : int === "intense" ? "8–9" : "6–7", titre: "Quick start · " + min + " min" + (int === "normal" ? "" : " · " + L(f, e).toLowerCase()),
     intro: L(`${effort} s d’effort / ${pause} s de repos. Arrête un exercice qui fait mal.`, `${effort} s work / ${pause} s rest. Stop any exercise that hurts.`),
     blocs: [[L("Échauffement", "Warm-up"), L("Monte en température doucement.", "Warm up gently."), ech, 5], [L("Circuit", "Circuit"), L("À ton rythme, sans sacrifier la technique.", "At your pace, without sacrificing technique."), main.map(x => [x, effort]), pause],
       [L("Retour au calme", "Cool-down"), L("Étirements doux, respiration lente.", "Gentle stretches, slow breathing."), cal, 5]] }), retour: () => ouvrirExpress() };
+  // repos du circuit réglable dans l'aperçu (mêmes exercices, seul le repos change)
+  const R = ROUTINES.express, circ = L("Circuit", "Circuit"), txt = p => L(`${effort} s d’effort / ${p} s de repos.`, `${effort} s work / ${p} s rest.`);
+  Object.assign(R, { repos: pause, reposProp: p0, reposId: "express_" + int, reglerRepos: v => { const plan = R.plan.map(q => q.bn === circ && q.r ? { ...q, r: v } : q), total = Math.round(plan.reduce((t, q) => t + q.d + q.r, 0) / 60), titre = R.titre.replace(`· ${min} min`, `· ${total} min`);
+    return { ...R, repos: v, plan, total, titre, titreFr: titre, listeHtml: R.listeHtml.replace(txt(pause), txt(v)) }; } });
   CONSEILLES.express = pool; ouvrirRoutine("express"); ouvrirApercu("express");
   return true;
 }

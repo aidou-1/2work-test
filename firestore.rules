@@ -60,9 +60,10 @@ service cloud.firestore {
 
     // compte privé : seulement soi (date de naissance, accord parental, liste de ses clubs)
     match /comptes/{uid} {
-      allow read, delete: if connecte() && moi() == uid;
+      allow read: if connecte() && moi() == uid;
+      allow delete: if connecte() && moi() == uid && !existsAfter(/databases/$(db)/documents/profils/$(uid));   // seulement avec le profil (suppression du compte) : la date de naissance ne se réécrit pas
       allow create: if connecte() && moi() == uid && champs(['naissance', 'parental', 'cree', 'clubs', 'attente'], ['naissance', 'parental', 'cree', 'clubs', 'attente'])
-        && !exists(/databases/$(db)/documents/profils/$(uid)) && existsAfter(/databases/$(db)/documents/profils/$(uid))   // seulement à l'inscription (date de naissance non modifiable ensuite)
+        && existsAfter(/databases/$(db)/documents/profils/$(uid))   // à l'inscription, ou une fois pour un très ancien compte qui n'en a pas
         && jour(D().naissance) && ageOk(D().naissance, 10) && D().parental == !ageOk(D().naissance, 15) && maintenant(D().cree) && D().clubs == [] && D().attente == [];
       allow update: if connecte() && moi() == uid && ((seulement(['clubs', 'attente'])
         && D().clubs is list && D().clubs.size() <= 50 && D().attente is list && D().attente.size() <= 50)
@@ -72,6 +73,7 @@ service cloud.firestore {
     match /profils/{uid} {
       allow get: if connecte() && moi() == uid;
       allow create: if connecte() && moi() == uid && champs(['pseudo'], ['pseudo']) && D().pseudo.matches('^[A-Za-z0-9_.-]{3,20}$')
+        && !exists(/databases/$(db)/documents/pseudos/$(D().pseudo.lower()))   // pseudo réservé dans la même écriture (pas de profil recréé sur un ancien pseudo)
         && getAfter(/databases/$(db)/documents/pseudos/$(D().pseudo.lower())).data.uid == uid;
       allow delete: if connecte() && moi() == uid;
     }
@@ -79,6 +81,7 @@ service cloud.firestore {
     match /pseudos/{p} {
       allow get: if true;
       allow create: if connecte() && champs(['uid'], ['uid']) && D().uid == moi() && p.matches('^[a-z0-9_.-]{3,20}$')
+        && (!p.replace('[._-]', '').matches('.*[a4][i1l]d[o0]u.*') || moi() == '30YnJqhA5NX6vSOy6TbDC6hza9r2')   // « aidou » et ses variantes : réservé à l'éditeur
         && getAfter(/databases/$(db)/documents/profils/$(moi())).data.pseudo.lower() == p;
       allow delete: if connecte() && resource.data.uid == moi();
     }

@@ -178,7 +178,7 @@ function celebrer() {   // renvoie false si la séance est écourtée (moins de 
   $("fRessenti").innerHTML = blocRessenti(); brancherRessenti(); brancherEffort();
   $("fCharges").innerHTML = formCharges(); brancherCharges();
   $("fPartage").innerHTML = blocPartage(); brancherPartage();
-  if (h.length === 1 && typeof installee === "function" && !installee() && /^https?:/.test(location.protocol)) {   // 1re séance : le bon moment pour proposer l'installation
+  if ((h.length <= 3 || (h.length % 10 === 0 && h.length < 3000)) && typeof installee === "function" && !installee() && /^https?:/.test(location.protocol)) {   // premières séances (puis toutes les 10) : le bon moment pour proposer l'installation
     $("fPartage").insertAdjacentHTML("afterbegin", `<div class="carnet fin-install"><b>📲 ${L("Garde 2 WORK sur ton écran d’accueil", "Keep 2 WORK on your home screen")}</b><small>${L("Une icône comme une vraie appli : plein écran, hors ligne, et ton suivi protégé de l’effacement automatique du navigateur.", "An icon like a real app: full screen, offline, and your progress protected from the browser’s automatic deletion.")}</small><button class="toggle" id="finInstall">${L("Installer", "Install")}</button></div>`);
     $("finInstall").onclick = () => invitInstall && !iOS() ? installer() : ecran("bienvenue", () => guideInstall(() => ecran("end"))); }   // retour à l’écran de fin : ressenti, charges et retour au club restent accessibles
   envoyerSante(lireHist().slice(-1)[0]).then(r => r && $("fPartage").insertAdjacentHTML("afterbegin", r));

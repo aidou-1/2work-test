@@ -33,7 +33,7 @@ function stop() { desab.forEach(f => f()); desab = []; }
 
 async function chargerServeur() {
   if (!SV) { SV = await import("./serveur.js?v=" + VER); SV.langue(LANGUE === "en" ? "en" : "fr");
-    SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
+    SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; CL.sansFiche = false; CL.nais = ""; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
   return SV;
 }
 async function rafraichir() { try { Object.assign(CL, await SV.mesClubs()); } catch (e) {} syncAccordSauvegarde(); }
@@ -55,6 +55,7 @@ function rendu() {
   if (rejoindre) return renduRejoindre(C);
   if (CL.vue === "club" && club()) return renduClub(C);
   CL.vue = "liste";
+  if (CL.sansFiche) return renduFiche(C);
   C.innerHTML = `${CL.clubs.length ? "" : `<p class="sh-aide cl-intro">${L("Rejoins le club de ton coach avec son lien ou son QR code, ou crée ton club si c’est toi le coach.", "Join your coach’s club with their link or QR code, or create your club if you are the coach.")}</p>`}
     <div class="choices">${CL.clubs.map(c => `<button class="choice cl-club" style="--c:${couleurPseudo(c.nom)}" data-club="${c.id}"><strong>${echap(c.nom)}${nonLu(c.id) ? ` <i class="cl-point" aria-label="${L("nouveaux messages", "new messages")}"></i>` : ""}</strong><span>${[echap(c.sport), L(...ROLES[c.role])].filter(Boolean).join(" · ")}</span></button>`).join("")}
       ${(CL.retraits || []).map(c => `<div class="carnet cl-attente">🚫 <b>${echap(c.nom)}</b><small>${L("L’équipe du club t’a retiré du club · motif : ", "The club staff removed you · reason: ")}${echap(motifLisible(c.motif))}. ${L("Tu peux contester auprès du coach ou à ", "You can challenge it with the coach or at ")}${contactLien()}.</small><button class="lien" data-retrait="${c.id}">${L("J’ai compris", "Got it")}</button></div>`).join("")}
@@ -171,11 +172,26 @@ function renduCompte(C, mode, apres) {   // apres : suite éventuelle, une fois 
       if (!$("cfAccord").checked) return err(L("Coche la case d’accord pour continuer.", "Tick the consent box to continue.")); }
     $("cfOk").disabled = true;
     try { ins ? await SV.inscription({ email: v("cfEmail"), mdp: $("cfMdp").value, pseudo: v("cfPseudo"), naissance: v("cfNais"), parental: ageDe(v("cfNais")) < 15 }) : await SV.connexion(v("cfEmail"), $("cfMdp").value);
-      if (ins && !lireProfil().naissance) ecrireProfil("naissance", v("cfNais")); if (apres) apres(); }
+      if (ins && !lireProfil().naissance) ecrireProfil("naissance", v("cfNais")); if (ins) { await rafraichir(); if (ecranCourant === "clubs") rendu(); } if (apres) apres(); }
     catch (x) { err(msgErr(x)); $("cfOk").disabled = false; }
   };
   if ($("cfOubli")) $("cfOubli").onclick = async () => { if (!v("cfEmail")) return err(L("Écris d’abord ton email ci-dessus.", "Type your email above first."));
     try { await SV.motDePasseOublie(v("cfEmail")); err(""); $("cfOubli").textContent = "✓ " + L("Email envoyé : suis le lien pour choisir un nouveau mot de passe.", "Email sent: follow the link to set a new password."); } catch (x) { err(msgErr(x)); } };
+}
+// très ancien compte sans fiche privée : on demande une fois la date de naissance (âge minimum et accord parental, comme à l'inscription)
+function renduFiche(C) {
+  C.innerHTML = `<div class="carnet cl-form"><p>${L("Pour continuer à utiliser les clubs, indique ta date de naissance. Elle reste privée et ne pourra plus être modifiée.", "To keep using clubs, enter your date of birth. It stays private and can’t be changed later.")}</p>
+    <label class="champ"><span>${L("Date de naissance", "Date of birth")}</span><input id="fiNais" type="date" max="${jourCle()}" value="${lireProfil().naissance || ""}"></label>
+    <div class="hidden" id="fiJeunes">${JEUNES()}</div><label class="cl-case hidden" id="fiParentBloc"><input type="checkbox" id="fiParent"><span>${L("J’ai moins de 15 ans : un parent (ou mon responsable légal) et moi sommes d’accord pour que j’utilise les clubs.", "I am under 15: a parent (or legal guardian) and I agree that I use clubs.")}</span></label>
+    <p class="cl-erreur" id="fiErr" role="alert"></p><button class="primary" id="fiOk">${L("Valider", "Confirm")}</button><button class="lien-discret" id="fiDeco">${L("Se déconnecter", "Sign out")}</button></div>`;
+  const n = () => $("fiNais").value, maj = () => { const j = !(n() && ageDe(n()) < 15); $("fiJeunes").classList.toggle("hidden", j); $("fiParentBloc").classList.toggle("hidden", j); };
+  $("fiNais").onchange = maj; maj();
+  $("fiDeco").onclick = async () => { await SV.deconnexion(); try { localStorage.removeItem("clubCompte"); } catch (e) {} };
+  $("fiOk").onclick = async () => { const v = n(), e = t => $("fiErr").textContent = t;
+    if (!v || ageDe(v) > 110) return e(L("Indique ta date de naissance.", "Enter your date of birth."));
+    if (ageDe(v) < AGE_COMPTE) return e(L(`Les clubs sont ouverts à partir de ${AGE_COMPTE} ans.`, `Clubs are open from age ${AGE_COMPTE}.`));
+    if (ageDe(v) < 15 && !$("fiParent").checked) return e(L("Sous 15 ans, l’accord d’un parent est obligatoire (RGPD).", "Under 15, a parent’s consent is required (GDPR)."));
+    $("fiOk").disabled = true; try { await SV.creerFiche(v, ageDe(v) < 15); await rafraichir(); rendu(); } catch (x) { e(msgErr(x)); $("fiOk").disabled = false; } };
 }
 function feuilleSupprimerCompte() {
   ouvrirFeuilleInfo(L("Supprimer mon compte", "Delete my account"), `<p>${L("Ton compte, ton pseudo et ta place dans tes clubs sont supprimés. Les clubs dont tu es le coach sont supprimés avec leurs séances et leurs messages. Ton suivi sur ce téléphone n’est pas touché.", "Your account, username and club memberships are deleted. Clubs you coach are deleted with their workouts and messages. Your progress on this phone is not affected.")}</p>
