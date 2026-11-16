@@ -12,7 +12,7 @@ const barre = (v, max) => `<span class="cl-barre"><i style="width:${max ? Math.r
 const pctTxt = (a, b) => b ? Math.round(100 * a / b) + " %" : "–";
 
 /* --- Prévention : carte en tête de l'onglet Séances --- */
-/* Programme de prévention, sur le modèle des programmes neuromusculaires qui ont fait leurs preuves (FIFA 11+ en foot ; épaule en handball ;
+/* Programme de prévention, sur le modèle des programmes neuromusculaires qui ont fait leurs preuves (échauffement neuromusculaire en foot ; épaule en handball ;
    genou en sports de saut) : 1. course progressive, 2. force, pliométrie et équilibre (3 niveaux, un de plus toutes les 4 semaines depuis l'activation),
    3. zone propre au sport, 4. course rapide. Environ 15 à 18 min, au moins 2 fois par semaine, avant l'entraînement ou le match. */
 const PREV_NIV = [
@@ -28,7 +28,7 @@ const prevNiveau = p => Math.min(3, 1 + Math.floor(Math.max(0, (new Date(jourCle
 function seancePrev(p) {
   const n = prevNiveau(p), nom = T(ROUTINES[p.sp].titre), zones = PREV_SP_ZONES[p.sp] || ["hanche"];
   return seanceBlocs({ couleur: "#16A34A", rpe: "4–7", cat: "prevention", titre: L("Prévention", "Injury prevention") + " · " + nom + " · " + L("niveau", "level") + " " + n,
-    intro: `<b>${p.sp === "foot" ? L("Construit sur le FIFA 11+, le programme de prévention de la FIFA.", "Built on the FIFA 11+, FIFA’s prevention programme.") : L("Sur le modèle des programmes de prévention qui ont fait leurs preuves (FIFA 11+, épaule du handball, genou des sports de saut).", "Modelled on proven prevention programmes (FIFA 11+, handball shoulder, jumping-sport knee).")}</b> ${L(`Niveau ${n}/3 : un de plus toutes les 4 semaines. Au moins 2 fois par semaine, juste avant l’entraînement ou le match ; la technique avant la vitesse.`, `Level ${n}/3: one more every 4 weeks. At least twice a week, right before practice or the match; technique before speed.`)}`,
+    intro: `<b>${p.sp === "foot" ? L("Construit sur le principe des échauffements neuromusculaires de prévention étudiés en football.", "Built on the principle of the injury-prevention neuromuscular warm-ups studied in football.") : L("Sur le modèle des programmes de prévention qui ont fait leurs preuves (échauffement neuromusculaire du foot, épaule du handball, genou des sports de saut).", "Modelled on proven prevention programmes (football neuromuscular warm-up, handball shoulder, jumping-sport knee).")}</b> ${L(`Niveau ${n}/3 : un de plus toutes les 4 semaines. Au moins 2 fois par semaine, juste avant l’entraînement ou le match ; la technique avant la vitesse.`, `Level ${n}/3: one more every 4 weeks. At least twice a week, right before practice or the match; technique before speed.`)}`,
     blocs: [[L("Course progressive", "Progressive running"), L("Du footing aux gammes : le cœur monte doucement.", "From jogging to drills: the heart rate rises gently."), [["kneeup", 40], ["heelkick", 40], ["askip", 40], ["lateral", 60], ["pasChasse", 30], ["rnLignes", 30]], 5],
       [L("Force, sauts et équilibre", "Strength, jumps and balance"), L("Genoux dans l’axe, réceptions souples et silencieuses. Arrête un exercice qui fait mal.", "Knees in line, soft and quiet landings. Stop any exercise that hurts."), prevOk(PREV_NIV[n - 1]), 15],
       ...zones.map(z => [L(...PREV_ZONE[z][0]), L("La zone la plus exposée dans ton sport.", "The most exposed area in your sport."), prevOk(PREV_ZONE[z][1]), 10]),

@@ -177,7 +177,8 @@ textarea.choixVoix { width: 100%; resize: vertical; }
 .time.petit { font-size: clamp(4.6rem, 25vw, 7.5rem); text-align: center; margin: 10px 0; } #outil .count { text-align: center; } #outil .plus-repos { margin: 0 auto 10px; }
 #outil .params .suppr { width: 30px; height: 30px; font-size: 1rem; } .choix-grille.pair .toggle:last-child { grid-column: auto; }
 .feuille .media { margin: 0; } .feuille .illus { margin: 0; }
-.lien-discret { background: none; color: var(--muted); font-weight: 600; padding: 10px; display: block; margin: 8px auto 0; }
+.lien-discret { background: none; color: var(--muted); font-weight: 600; padding: 10px; min-height: 44px; display: block; margin: 8px auto 0; }
+.reglage .toggle { min-height: 44px; }
 
 /* ----- Listes de choix : rangée, repère de couleur, chevron ----- */
 .choices { display: grid; gap: 10px; }
@@ -803,12 +804,15 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 :root[data-verre][data-theme="dark"] body::before { opacity: .75; }
 :root[data-verre] body::before { translate: calc(var(--mx, 0) * -34px) calc(var(--my, 0) * -34px); transition: translate .4s ease-out; }
 :root[data-verre][data-theme] :is(.tuile, .kpi, .carte, .sc-corps, .quick-corps, .semaine-carte, .choice:not(#menu .choice)).incline { background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(255,255,255,.55), rgba(255,255,255,0) 48%), linear-gradient(155deg, rgba(255,255,255,.38), rgba(255,255,255,.04) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,.14)), var(--verre); box-shadow: inset 0 1.5px 0 var(--verre-reflet), inset 0 -10px 18px -12px rgba(255,255,255,.55), 0 26px 40px -16px rgba(0,0,0,.4); }
-:root[data-verre][data-theme] :is(.list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte, .choice:not(#menu .choice)),
+:root[data-verre][data-theme] :is(.list, .reglage, .tuile, .kpi, .carte, .fiche:not(.savais), .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps:not(.banniere .sc-corps), .bilan div, .quick-corps, .semaine-carte:not(.vita, .banniere, :has(.sc-corps, .quick-corps)), :where(.choice:not(#menu .choice))),
 :root[data-verre][data-theme] :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main), .stepper button:not(.toggle)) {
   background: linear-gradient(155deg, rgba(255,255,255,.38), rgba(255,255,255,.04) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,.14)), var(--verre); border: 1px solid var(--verre-bord);
   -webkit-backdrop-filter: var(--verre-flou); backdrop-filter: var(--verre-flou); box-shadow: inset 0 1.5px 0 var(--verre-reflet), inset 1px 0 0 rgba(255,255,255,.25), inset 0 -10px 18px -12px rgba(255,255,255,.55), var(--verre-ombre); }
 :root[data-verre][data-theme] :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main), .stepper button:not(.toggle)) { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.02)); -webkit-backdrop-filter: none; backdrop-filter: none; }   /* boutons posés sur une carte de verre : pas de second voile blanc */
 :root[data-verre][data-theme="dark"] :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main), .stepper button:not(.toggle)) { background: rgba(255,255,255,.06); }
+:root[data-verre][data-theme] .semaine-carte:not(.vita, .banniere):has(.sc-corps, .quick-corps) { background: none; border: 0; box-shadow: none; }   /* simple rangée : seules les cartes qu'elle contient sont en verre */
+:root[data-verre][data-theme] .sc-corps:not(.banniere .sc-corps) { border-left: 4px solid var(--c, var(--brand)); }   /* le liseré de couleur des cartes de l'accueil reste visible */
+:root[data-verre][data-theme] :is(.carte, .fiche, .carnet, .reglage, .list) :is(.list, .carnet, .tuile, .kpi, .carte, .sc-corps, .quick-corps, .ech-fiche, .bilan div) { -webkit-backdrop-filter: none; backdrop-filter: none; }   /* une seule couche de flou : la carte du dessous floute déjà */
 :root[data-verre][data-theme] .nav { background: linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.04)), color-mix(in srgb, var(--surface) 34%, transparent); border: 1px solid var(--verre-bord);
   -webkit-backdrop-filter: blur(26px) saturate(200%); backdrop-filter: blur(40px) saturate(240%) brightness(1.08); box-shadow: inset 0 1.5px 0 var(--verre-reflet), inset 0 -10px 18px -12px rgba(255,255,255,.5), var(--verre-ombre); }
 :root[data-verre][data-theme] .nav button[aria-current="page"] { background: rgba(255,255,255,.32); box-shadow: inset 0 1px 0 var(--verre-reflet), 0 4px 12px -6px rgba(0,0,0,.3); }
@@ -1057,7 +1061,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="socle">Socle</button><button class="toggle" data-st="actuel">Classique</button></div>
 </div>
 <div class="reglage">
-<label for="verreBtn">Effet verre<small>Cartes et barres translucides et floues, façon verre liquide</small></label>
+<label for="verreBtn">Effet verre<small>Cartes et barres translucides et floues, façon verre dépoli</small></label>
 <button id="verreBtn" class="toggle" aria-pressed="true">Activé</button>
 </div>
 <div class="reglage">
@@ -1181,39 +1185,39 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-16l"></script>
-<script src="js/donnees.js?v=2026-11-16l"></script>
-<script src="js/seance.js?v=2026-11-16l"></script>
-<script src="js/progres.js?v=2026-11-16l"></script>
-<script src="js/catalogue.js?v=2026-11-16l"></script>
-<script src="js/profil.js?v=2026-11-16l"></script>
-<script src="js/anatomie.js?v=2026-11-16l"></script>
-<script src="js/evenements.js?v=2026-11-16l"></script>
-<script src="js/outils.js?v=2026-11-16l"></script>
-<script src="js/cardio.js?v=2026-11-16l"></script>
-<script src="js/chronos.js?v=2026-11-16l"></script>
-<script src="js/sports.js?v=2026-11-16l"></script>
-<script src="js/sport.js?v=2026-11-16l"></script>
-<script src="js/boxe.js?v=2026-11-16l"></script>
-<script src="js/foot.js?v=2026-11-16l"></script>
-<script src="js/course.js?v=2026-11-16l"></script>
-<script src="js/basket.js?v=2026-11-16l"></script>
-<script src="js/tennis.js?v=2026-11-16l"></script>
-<script src="js/padel.js?v=2026-11-16l"></script>
-<script src="js/handball.js?v=2026-11-16l"></script>
-<script src="js/volley.js?v=2026-11-16l"></script>
-<script src="js/cyclisme.js?v=2026-11-16l"></script>
-<script src="js/natation.js?v=2026-11-16l"></script>
-<script src="js/escalade.js?v=2026-11-16l"></script>
-<script src="js/ski.js?v=2026-11-16l"></script>
-<script src="js/surf.js?v=2026-11-16l"></script>
-<script src="js/pilates.js?v=2026-11-16l"></script>
-<script src="js/jeu.js?v=2026-11-16l"></script>
-<script src="js/moi.js?v=2026-11-16l"></script>
-<script src="js/forme.js?v=2026-11-16l"></script>
-<script src="js/guide.js?v=2026-11-16l"></script>
-<script src="js/clubs.js?v=2026-11-16l"></script>
-<script src="js/coach.js?v=2026-11-16l"></script>
-<script src="js/semaine1.js?v=2026-11-16l"></script>
+<script src="consignes.js?v=2026-11-16n"></script>
+<script src="js/donnees.js?v=2026-11-16n"></script>
+<script src="js/seance.js?v=2026-11-16n"></script>
+<script src="js/progres.js?v=2026-11-16n"></script>
+<script src="js/catalogue.js?v=2026-11-16n"></script>
+<script src="js/profil.js?v=2026-11-16n"></script>
+<script src="js/anatomie.js?v=2026-11-16n"></script>
+<script src="js/evenements.js?v=2026-11-16n"></script>
+<script src="js/outils.js?v=2026-11-16n"></script>
+<script src="js/cardio.js?v=2026-11-16n"></script>
+<script src="js/chronos.js?v=2026-11-16n"></script>
+<script src="js/sports.js?v=2026-11-16n"></script>
+<script src="js/sport.js?v=2026-11-16n"></script>
+<script src="js/boxe.js?v=2026-11-16n"></script>
+<script src="js/foot.js?v=2026-11-16n"></script>
+<script src="js/course.js?v=2026-11-16n"></script>
+<script src="js/basket.js?v=2026-11-16n"></script>
+<script src="js/tennis.js?v=2026-11-16n"></script>
+<script src="js/padel.js?v=2026-11-16n"></script>
+<script src="js/handball.js?v=2026-11-16n"></script>
+<script src="js/volley.js?v=2026-11-16n"></script>
+<script src="js/cyclisme.js?v=2026-11-16n"></script>
+<script src="js/natation.js?v=2026-11-16n"></script>
+<script src="js/escalade.js?v=2026-11-16n"></script>
+<script src="js/ski.js?v=2026-11-16n"></script>
+<script src="js/surf.js?v=2026-11-16n"></script>
+<script src="js/pilates.js?v=2026-11-16n"></script>
+<script src="js/jeu.js?v=2026-11-16n"></script>
+<script src="js/moi.js?v=2026-11-16n"></script>
+<script src="js/forme.js?v=2026-11-16n"></script>
+<script src="js/guide.js?v=2026-11-16n"></script>
+<script src="js/clubs.js?v=2026-11-16n"></script>
+<script src="js/coach.js?v=2026-11-16n"></script>
+<script src="js/semaine1.js?v=2026-11-16n"></script>
 </body>
 </html>

@@ -456,7 +456,7 @@ function ouvrirProg(id, sens) {
   if (a >= NB_PROG) h += `<p class="trophee-fin">🏆 ${L("Programme accompli", "Programme complete")}</p><button class="toggle contour" id="progReset" style="display:block;margin:0 auto">${L("Recommencer le programme", "Restart the programme")}</button>`;
   $("chemin").innerHTML = h;
   $("chemin").querySelectorAll(".etape:not([disabled])").forEach(b => b.onclick = () => { ROUTINES.prog = progJour(P, +b.dataset.i); CONSEILLES.prog = ROUTINES.prog.exercices; ouvrirRoutine("prog"); });
-  if ($("progReset")) $("progReset").onclick = () => { stocker("prog_" + id, 0); ouvrirProg(id); };
+  if ($("progReset")) $("progReset").onclick = () => { const f = progRetourVers; stocker("prog_" + id, 0); ouvrirProg(id); progRetourVers = f; };   // recommencer garde le retour vers le club
   document.documentElement.style.setProperty("--accent", P[5]);
   const go = () => { ecran("prog"); setTimeout(() => { const c = $("chemin").querySelector(".actuel"); if (c && a > 0) c.scrollIntoView({ block: "center", behavior: "smooth" }); }, 750); };
   sens ? retour(go) : go();
@@ -643,22 +643,25 @@ window.MVT = { x: 0, y: 0 };
   let actif = true, g0 = null;
   try { actif = localStorage.getItem("mouvement") !== "0"; } catch (e) {}
   let b0 = null, f = 0;
-  const poser = () => { f = 0; R.style.setProperty("--mx", MVT.x.toFixed(3)); R.style.setProperty("--my", MVT.y.toFixed(3)); };
-  const lu = e => { if (!actif || calme.matches || e.gamma == null) return;
+  let px = 0, py = 0;
+  const poser = () => { f = 0; if (Math.abs(MVT.x - px) + Math.abs(MVT.y - py) < .01) return; px = MVT.x; py = MVT.y; R.style.setProperty("--mx", px.toFixed(3)); R.style.setProperty("--my", py.toFixed(3)); };
+  const lu = e => { if (!actif || calme.matches || e.gamma == null || document.hidden || ["session", "pret"].includes(ecranCourant)) return;   // pendant l'effort, l'écran reste immobile et la batterie est épargnée
     // la position de repos suit lentement la façon dont on tient le téléphone : seul le geste compte
     g0 = g0 == null ? e.gamma : g0 + (e.gamma - g0) * .02; b0 = b0 == null ? e.beta : b0 + (e.beta - b0) * .02;
     MVT.x += (borne((e.gamma - g0) / 22) - MVT.x) * .25; MVT.y += (borne((e.beta - b0) / 22) - MVT.y) * .25; f ||= requestAnimationFrame(poser); };
   const brancher = () => addEventListener("deviceorientation", lu, { passive: true });
-  const demander = () => { const D = window.DeviceOrientationEvent; if (actif && D && typeof D.requestPermission === "function") D.requestPermission().then(r => r === "granted" && brancher(), () => {}); };
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") brancher(); else document.addEventListener("click", demander, { once: true });
-  const maj = () => { $("mvtBtn").textContent = T(actif ? "Activé" : "Coupé"); $("mvtBtn").setAttribute("aria-pressed", actif); if (!actif) { MVT.x = MVT.y = 0; poser(); } };
-  $("mvtBtn").onclick = () => { actif = !actif; stocker("mouvement", actif ? "1" : "0"); maj(); if (actif) { demander(); g0 = b0 = null; } };
+  // iPhone : la question n'est posée qu'une fois ; un refus est retenu (le réglage « Mouvement du téléphone » la repose), un accord se renouvelle sans fenêtre
+  const demander = force => { const D = window.DeviceOrientationEvent; if (!actif || !D || typeof D.requestPermission !== "function" || (!force && lire("mvtAcces") === "non")) return;
+    D.requestPermission().then(r => { stocker("mvtAcces", r === "granted" ? "oui" : "non"); if (r === "granted") brancher(); }, () => stocker("mvtAcces", "non")); };
+  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") brancher(); else document.addEventListener("click", () => demander(), { once: true });
+  const maj = () => { $("mvtBtn").textContent = T(actif ? "Activé" : "Coupé"); $("mvtBtn").setAttribute("aria-pressed", actif); if (!actif) { MVT.x = MVT.y = 0; px = py = 1; poser(); } };
+  $("mvtBtn").onclick = () => { actif = !actif; stocker("mouvement", actif ? "1" : "0"); maj(); if (actif) { demander(true); g0 = b0 = null; } };
   maj(); }
 
 /* ============ RÉCAPITULATIF MENSUEL : « Ton mois en sport », en stories ============ */
 const nomMois = m => { const [a, mo] = m.split("-"); const t = new Date(a, mo - 1, 1).toLocaleDateString(L("fr-FR", "en-GB"), { month: "long", year: "numeric" }); return t[0].toUpperCase() + t.slice(1); };
 const moisPrecedent = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return jourCle(d).slice(0, 7); };
-const MODES_NOMS = { echauffement: ["Échauffements", "Warm-ups"], seance: ["Séances de renfo", "Strength workouts"], salle: ["Salle de musculation", "Gym"], tabata: ["Tabata", "Tabata"], souffle: ["Cohérence cardiaque", "Coherent breathing"], calme: ["Étirements", "Stretching"] };
+const MODES_NOMS = { minuteur: ["Minuteurs", "Timers"], echauffement: ["Échauffements", "Warm-ups"], seance: ["Séances de renfo", "Strength workouts"], salle: ["Salle de musculation", "Gym"], tabata: ["Tabata", "Tabata"], souffle: ["Cohérence cardiaque", "Coherent breathing"], calme: ["Étirements", "Stretching"] };
 function statsMois(m) {
   const h = lireHist().filter(x => x.j.startsWith(m)), jours = new Set(h.map(x => x.j)), compte = (f, l = h) => { const c = {}; l.forEach(x => [].concat(f(x)).forEach(k => k && (c[k] = (c[k] || 0) + 1))); return Object.entries(c).sort((a, b) => b[1] - a[1]); };
   const [a, mo] = m.split("-").map(Number), nbJ = new Date(a, mo, 0).getDate();
