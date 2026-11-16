@@ -562,7 +562,7 @@ function ouvrirApercu(cle) {
     ? cycles * (reps * dureeGlobale + (reps - 1) * repos) + (cycles - 1) * recup
     : liste.reduce((s, e) => s + e.duree, 0) + (routine.plan ? liste.reduce((s, e) => s + e.r, 0) : mode === "seance" || sa ? repos * Math.max(0, liste.length - 1) : 0);
   totalPrevu = total; dejaFait = 0; debutSeance = 0;
-  $("pTitle").textContent = mode !== "echauffement" || routine.fav ? routine.titre : T("Échauffement {t}", { t: LANGUE === "en" ? routine.titre : routine.titre.toLowerCase() });
+  $("pTitle").textContent = mode !== "echauffement" || routine.fav || routine.club ? routine.titre : T("Échauffement {t}", { t: LANGUE === "en" ? routine.titre : routine.titre.toLowerCase() });
   const nb = (n, un, plus, v) => T(n > 1 ? plus : un, { n, ...v });
   const min = String(Math.round(total / 60 * 10) / 10).replace(".", LANGUE === "en" ? "." : ",");
   $("pInfo").textContent = (tb ? nb(cycles, "{n} cycle", "{n} cycles") : so ? nb(routine.blocs.length, "{n} exercice", "{n} exercices") : sa ? T(cycles > 1 ? "{n} exercices × {s} séries" : "{n} exercices × {s} série", { n: ids.length, s: cycles }) : T("{n} exercices", { n: liste.length })) + " · " + T("environ {m} min", { m: min });
