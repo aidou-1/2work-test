@@ -35,7 +35,7 @@ function seancePrev(p) {
       [L("Course rapide", "Fast running"), L("Accélérations progressives jusqu’à 90 %, retour en marchant.", "Gradual accelerations up to 90%, walk back."), n === 1 ? [["rnLignes", 30], ["rnLignes", 30]] : [["rnLignes", 30], ["sprintNavette", 30]], 30]].map((b, i) => [`${i + 1}. ${b[0]}`, ...b.slice(1)]) });
 }
 function prevLancer(cb) {
-  ROUTINES.prev = { ...seancePrev(prevCfg(cb)), prevClub: { c: cb.id } }; CONSEILLES.prev = ROUTINES.prev.exercices; ouvrirRoutine("prev");
+  ROUTINES.prev = { ...seancePrev(prevCfg(cb)), prevClub: { c: cb.id }, retour: retourClub(cb.id) }; CONSEILLES.prev = ROUTINES.prev.exercices; ouvrirRoutine("prev");
 }
 async function prevFinie(x) {   // appelé par celebrer() (js/progres.js)
   if (!x) return; if (typeof compter === "function") compter("prevention");
@@ -117,5 +117,5 @@ function modeles(cb) {
 function finClub(r) {
   const x = r && (r.club || r.prevClub), cb = x && CL.clubs.find(c => c.id === x.c); if ($("fClub")) $("fClub").remove(); if (!x) return;
   $("restart").insertAdjacentHTML("beforebegin", `<button class="toggle fin-club" id="fClub">👥 ${L("Retour au club", "Back to the club")}${cb ? " · " + echap(cb.nom) : ""}<small>${L("pour enchaîner avec une autre séance", "to go on with another workout")}</small></button>`);
-  $("fClub").onclick = () => ouvrirClubs({ vue: "club", c: x.c, onglet: "seances" });
+  $("fClub").onclick = () => retourClub(x.c)();
 }

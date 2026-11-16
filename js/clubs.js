@@ -255,10 +255,12 @@ function renduClub(C) {
 }
 
 /* Séances : le staff publie (catalogue, séances enregistrées, programme), chacun lance et coche ; le staff voit qui a fait quoi */
+// « Retour » depuis une séance ou un programme du club : revient à ses séances, en gardant d'où le club a été ouvert
+const retourClub = (c = CL.c, dA = CL.depuisAccueil) => () => ouvrirClubs({ vue: "club", c, onglet: "seances", depuisAccueil: dA });
 function routineClub(s) {   // séance du club → routine locale « club_<id> » (même moteur que les favoris), pour la lancer et la cocher à la fin
   const b = ROUTINES[s.base]; if (!b) return null; const k = "club_" + s.id;
   const t = String(s.titre).replace(/[<>"'`&]/g, "").slice(0, 60);   // titre écrit par un coach : jamais de balise ni de guillemet
-  ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, sec: s.sec || "", titre: t }, exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
+  ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, sec: s.sec || "", titre: t }, retour: retourClub(), exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
   if (typeof CONSEILLES !== "undefined") CONSEILLES[k] = CONSEILLES[s.base] || ROUTINES[k].exercices; return k;
 }
 function ongSeances(Z, cb) {
@@ -282,7 +284,7 @@ function ongSeances(Z, cb) {
     $("spListe").innerHTML = (av.length ? `<h2 class="sec">${L("À venir", "Upcoming")}</h2>${av.map(carte).join("")}` : `<p class="vide">${L("Aucune séance prévue pour l’instant.", "No workout planned yet.")}${staff() ? "<br>" + L("Publie la première avec le bouton ci-dessus.", "Post the first one with the button above.") : ""}</p>`)
       + (pa.length ? `<h2 class="sec">${L("Passées", "Past")}</h2>${pa.slice(0, 15).map(carte).join("")}` : "");
     $("spListe").onclick = async e => { const b = e.target.closest("button"); if (!b) return; const d = b.dataset, s = l.find(x => x.id === (d.go || d.fait || d.sup));
-      if (d.go) { if (s.prog) return PROGRAMMES.some(p => p[0] === s.prog) && ouvrirProg(s.prog); const k = routineClub(s); k ? ouvrirRoutine(k) : alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); }
+      if (d.go) { if (s.prog) return PROGRAMMES.some(p => p[0] === s.prog) && (ouvrirProg(s.prog), progRetourVers = retourClub()); const k = routineClub(s); k ? ouvrirRoutine(k) : alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); }
       if (d.fait) { const oui = !b.classList.contains("cl-fait"); b.disabled = true; await SV.marquerFait(cb.id, s.id, CL.u.pseudo, oui, s.sec).catch(() => {}); b.disabled = false; b.classList.toggle("cl-fait", oui); b.textContent = oui ? "✓ " + L("Fait", "Done") : L("Marquer comme fait", "Mark as done"); }
       if (d.sup && b.dataset.conf) await SV.supprimerSeance(cb.id, s.id, s.sec); else if (d.sup) { b.dataset.conf = 1; b.textContent = L("Supprimer ?", "Delete?"); }
     };
@@ -486,7 +488,7 @@ async function majCarteClubs() {
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances", depuisAccueil: true }) : ouvrirClubs({ vue: "liste", depuisAccueil: false });
 }
-$("semaineCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte" id="clubCarte"></div>`);
+$("formeCarte").insertAdjacentHTML("beforebegin", `<div class="semaine-carte club-une" id="clubCarte"></div>`);
 // lien d'invitation ouvert (…?club=…&code=…) : on va droit aux clubs, après connexion si besoin
 { const p = new URLSearchParams(location.search); if (p.get("club") && p.get("code")) { rejoindre = { c: p.get("club"), k: p.get("code") }; history.replaceState(null, "", location.pathname); } }
 const rejoindreEnAttente = () => !!rejoindre;

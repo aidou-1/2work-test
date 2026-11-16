@@ -435,6 +435,7 @@ function ouvrirProgs(sens, onglet) {
   sens ? retour(() => ecran("progs")) : ecran("progs");
 }
 function ouvrirProg(id, sens) {
+  if (!sens) progRetourVers = null;   // ouvert depuis ailleurs que le club (ou retour d'une séance du programme : sens vrai, on garde)
   const P = PROGRAMMES.find(x => x[0] === id), a = progAvance(id), X = [0, 64, 96, 64, 0, -64, -96];
   $("pTitreProg").textContent = L(P[1], P[2]);
   $("pSubProg").textContent = a >= NB_PROG ? L("Programme terminé, bravo ! Tu peux refaire chaque séance.", "Programme complete, well done! You can replay any session.") : L("Jour {n} sur 28 · touche le rond qui rebondit", "Day {n} of 28 · tap the bouncing circle").replace("{n}", a + 1);
@@ -548,7 +549,9 @@ function ouvrirReprise(id, sens) {
 }
 $("tProgs").onclick = () => ouvrirProgs();
 $("progsRetour").onclick = () => retour(() => ecran("menu"));
-$("progRetour").onclick = () => ouvrirProgs(true);
+// programme ouvert depuis un club : « Retour » y ramène (progRetourVers, js/clubs.js), sinon à la liste des programmes
+let progRetourVers = null;
+$("progRetour").onclick = () => { const f = progRetourVers; progRetourVers = null; f ? retour(f) : ouvrirProgs(true); };
 
 /* ============ STYLE « SOCLE » : objets en volume (js/volume.js, chargé seulement quand ce style est choisi) ============
    volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, mini-personnage pendant un exercice sans vidéo,

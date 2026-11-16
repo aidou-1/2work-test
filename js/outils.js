@@ -442,7 +442,7 @@ addEventListener("popstate", ev => {
   try {
     if ($("feuille")) fermerFeuille(); else if (plein) plein.click(); else if (ecranCourant === "recap") $("rcFermer").click();
     else if (ecranCourant === "bienvenue") { if (bienvenue.etape > 1) bienvenue(bienvenue.etape - 1); }   // retour = étape précédente, jamais « Passer » (le questionnaire ne reviendrait plus)
-    else if (ecranCourant === "end") $("restart").click();
+    else if (ecranCourant === "end") ($("fClub") || $("restart")).click();
     else if (b) b.click(); else if (!["menu", "accueil"].includes(ecranCourant)) $("quitBtn").click();
   } finally { sansAnim = false; }
   if (!["menu", "accueil"].includes(ecranCourant)) history.forward();   // encore hors du menu : l'entrée piège existe toujours, on y retourne (une entrée reposée sans appui serait ignorée par le navigateur)
