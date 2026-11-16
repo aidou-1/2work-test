@@ -40,7 +40,7 @@ Fichier unique et partagé : `CLAUDE.md` et `GEMINI.md` l'importent. Toute règl
   - réutiliser les fonctions existantes : `seanceBlocs`, `blocHtml`, `ouvrirFeuilleInfo`, `stocker`, `lire`… ;
   - un commentaire court en français explique le **pourquoi**, jamais sur la même ligne qu'une instruction qui suit.
 - **Thèmes** :
-  - l'attribut `data-style` (`fonderie` par défaut, `papier`, absent = classique) se combine avec `data-theme` (`light` ou `dark`) ;
+  - l'attribut `data-style` (`socle` par défaut, `fonderie`, `papier`, absent = classique) se combine avec `data-theme` (`light` ou `dark`) ;
   - toujours utiliser les variables CSS (`--bg`, `--surface`, `--ink`, `--brand`…), jamais une couleur en dur pour un fond ou un texte.
 - **Accessibilité** :
   - cibles tactiles d'au moins 44 px ;

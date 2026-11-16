@@ -214,11 +214,12 @@ function ouvrirProgres() {
     <div class="carte"><h2>${L("4 derniers mois", "Last 4 months")}</h2><div class="chaleur">${cases}</div>
       <div class="legende-ch">${L("Moins", "Less")} <i style="background:var(--soft)"></i><i style="background:#C7D2FE"></i><i style="background:#818CF8"></i><i style="background:#4F46E5"></i><i style="background:#312E81"></i> ${L("Plus", "More")}</div></div>
     ${blocsJeu()}
+    ${blocsForme()}
     ${sectionCharges()}
     <h2 class="sec">${L("Trophées", "Trophies")} · ${nbT}/${TROPHEES.length}</h2>
     <div class="carte"><div class="trophees">${TROPHEES.map((t, k) => `<div class="trophee${deja[t[0]] ? "" : " verrou"}" style="--k:${k}">${medaille(t, "p")}<b>${L(t[1], t[2])}</b>${L(t[3], t[4])}</div>`).join("")}</div></div>
     ${dernieres ? `<h2 class="sec">${L("Dernières séances", "Recent workouts")}</h2><ul class="list historique">${dernieres}</ul>` : `<p class="vide">${L("Termine ta première séance pour allumer la flamme !", "Finish your first workout to light the flame!")}</p>`}`;
-  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres);
+  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme();
   document.documentElement.style.setProperty("--accent", "#F97316");
   ecran("progres");
   setTimeout(() => $("prCorps").querySelectorAll("[data-v]").forEach(b => compteur(b, +b.dataset.v)), 350);
@@ -550,8 +551,7 @@ $("progsRetour").onclick = () => retour(() => ecran("menu"));
 $("progRetour").onclick = () => ouvrirProgs(true);
 
 /* ============ STYLE « SOCLE » : objets en volume (js/volume.js, chargé seulement quand ce style est choisi) ============
-   volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, personnage des exercices dans l'aperçu de séance
-   (muscles de la séance allumés, points cliquables), mini-personnage pendant un exercice sans vidéo,
+   volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, mini-personnage pendant un exercice sans vidéo,
    médaille à la fin. Un seul objet vivant à la fois, détruit en quittant l'écran. Sans WebGL, ou si le script ne charge pas,
    rien n'est ajouté : l'écran garde son affichage habituel. */
 // groupes du personnage : [nom fr, nom en, rôle fr, rôle en], et les mots (sans accents, fr et en) qui y mènent depuis le champ « muscles » des exercices
@@ -597,20 +597,8 @@ function volExo(e) {
 function volEcran(nom) {
   if (nom === "session") return volExo(liste[index]);
   volFin(); if (!enSocle()) return;
-  const outils = { muscles: L("Muscles", "Muscles"), dos: L("Face / dos", "Front / back") }, aria = L("Personnage en volume sur son socle : glisse pour le faire tourner", "3D figure on its pedestal: drag to turn it");
   if (nom === "menu") volPoser("kettlebell", h => $("menu").querySelector(".entete h1").after(h), { aria: L("Kettlebell en volume : glisse pour le faire tourner", "3D kettlebell: drag to spin it") });
   else if (nom === "end") volPoser("medaille", h => $("end").prepend(h), { aria: L("Médaille en volume : glisse pour la faire tourner", "3D medal: drag to spin it") });
-  else if (nom === "preview") {
-    // muscles de la séance : somme des exercices, ramenée entre 0,45 et 1 ; un point cliquable sur les quatre plus travaillés
-    const s = {}; liste.forEach(e => Object.entries(volMuscles(e.muscles)).forEach(([g, v]) => s[g] = (s[g] || 0) + v));
-    const mx = Math.max(...Object.values(s)), tri = Object.keys(s).sort((a, b) => s[b] - s[a]); if (!tri.length) return;
-    tri.forEach(g => s[g] = .45 + .55 * s[g] / mx);
-    volPoser("perso", h => $("pInfo").after(h), { aria, outils, mode: "muscles", muscles: s, points: tri.slice(0, 4).map(g => ({ g, nom: L("{m} : ouvrir la fiche", "{m}: open the card").replace("{m}", L(...VOL_NOMS[g])) })),
-      surPoint: g => { const ex = [...new Set(liste.filter(e => volMuscles(e.muscles)[g]).map(e => e.id))].slice(0, 6);
-        ouvrirFeuilleInfo(L(...VOL_NOMS[g]), `<p>${L(...VOL_NOMS[g].slice(2))}</p><h2 class="sec">${L("Dans cette séance", "In this workout")}</h2><ul class="list">${ex.map(id => `<li>${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div></li>`).join("")}</ul>`);
-        // la fiche refermée, le personnage retrouve tous les muscles de la séance
-        new MutationObserver((l, o) => { if (!$("feuille")) { o.disconnect(); vol && vol.fermer(); } }).observe(document.body, { childList: true }); } });   // la fiche est retirée du document à sa fermeture (fond, bouton, Échap ou retour)
-  }
 }
 
 /* ============ THÈME (clair / sombre / auto) ============ */
@@ -631,7 +619,7 @@ appliquerTheme();
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
   $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
-choixRg("rgStyle", "style", "style", "fonderie", "st");
+choixRg("rgStyle", "style", "style", "socle", "st");
 // effet verre : activé par défaut, appliqué aussi avant l'affichage (index.html)
 const majVerre = () => { const v = "verre" in document.documentElement.dataset; $("verreBtn").textContent = T(v ? "Activé" : "Coupé"); $("verreBtn").setAttribute("aria-pressed", v); };
 $("verreBtn").onclick = () => { const v = !("verre" in document.documentElement.dataset); v ? document.documentElement.dataset.verre = "" : delete document.documentElement.dataset.verre; stocker("verre", v ? "1" : "0"); majVerre(); };
