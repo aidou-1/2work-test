@@ -318,7 +318,7 @@ class Vue {
   // referme le point ouvert : les muscles de la séance reprennent leur intensité
   fermer() { if (!this.ouvert) return; this.ouvert.setAttribute("aria-expanded", "false"); this.ouvert = null; this.pouls = 0; if (this.avant) this.vise.set(this.avant); this.auto = this.o.auto ?? REGL[this.type].auto ?? true; }
   // rotation du monde vers la caméra (colonnes) : Rx(tangage)·Ry(lacet)
-  rot() { const a = this.lacet + this.decal, c = Math.cos(a), s = Math.sin(a), ct = Math.cos(this.tang), st = Math.sin(this.tang); return [c, st * s, -ct * s, 0, ct, st, s, -st * c, ct * c]; }
+  rot() { const a = this.lacet + this.decal + (this.mx || 0) * .7, tg = Math.max(-.2, Math.min(.75, this.tang + (this.my || 0) * .3)), c = Math.cos(a), s = Math.sin(a), ct = Math.cos(tg), st = Math.sin(tg); return [c, st * s, -ct * s, 0, ct, st, s, -st * c, ct * c]; }
   projeter(p, n) {
     const R = this.rot(), q = [0, 1, 2].map(k => R[k] * p[0] + R[k + 3] * (p[1] - this.cy) + R[k + 6] * p[2]), nz = R[2] * n[0] + R[5] * n[1] + R[8] * n[2], w = this.dist - q[2];
     return { x: (q[0] * this.pr[0] / w + this.dx) * .5 + .5, y: .5 - (q[1] * this.pr[1] / w + this.dy) * .5, face: nz };
@@ -331,6 +331,8 @@ class Vue {
       else if (this.auto && vif) { this.lacet += dt * this.vAuto; if ((this.tAuto = (this.tAuto || 0) + dt) > 8) this.auto = false; }
     }
     let bouge = y0 !== this.lacet;
+    // inclinaison du téléphone (window.MVT, js/progres.js) : l'objet tourne doucement avec le geste
+    const M = window.MVT; if (M && vif && !this.o.mini) for (const [k, v] of [["mx", M.x], ["my", M.y]]) { const d = v - (this[k] || 0); if (Math.abs(d) > .002) { this[k] = (this[k] || 0) + d * Math.min(1, dt * 8); bouge = true; } }
     // les vêtements ne commencent à s'effacer qu'après une courte pause, le temps de reconnaître le personnage
     this.t0 ??= t; const mv = t - this.t0 > .9 || !vif || this.o.mini ? this.modeV : Math.min(this.mode, this.modeV);
     if (Math.abs(mv - this.mode) > .002) { this.mode += vif ? (mv - this.mode) * Math.min(1, dt * 3.5) : mv - this.mode; bouge = true; }

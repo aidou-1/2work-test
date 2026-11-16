@@ -638,12 +638,31 @@ $("verreBtn").onclick = () => { const v = !("verre" in document.documentElement.
 majVerre(); choixRg("rgMinuteur", "minuteur", "minuteur", "chiffres", "mn");
 // inclinaison 3D au doigt des cartes (thèmes Fonderie et Atelier papier), sauf « réduire les animations »
 { const calme = matchMedia("(prefers-reduced-motion: reduce)"), CARTES = ".choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte";
-  let el = null, f = 0; const remettre = () => { cancelAnimationFrame(f); if (el) { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); el.classList.remove("incline"); el = null; } };
+  let el = null, f = 0; const remettre = () => { cancelAnimationFrame(f); if (el) { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); el.style.removeProperty("--gx"); el.style.removeProperty("--gy"); el.classList.remove("incline"); el = null; } };
   addEventListener("pointermove", e => { if (calme.matches || !document.documentElement.dataset.style || (e.pointerType !== "mouse" && !e.buttons && e.pointerType !== "touch")) return;
     const c = e.target.closest && e.target.closest(CARTES); if (c !== el) remettre(); if (!c) return; el = c; cancelAnimationFrame(f);
     f = requestAnimationFrame(() => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5, m = Math.min(8, 900 / Math.max(r.width, 120));
-      c.classList.add("incline"); c.style.setProperty("--ry", (x * m).toFixed(2) + "deg"); c.style.setProperty("--rx", (-y * m).toFixed(2) + "deg"); }); }, { passive: true });
+      c.classList.add("incline"); c.style.setProperty("--ry", (x * m).toFixed(2) + "deg"); c.style.setProperty("--rx", (-y * m).toFixed(2) + "deg"); c.style.setProperty("--gx", (x + .5) * 100 + "%"); c.style.setProperty("--gy", (y + .5) * 100 + "%"); }); }, { passive: true });
   ["pointerup", "pointercancel", "scroll"].forEach(t => addEventListener(t, remettre, { passive: true, capture: true })); document.addEventListener("pointerleave", remettre); }
+
+/* Mouvement du téléphone : en l'inclinant, le fond, les cartes et les objets en volume suivent le geste (effet de profondeur).
+   L'orientation est lue sur place, lissée, jamais enregistrée ni envoyée. L'iPhone demande l'accord au premier toucher. */
+window.MVT = { x: 0, y: 0 };
+{ const calme = matchMedia("(prefers-reduced-motion: reduce)"), R = document.documentElement, borne = v => Math.max(-1, Math.min(1, v));
+  let actif = true, g0 = null;
+  try { actif = localStorage.getItem("mouvement") !== "0"; } catch (e) {}
+  let b0 = null, f = 0;
+  const poser = () => { f = 0; R.style.setProperty("--mx", MVT.x.toFixed(3)); R.style.setProperty("--my", MVT.y.toFixed(3)); };
+  const lu = e => { if (!actif || calme.matches || e.gamma == null) return;
+    // la position de repos suit lentement la façon dont on tient le téléphone : seul le geste compte
+    g0 = g0 == null ? e.gamma : g0 + (e.gamma - g0) * .02; b0 = b0 == null ? e.beta : b0 + (e.beta - b0) * .02;
+    MVT.x += (borne((e.gamma - g0) / 22) - MVT.x) * .25; MVT.y += (borne((e.beta - b0) / 22) - MVT.y) * .25; f ||= requestAnimationFrame(poser); };
+  const brancher = () => addEventListener("deviceorientation", lu, { passive: true });
+  const demander = () => { const D = window.DeviceOrientationEvent; if (actif && D && typeof D.requestPermission === "function") D.requestPermission().then(r => r === "granted" && brancher(), () => {}); };
+  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") brancher(); else document.addEventListener("click", demander, { once: true });
+  const maj = () => { $("mvtBtn").textContent = T(actif ? "Activé" : "Coupé"); $("mvtBtn").setAttribute("aria-pressed", actif); if (!actif) { MVT.x = MVT.y = 0; poser(); } };
+  $("mvtBtn").onclick = () => { actif = !actif; stocker("mouvement", actif ? "1" : "0"); maj(); if (actif) { demander(); g0 = b0 = null; } };
+  maj(); }
 
 /* ============ RÉCAPITULATIF MENSUEL : « Ton mois en sport », en stories ============ */
 const nomMois = m => { const [a, mo] = m.split("-"); const t = new Date(a, mo - 1, 1).toLocaleDateString(L("fr-FR", "en-GB"), { month: "long", year: "numeric" }); return t[0].toUpperCase() + t.slice(1); };
