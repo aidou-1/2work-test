@@ -549,6 +549,73 @@ $("tProgs").onclick = () => ouvrirProgs();
 $("progsRetour").onclick = () => retour(() => ecran("menu"));
 $("progRetour").onclick = () => ouvrirProgs(true);
 
+/* ============ STYLE « SOCLE » : objets en volume (js/volume.js, chargé seulement quand ce style est choisi) ============
+   volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, personnage des exercices dans l'aperçu de séance
+   (muscles de la séance allumés, points cliquables) et sur le muscle du jour, mini-personnage pendant un exercice sans vidéo,
+   médaille à la fin. Un seul objet vivant à la fois, détruit en quittant l'écran. Sans WebGL, ou si le script ne charge pas,
+   rien n'est ajouté : l'écran garde son affichage habituel. */
+// groupes du personnage : [nom fr, nom en, rôle fr, rôle en], et les mots (sans accents, fr et en) qui y mènent depuis le champ « muscles » des exercices
+const VOL_NOMS = { quad: ["Quadriceps", "Quadriceps", "Tend le genou et freine la descente : c’est lui qui te relève d’un squat.", "Straightens the knee and controls the way down: it stands you up from a squat."],
+  fessiers: ["Fessiers", "Glutes", "Tendent la hanche : moteur de la course, du saut et de la montée d’escalier.", "Extend the hip: the engine of running, jumping and stair climbing."],
+  ischios: ["Ischio-jambiers", "Hamstrings", "Plient le genou et tendent la hanche ; ils freinent la jambe à chaque foulée.", "Bend the knee and extend the hip; they brake the leg on every stride."],
+  mollets: ["Mollets", "Calves", "Poussent le pied et amortissent chaque appui ; ils stabilisent la cheville.", "Push off the foot and cushion every landing; they steady the ankle."],
+  abdos: ["Abdominaux", "Abs", "Relient le haut et le bas du corps et protègent le dos quand les jambes poussent.", "Link upper and lower body and protect the back when the legs push."],
+  obliques: ["Obliques", "Obliques", "Font tourner et pencher le buste, et résistent aux rotations subies.", "Rotate and side-bend the trunk, and resist unwanted rotation."],
+  pecs: ["Pectoraux", "Chest", "Poussent et ramènent les bras vers l’avant.", "Push and bring the arms forward."],
+  epaules: ["Épaules", "Shoulders", "Lèvent le bras dans toutes les directions et stabilisent l’articulation.", "Lift the arm in every direction and stabilise the joint."],
+  biceps: ["Biceps", "Biceps", "Plie le coude et tourne la paume vers le haut.", "Bends the elbow and turns the palm up."],
+  triceps: ["Triceps", "Triceps", "Tend le coude : il termine chaque poussée.", "Straightens the elbow: it finishes every push."],
+  dos: ["Dos", "Back", "Tire les bras vers l’arrière, tient les omoplates et redresse la colonne.", "Pulls the arms back, holds the shoulder blades and keeps the spine upright."],
+  adducteurs: ["Adducteurs", "Adductors", "Ramènent la cuisse vers l’intérieur et stabilisent le bassin sur un appui.", "Bring the thigh inward and steady the pelvis on one leg."],
+  avantbras: ["Avant-bras", "Forearms", "Serrent la main et tiennent le poignet : la force de ta prise.", "Close the hand and hold the wrist: your grip strength."] };
+const VOL_RX = { quad: /quadri|droit fem|vaste|cuisse|jambes|corps entier|thigh|legs|full body/, fessiers: /fessier|hanche|piriforme|glute|hip/, ischios: /ischio|biceps fem|semi-?[tm]|hamstring/, mollets: /mollet|cheville|achille|sural|soleaire|gastroc|tibial|fibul|calf|calves|ankle/,
+  abdos: /abdo|gainage|tronc|transverse|corps entier|core|\babs\b|full body/, obliques: /oblique|rotation/, pecs: /pector|dentele|chest/, epaules: /epaule|delto|epineux|coiffe|omoplate|shoulder/, biceps: /biceps(?! fem)|brachial\b/, triceps: /triceps(?! sur)/,
+  dos: /\bdos\b|dorsa|trapez|rhombo|lombaire|lombes|erecteur|colonne|\bback\b|\blats\b|spine/, adducteurs: /adduct|gracile|pectine/, avantbras: /avant-bras|poignet|doigts|brachio|forearm|wrist|grip/ };
+let vol = null, volHote = null, volCharge = null, volTour = 0;
+const enSocle = () => document.documentElement.dataset.style === "socle";
+// « Quadriceps, fessiers, gainage » → { quad: 1, fessiers: .6, abdos: .6 } : le premier muscle cité compte le plus
+function volMuscles(txt) {
+  const o = {};
+  String(txt || "").split(/[,·;]/).forEach((m, i) => { const t = m.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/flechisseurs? de hanche|hip flexors?|ilio-?psoas|psoas/g, "quadri"); for (const g in VOL_RX) if (VOL_RX[g].test(t)) o[g] = Math.max(o[g] || 0, i ? .6 : 1); });
+  return o;
+}
+function volFin() { window.volPresse = false; volTour++; if (vol) vol.detruire(); vol = null; if (volHote) volHote.remove(); volHote = null; }
+function volPoser(type, placer, opt = {}) {
+  volFin(); if (!enSocle()) return;
+  const tour = volTour;
+  volCharge ||= new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/volume.js?v=" + VER; s.onload = ok; s.onerror = ko; document.head.append(s); });
+  volCharge.then(() => { if (tour !== volTour || !enSocle()) return; const h = document.createElement("div"); placer(h); vol = volume(h, type, { ...opt, echec: () => tour === volTour && volFin() }); if (vol) volHote = h; else h.remove(); }, () => { volCharge = null; });
+}
+// pendant la séance : mini-personnage dans le cadre du dessin, seulement quand l'exercice n'a pas de vidéo ; il suit les muscles de l'exercice
+function volExo(e) {
+  const m = e && !e.video && enSocle() && ecranCourant === "session" ? volMuscles(e.muscles) : {}, mini = vol && volHote.classList.contains("vol-mini");
+  if (!Object.keys(m).length) { if (mini && ecranCourant === "session") volHote.hidden = true; else volFin(); return; }   // exercice avec vidéo : le mini-personnage attend, caché
+  window.volPresse = true;
+  if (mini) { volHote.hidden = false; $("mediaBox").append(volHote); return vol.maj({ muscles: m }); }
+  volPoser("perso", h => $("mediaBox").append(h), { mini: true, mode: "muscles", muscles: m });
+}
+function volEcran(nom) {
+  if (nom === "session") return volExo(liste[index]);
+  volFin(); if (!enSocle()) return;
+  const outils = { muscles: L("Muscles", "Muscles"), dos: L("Face / dos", "Front / back") }, aria = L("Personnage en volume sur son socle : glisse pour le faire tourner", "3D figure on its pedestal: drag to turn it");
+  if (nom === "menu") volPoser("kettlebell", h => $("menu").querySelector(".entete h1").after(h), { aria: L("Kettlebell en volume : glisse pour le faire tourner", "3D kettlebell: drag to spin it") });
+  else if (nom === "end") volPoser("medaille", h => $("end").prepend(h), { aria: L("Médaille en volume : glisse pour la faire tourner", "3D medal: drag to spin it") });
+  else if (nom === "preview") {
+    // muscles de la séance : somme des exercices, ramenée entre 0,45 et 1 ; un point cliquable sur les quatre plus travaillés
+    const s = {}; liste.forEach(e => Object.entries(volMuscles(e.muscles)).forEach(([g, v]) => s[g] = (s[g] || 0) + v));
+    const mx = Math.max(...Object.values(s)), tri = Object.keys(s).sort((a, b) => s[b] - s[a]); if (!tri.length) return;
+    tri.forEach(g => s[g] = .45 + .55 * s[g] / mx);
+    volPoser("perso", h => $("pInfo").after(h), { aria, outils, mode: "muscles", muscles: s, points: tri.slice(0, 4).map(g => ({ g, nom: L("{m} : ouvrir la fiche", "{m}: open the card").replace("{m}", L(...VOL_NOMS[g])) })),
+      surPoint: g => { const ex = [...new Set(liste.filter(e => volMuscles(e.muscles)[g]).map(e => e.id))].slice(0, 6);
+        ouvrirFeuilleInfo(L(...VOL_NOMS[g]), `<p>${L(...VOL_NOMS[g].slice(2))}</p><h2 class="sec">${L("Dans cette séance", "In this workout")}</h2><ul class="list">${ex.map(id => `<li>${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div></li>`).join("")}</ul>`);
+        // la fiche refermée, le personnage retrouve tous les muscles de la séance
+        new MutationObserver((l, o) => { if (!$("feuille")) { o.disconnect(); vol && vol.fermer(); } }).observe(document.body, { childList: true }); } });   // la fiche est retirée du document à sa fermeture (fond, bouton, Échap ou retour)
+  } else if (nom === "muscle") {
+    const [id, , fr] = muscleDuJour(); let m = volMuscles(id.replace(/([A-Z])/g, " $1") + " " + fr[0]); if (!Object.keys(m).length) m = volMuscles(fr[1].split("·")[0]);
+    const g = Object.keys(m)[0]; if (g) volPoser("perso", h => $("mCorps").prepend(h), { aria, outils, mode: "muscles", muscles: { [g]: 1 }, face: g });
+  }
+}
+
 /* ============ THÈME (clair / sombre / auto) ============ */
 let theme = "clair";   // par défaut : clair (Fonderie clair)
 try { theme = localStorage.getItem("theme") || "clair"; } catch (e) {}
@@ -558,6 +625,7 @@ function appliquerTheme() {
   document.documentElement.dataset.theme = d ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || (d ? "#0C0A09" : "#FBF6F1");   // barre du téléphone à la couleur du fond du style
   [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).setAttribute("aria-pressed", theme === t));
+  if (vol) vol.maj();   // l'objet en volume reprend les teintes du thème
 }
 [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).onclick = () => { theme = t; stocker("theme", t); appliquerTheme(); });
 sombreSys.addEventListener && sombreSys.addEventListener("change", () => theme === "auto" && appliquerTheme());
@@ -565,7 +633,7 @@ appliquerTheme();
 // style de l'appli (Fonderie par défaut, Atelier papier, Classique = d'origine) et style du minuteur ; appliqués aussi avant l'affichage (index.html)
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
-  $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else appliquerTheme(); } }; maj(); };
+  $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
 choixRg("rgStyle", "style", "style", "fonderie", "st"); choixRg("rgMinuteur", "minuteur", "minuteur", "chiffres", "mn");
 // inclinaison 3D au doigt des cartes (thèmes Fonderie et Atelier papier), sauf « réduire les animations »
 { const calme = matchMedia("(prefers-reduced-motion: reduce)"), CARTES = ".choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte";

@@ -258,6 +258,7 @@ function afficherEcran(nom) {
   if (["pret", "session"].includes(nom)) try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); getSelection().removeAllRanges(); } catch (e) {}   // iPhone : rien de sélectionné ni de saisi en cours, sinon secouer le téléphone en courant propose « Annuler »
   if (!["pret", "session"].includes(nom)) { clearTimeout(tSecours); $("voixSecours").classList.add("hidden"); }   // pas d'annonce de secours hors séance
   majVerrou();
+  if (typeof volEcran === "function") volEcran(nom);   // style « Socle » : objet en volume de l'écran (js/progres.js)
 }
 
 /* ============ SON (bip généré, aucun fichier) ============ */
@@ -649,7 +650,7 @@ function afficher() {
   parler(annonce(e, liste[index - 1]));
   $("desc").innerHTML = etapesEx(e);
   $("zones").textContent = e.muscles;
-  media(e);
+  media(e); if (typeof volExo === "function") volExo(e);
   const sv = liste.slice(index + 1).find(x => x.id !== e.id);   // aperçu du prochain mouvement différent ; un appui y passe
   $("ensuite").innerHTML = sv ? `${vignette(sv.id)}<span><small>${L("Ensuite", "Up next")}</small><b>${sv.nom}</b></span>` : "";
   [...$("bars").children].forEach((el, i) => {

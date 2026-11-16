@@ -688,7 +688,7 @@ html[data-theme="dark"] #menu .choice, html[data-theme="dark"] .prog-carte { box
 html[data-theme="dark"] .media { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 30px -8px var(--accent); }
 
 /* ===== Thèmes (Réglages → Style) : data-style sur <html>, combiné au clair/sombre (data-theme). Sans data-style : le style d'origine.
-   Fonderie : dalles épaisses en volume, orange en fusion réservé aux actions. Atelier papier : papier grainé, cartes pliées, encre.
+   Fonderie : dalles épaisses en volume, orange en fusion réservé aux actions. Atelier papier : papier grainé, cartes pliées, encre. Socle : objets en volume sur un socle.
    :is([data-theme]) relève la priorité au-dessus des halos du sombre néon ; --rx/--ry : inclinaison 3D au doigt (tilt, js/progres.js). ===== */
 :root { --ressort: cubic-bezier(.34, 1.56, .64, 1); }
 html[data-style] :is(.choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte) { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .55s var(--ressort), box-shadow .3s; }
@@ -735,6 +735,37 @@ html[data-style="papier"]:is([data-theme]) .nav button[aria-current="page"] { co
 html[data-style="papier"]:is([data-theme]) :is(h1, .end h2, .time) { text-shadow: none; } html[data-style="papier"]:is([data-theme]) .time { color: var(--ink); }
 html[data-style="papier"]:is([data-theme]) #anneau { stroke: var(--brand); filter: none; } html[data-style="papier"]:is([data-theme]) .media { border-radius: 6px; box-shadow: var(--feuille); }
 html[data-style="papier"] .choices > :nth-child(odd) { rotate: -.4deg; } html[data-style="papier"] .choices > :nth-child(even) { rotate: .4deg; }
+
+/* --- Socle : un objet en volume posé sur son socle, beaucoup d'air, étiquettes en italique à empattements, un seul accent (braise).
+   Les objets (kettlebell, personnage des exercices, médaille) viennent de js/volume.js, chargé seulement avec ce style. --- */
+html[data-style="socle"] { --brand: #CC3D17; --bg: #F2EEE7; --surface: #FCFAF6; --soft: #E7E1D6; --ligne: rgba(45,32,20,.11); --ink: #1B1916; --muted: #625B52; --accent-txt: #B03411; --voile: 242,238,231; --r: 22px;
+  --edito: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif; --scene: radial-gradient(120% 80% at 50% 38%, #FFFFFF 0%, #F6F2EB 45%, #E6DFD3 100%);
+  --pose: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(45,32,20,.06), 0 10px 24px -12px rgba(45,32,20,.28); --braise: linear-gradient(180deg, #D9552F, #CC3D17); --sur-braise: #fff; }
+html[data-style="socle"][data-theme="dark"] { --brand: #FF7448; --bg: #100F0E; --surface: #1D1B18; --soft: #2A2723; --ligne: rgba(255,238,220,.10); --ink: #F5F0E8; --muted: #B8AFA4; --accent-txt: #FF8D66; --or: #F2C14E; --voile: 16,15,14;
+  --scene: radial-gradient(120% 80% at 50% 36%, #34302B 0%, #1B1917 48%, #0C0B0A 100%); --pose: 0 1px 0 rgba(255,255,255,.06) inset, 0 1px 2px rgba(0,0,0,.5), 0 12px 26px -12px rgba(0,0,0,.8); --braise: linear-gradient(180deg, #FF8A63, #FF7448); --sur-braise: #1C0A03; }
+html[data-style="socle"] body { background: var(--bg); }
+html[data-style="socle"]:is([data-theme]) :is(.choice, .list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte) { background: var(--surface); border: 0; border-radius: 22px; box-shadow: var(--pose); }
+html[data-style="socle"]:is([data-theme]) :is(.choice, .sc-corps)::before { box-shadow: none; }
+html[data-style="socle"]:is([data-theme]) :is(#menu .choice, .prog-carte) { border: 0; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 82%, #1B1916), color-mix(in srgb, var(--c) 66%, #1B1916)); box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 16px 26px -14px color-mix(in srgb, var(--c) 60%, transparent); }
+html[data-style="socle"]:is([data-theme]) :is(.primary, .controls .main, .toggle:not([aria-pressed="false"]):not(.contour), .ajouter) { background: var(--braise); color: var(--sur-braise); box-shadow: 0 1px 0 rgba(255,255,255,.35) inset, 0 -2px 0 rgba(0,0,0,.14) inset, 0 14px 24px -10px color-mix(in srgb, var(--brand) 75%, transparent); }
+html[data-style="socle"]:is([data-theme]) :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main)) { background: var(--surface); color: var(--ink); box-shadow: var(--pose); border: 0; }
+html[data-style="socle"]:is([data-theme]) .nav { border: 0; background: color-mix(in srgb, var(--surface) 84%, transparent); box-shadow: var(--pose); }
+html[data-style="socle"]:is([data-theme]) .nav button[aria-current="page"] { color: var(--accent-txt); } html[data-style="socle"]:is([data-theme]) .nav button[aria-current="page"] svg { filter: none; }
+html[data-style="socle"]:is([data-theme]) :is(h1, .end h2) { font-weight: 800; line-height: .92; letter-spacing: -.015em; text-shadow: none; }
+html[data-style="socle"]:is([data-theme]) :is(.sub, #count) { font-family: var(--edito); font-style: italic; }
+html[data-style="socle"]:is([data-theme]) .time { color: var(--ink); letter-spacing: -.03em; text-shadow: 0 2px 0 color-mix(in srgb, var(--surface) 80%, transparent), 0 22px 30px rgba(0,0,0,.14); }
+html[data-style="socle"]:is([data-theme]) #anneau { stroke: var(--brand); filter: none; } html[data-style="socle"] .anneau-t .piste { stroke: var(--soft); }
+html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shadow: var(--pose); }
+.vol { position: relative; touch-action: pan-y; } .vol canvas { display: block; width: 100%; height: 100%; cursor: grab; outline-offset: -4px; }
+.vol-perso { height: min(400px, 52vh); margin: -6px -16px 12px; background: var(--scene); -webkit-mask-image: linear-gradient(#0000, #000 8%, #000 94%, #0000); mask-image: linear-gradient(#0000, #000 8%, #000 94%, #0000); }
+.vol-perso.vol-mini { position: absolute; right: 2px; top: 2px; width: 92px; height: 146px; margin: 0; background: none; -webkit-mask-image: none; mask-image: none; pointer-events: none; }
+.vol-kettlebell { flex: none; width: 100px; height: 108px; margin: -18px -8px -18px auto; } .vol-medaille { height: 220px; margin: -10px 0 2px; } .end:has(> .vol-medaille) .medaille { display: none; }
+.vol-attente::after { content: ""; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; border: 3px solid var(--soft); border-top-color: var(--brand); animation: volTourne .9s linear infinite; } @keyframes volTourne { to { rotate: 1turn; } }
+.vol-pt { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; border-radius: 50%; background: none; display: grid; place-items: center; transition: opacity .25s; }
+.vol-pt i { width: 16px; height: 16px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 3px var(--surface), 0 3px 8px rgba(0,0,0,.45); transition: scale .3s var(--ressort); }
+.vol-pt::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; border: 1.5px solid var(--ink); opacity: 0; animation: volOnde 2.4s ease-out infinite; } @keyframes volOnde { 0% { scale: .5; opacity: .9; } 100% { scale: 1.5; opacity: 0; } }
+.vol-pt[aria-expanded="true"] i { scale: 1.4; background: var(--brand); } .vol-pt.dos { opacity: 0; pointer-events: none; }
+.vol-outils { position: absolute; left: 14px; bottom: 34px; display: grid; gap: 8px; } .vol-outils .toggle { min-height: 44px; padding: 0 14px; font-size: .85rem; }
 
 /* ===== Style du minuteur (Réglages, tous les thèmes) : chiffres (d'origine), anneau couché avec coureur, volets à bascule ===== */
 html[data-minuteur="coureur"] #session .chrono { position: relative; justify-content: center; perspective: 520px; padding-bottom: 18px; }
@@ -964,7 +995,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </div>
 <div class="reglage">
 <label>Style<small>L’allure de toute l’appli, en clair comme en sombre</small></label>
-<div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="actuel">Classique</button></div>
+<div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="socle">Socle</button><button class="toggle" data-st="actuel">Classique</button></div>
 </div>
 <div class="reglage">
 <label>Minuteur<small>Pendant la séance : chiffres, anneau avec coureur ou volets qui basculent</small></label>
@@ -1083,38 +1114,38 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-14zb"></script>
-<script src="js/donnees.js?v=2026-11-14zb"></script>
-<script src="js/seance.js?v=2026-11-14zb"></script>
-<script src="js/progres.js?v=2026-11-14zb"></script>
-<script src="js/catalogue.js?v=2026-11-14zb"></script>
-<script src="js/profil.js?v=2026-11-14zb"></script>
-<script src="js/anatomie.js?v=2026-11-14zb"></script>
-<script src="js/evenements.js?v=2026-11-14zb"></script>
-<script src="js/outils.js?v=2026-11-14zb"></script>
-<script src="js/cardio.js?v=2026-11-14zb"></script>
-<script src="js/chronos.js?v=2026-11-14zb"></script>
-<script src="js/sports.js?v=2026-11-14zb"></script>
-<script src="js/sport.js?v=2026-11-14zb"></script>
-<script src="js/boxe.js?v=2026-11-14zb"></script>
-<script src="js/foot.js?v=2026-11-14zb"></script>
-<script src="js/course.js?v=2026-11-14zb"></script>
-<script src="js/basket.js?v=2026-11-14zb"></script>
-<script src="js/tennis.js?v=2026-11-14zb"></script>
-<script src="js/padel.js?v=2026-11-14zb"></script>
-<script src="js/handball.js?v=2026-11-14zb"></script>
-<script src="js/volley.js?v=2026-11-14zb"></script>
-<script src="js/cyclisme.js?v=2026-11-14zb"></script>
-<script src="js/natation.js?v=2026-11-14zb"></script>
-<script src="js/escalade.js?v=2026-11-14zb"></script>
-<script src="js/ski.js?v=2026-11-14zb"></script>
-<script src="js/surf.js?v=2026-11-14zb"></script>
-<script src="js/pilates.js?v=2026-11-14zb"></script>
-<script src="js/jeu.js?v=2026-11-14zb"></script>
-<script src="js/moi.js?v=2026-11-14zb"></script>
-<script src="js/guide.js?v=2026-11-14zb"></script>
-<script src="js/clubs.js?v=2026-11-14zb"></script>
-<script src="js/coach.js?v=2026-11-14zb"></script>
-<script src="js/semaine1.js?v=2026-11-14zb"></script>
+<script src="consignes.js?v=2026-11-16d"></script>
+<script src="js/donnees.js?v=2026-11-16d"></script>
+<script src="js/seance.js?v=2026-11-16d"></script>
+<script src="js/progres.js?v=2026-11-16d"></script>
+<script src="js/catalogue.js?v=2026-11-16d"></script>
+<script src="js/profil.js?v=2026-11-16d"></script>
+<script src="js/anatomie.js?v=2026-11-16d"></script>
+<script src="js/evenements.js?v=2026-11-16d"></script>
+<script src="js/outils.js?v=2026-11-16d"></script>
+<script src="js/cardio.js?v=2026-11-16d"></script>
+<script src="js/chronos.js?v=2026-11-16d"></script>
+<script src="js/sports.js?v=2026-11-16d"></script>
+<script src="js/sport.js?v=2026-11-16d"></script>
+<script src="js/boxe.js?v=2026-11-16d"></script>
+<script src="js/foot.js?v=2026-11-16d"></script>
+<script src="js/course.js?v=2026-11-16d"></script>
+<script src="js/basket.js?v=2026-11-16d"></script>
+<script src="js/tennis.js?v=2026-11-16d"></script>
+<script src="js/padel.js?v=2026-11-16d"></script>
+<script src="js/handball.js?v=2026-11-16d"></script>
+<script src="js/volley.js?v=2026-11-16d"></script>
+<script src="js/cyclisme.js?v=2026-11-16d"></script>
+<script src="js/natation.js?v=2026-11-16d"></script>
+<script src="js/escalade.js?v=2026-11-16d"></script>
+<script src="js/ski.js?v=2026-11-16d"></script>
+<script src="js/surf.js?v=2026-11-16d"></script>
+<script src="js/pilates.js?v=2026-11-16d"></script>
+<script src="js/jeu.js?v=2026-11-16d"></script>
+<script src="js/moi.js?v=2026-11-16d"></script>
+<script src="js/guide.js?v=2026-11-16d"></script>
+<script src="js/clubs.js?v=2026-11-16d"></script>
+<script src="js/coach.js?v=2026-11-16d"></script>
+<script src="js/semaine1.js?v=2026-11-16d"></script>
 </body>
 </html>
