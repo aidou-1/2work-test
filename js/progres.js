@@ -551,7 +551,7 @@ $("progRetour").onclick = () => ouvrirProgs(true);
 
 /* ============ STYLE « SOCLE » : objets en volume (js/volume.js, chargé seulement quand ce style est choisi) ============
    volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, personnage des exercices dans l'aperçu de séance
-   (muscles de la séance allumés, points cliquables) et sur le muscle du jour, mini-personnage pendant un exercice sans vidéo,
+   (muscles de la séance allumés, points cliquables), mini-personnage pendant un exercice sans vidéo,
    médaille à la fin. Un seul objet vivant à la fois, détruit en quittant l'écran. Sans WebGL, ou si le script ne charge pas,
    rien n'est ajouté : l'écran garde son affichage habituel. */
 // groupes du personnage : [nom fr, nom en, rôle fr, rôle en], et les mots (sans accents, fr et en) qui y mènent depuis le champ « muscles » des exercices
@@ -610,9 +610,6 @@ function volEcran(nom) {
         ouvrirFeuilleInfo(L(...VOL_NOMS[g]), `<p>${L(...VOL_NOMS[g].slice(2))}</p><h2 class="sec">${L("Dans cette séance", "In this workout")}</h2><ul class="list">${ex.map(id => `<li>${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div></li>`).join("")}</ul>`);
         // la fiche refermée, le personnage retrouve tous les muscles de la séance
         new MutationObserver((l, o) => { if (!$("feuille")) { o.disconnect(); vol && vol.fermer(); } }).observe(document.body, { childList: true }); } });   // la fiche est retirée du document à sa fermeture (fond, bouton, Échap ou retour)
-  } else if (nom === "muscle") {
-    const [id, , fr] = muscleDuJour(); let m = volMuscles(id.replace(/([A-Z])/g, " $1") + " " + fr[0]); if (!Object.keys(m).length) m = volMuscles(fr[1].split("·")[0]);
-    const g = Object.keys(m)[0]; if (g) volPoser("perso", h => $("mCorps").prepend(h), { aria, outils, mode: "muscles", muscles: { [g]: 1 }, face: g });
   }
 }
 
@@ -634,7 +631,11 @@ appliquerTheme();
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
   $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
-choixRg("rgStyle", "style", "style", "fonderie", "st"); choixRg("rgMinuteur", "minuteur", "minuteur", "chiffres", "mn");
+choixRg("rgStyle", "style", "style", "fonderie", "st");
+// effet verre : activé par défaut, appliqué aussi avant l'affichage (index.html)
+const majVerre = () => { const v = "verre" in document.documentElement.dataset; $("verreBtn").textContent = T(v ? "Activé" : "Coupé"); $("verreBtn").setAttribute("aria-pressed", v); };
+$("verreBtn").onclick = () => { const v = !("verre" in document.documentElement.dataset); v ? document.documentElement.dataset.verre = "" : delete document.documentElement.dataset.verre; stocker("verre", v ? "1" : "0"); majVerre(); };
+majVerre(); choixRg("rgMinuteur", "minuteur", "minuteur", "chiffres", "mn");
 // inclinaison 3D au doigt des cartes (thèmes Fonderie et Atelier papier), sauf « réduire les animations »
 { const calme = matchMedia("(prefers-reduced-motion: reduce)"), CARTES = ".choice, .tuile, .kpi, .carte, .prog-carte, .sc-corps, .quick-corps, .semaine-carte";
   let el = null, f = 0; const remettre = () => { cancelAnimationFrame(f); if (el) { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); el.classList.remove("incline"); el = null; } };
