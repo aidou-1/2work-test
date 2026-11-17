@@ -297,7 +297,8 @@ function blocsForme() {
   if (pts.length) {
     const X = k => 14 + k * 20.5, svg = `<svg class="courbe fm-courbe" viewBox="0 0 300 110" role="img" aria-label="${L("Sommeil et batterie des 14 derniers jours", "Sleep and battery over the last 14 days")}">
       ${pts.map(([k, , r]) => `<rect x="${X(k) - 6}" y="${100 - Math.min(r.h, 12) * 8}" width="12" height="${Math.min(r.h, 12) * 8}" rx="3"><title>${dateCourte(js[k])} · ${r.h} h</title></rect>`).join("")}
-      <polyline points="${pts.map(([k, B]) => X(k) + "," + (100 - B.v * .95)).join(" ")}"/>${pts.map(([k, B]) => `<circle cx="${X(k)}" cy="${100 - B.v * .95}" r="3.5"><title>${dateCourte(js[k])} · ${B.v} %</title></circle>`).join("")}</svg>`;
+      <polyline points="${pts.map(([k, B]) => X(k) + "," + (100 - B.v * .95)).join(" ")}"/>${pts.map(([k, B]) => `<circle cx="${X(k)}" cy="${100 - B.v * .95}" r="3.5"><title>${dateCourte(js[k])} · ${B.v} %</title></circle>`).join("")}
+      ${pts.map(([k, B, r]) => `<text class="fm-v" x="${X(k)}" y="${Math.max(7, 100 - B.v * .95 - 6)}">${B.v}</text><text class="fm-h" x="${X(k)}" y="97">${String(r.h).replace(".5", "½")}</text><text class="fm-j" x="${X(k)}" y="108">${+js[k].slice(8)}</text>`).join("")}</svg>`;
     const hm = moyenne(pts.map(p => p[2].h));
     out.push(carteStat(L("Sommeil et batterie · 14 jours", "Sleep and battery · 14 days"), svg + `<p class="fm-legende"><i class="fm-l-barre"></i>${L("heures de sommeil", "hours of sleep")} (${L("moyenne", "average")} ${virgule(hm)} h) <i class="fm-l-ligne"></i>${L("batterie", "battery")}</p>`,
       L("Le sommeil est le moment où les muscles se réparent et où l’énergie se recharge. Sous 7 h par nuit plusieurs jours de suite, la récupération ralentit et les séances paraissent plus dures.", "Sleep is when muscles repair and energy refills. Under 7 h a night for several days, recovery slows and workouts feel harder.")));
