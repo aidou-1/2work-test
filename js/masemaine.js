@@ -2,7 +2,7 @@
    « planning » = { jours: jours d'entraînement perso [0 = lundi … 6], dispo: jours disponibles (léger ou mobilité si besoin), heure, lieu, clubs: sports affichés,
    prog: programme intégré ou "", types: ce que l'on veut travailler (TYPES_PERSO), choix: { jour: "prog" | "sport:<sp>" | "types" | "plan" },
    off: { "AAAA-MM-JJ": 1 } séances retirées à la main cette semaine, remp: { "AAAA-MM-JJ": "type:<clé>" | "sp:<sport>:<code>" } séance choisie à la main pour ce jour,
-   valide: jour de la dernière validation }. off et remp ne gardent que la semaine en cours.
+   ajout: { "AAAA-MM-JJ": [même format que remp] } séances ajoutées en plus, valide: jour de la dernière validation }. off, remp et ajout ne gardent que la semaine en cours.
    Les jours, types, contenus et durée des clubs restent dans les réglages de chaque sport (spPref : jours, types, contenus, clubMin) : une seule source avec l'écran du sport.
    Un programme intégré saute les séances que le club couvre déjà (cardio, renfo…) quand elles sont générales, et les garde en version courte quand elles sont
    propres à un autre sport (prépa ski avec un club de boxe). Sa mobilité et sa récupération sont remplacées par la mobilité placée automatiquement.
@@ -10,7 +10,7 @@
 const SPEC_PROG = { ski: "ski", cardioBoxe: "boxe" };   // programmes propres à un sport
 // ce qu'une séance de programme travaille, d'après son type et la zone de son retour au calme
 const tagsProg = (type, rac) => ({ fract: ["cardio"], cardio: ["cardio"], hiit: ["cardio"], gainage: ["gainage"], force: rac === "haut" ? ["haut"] : rac === "bas" ? ["jambes"] : ["haut", "jambes"] }[type] || []);
-const lirePlan = () => ({ jours: [], dispo: [], heure: "18:00", clubs: [], prog: "", types: [], choix: {}, off: {}, remp: {}, ...(lirePlanning() || {}) });
+const lirePlan = () => ({ jours: [], dispo: [], heure: "18:00", clubs: [], prog: "", types: [], choix: {}, off: {}, remp: {}, ajout: {}, ...(lirePlanning() || {}) });
 // ce que l'on veut travailler en perso : [clé, FR, EN, contenu de club qui le couvre déjà, dur]
 const TYPES_PERSO = [["cardio", "Cardio / fractionné", "Cardio / intervals", ["cardio"], 1], ["haut", "Renfo haut", "Upper body", ["haut"], 1], ["jambes", "Renfo jambes", "Legs", ["jambes"], 1],
   ["complet", "Renfo complet", "Full body", ["haut", "jambes"], 1], ["gainage", "Gainage", "Core", ["gainage"], 0], ["mobilite", "Mobilité", "Mobility", ["mobilite"], 0],
@@ -95,13 +95,17 @@ function semaineComplete(P = lirePlan()) {
     if (!s) { c = "plan"; s = tpl(modele[kp++ % modele.length].replace("@", spR), niv); }
     J[d].perso = { src: c, s, note };
   });
-  J.slice(0, 7).forEach(x => { if (!x.choisi) return; const [k, a, b] = x.choisi.split(":"), s = k === "type" ? objType(a, sports, niv) : SP[a] && SP[a].S[b] ? objSport(a, b) : null;
-    if (s) x.perso = { src: "choix", s, note: L("choisie par toi", "picked by you") + (x.clubs.some(c => c.dur) && s.dur ? " · " + L("club dur ce jour-là : attention à la charge", "hard club day: watch the load") : "") }; });
+  const objChoix = v => { const [k, a, b] = v.split(":"); return k === "type" ? objType(a, sports, niv) : SP[a] && SP[a].S[b] ? objSport(a, b) : null; }, charge = (x, s) => x.clubs.some(c => c.dur) && s.dur ? " · " + L("club dur ce jour-là : attention à la charge", "hard club day: watch the load") : "";
+  J.slice(0, 7).forEach(x => {
+    if (x.choisi) { const s = objChoix(x.choisi); if (s) x.perso = { src: "choix", s, note: L("choisie par toi", "picked by you") + charge(x, s) }; }
+    // séances ajoutées en plus de celle du jour
+    x.extras = ((P.ajout || {})[x.j] || []).map(v => { const s = objChoix(v); return s && { v, s, note: charge(x, s) }; }).filter(Boolean);
+  });
   // mobilité automatique : lendemain d'un effort dur ou jour coincé entre deux, et 10 min avant chaque club
-  const dur = d => d >= 0 && (clubDur(d) || (J[d].perso && J[d].perso.s && J[d].perso.s.dur));
+  const dur = d => d >= 0 && (clubDur(d) || (J[d].perso && J[d].perso.s && J[d].perso.s.dur) || (J[d].extras || []).some(e => e.s.dur));
   for (let d = 0; d < 7; d++) {
     if (J[d].clubs.length) J[d].avant = objMob(sports);
-    if (J[d].perso || J[d].clubs.length || J[d].retire) continue;
+    if (J[d].perso || J[d].clubs.length || J[d].retire || J[d].extras.length) continue;
     if (dur(d - 1)) J[d].mob = { s: objMob(sports), r: dur(d + 1) ? L("Entre deux grosses séances : bouge sans te fatiguer.", "Between two big sessions: move without tiring yourself.") : L("Lendemain d’une grosse séance : la mobilité aide à récupérer.", "Day after a big session: mobility helps you recover.") };
     else if (dur(d + 1)) J[d].mob = { s: objMob(sports), r: L("Veille d’une grosse séance : reste frais, 10 min suffisent.", "Day before a big session: stay fresh, 10 min is enough.") };
   }
@@ -173,11 +177,12 @@ function listeSemaine() {
   const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = W.jours.filter(x => x.perso).map(x => JOURS_LONGS()[x.d]);   // jours de séance perso réels (sans les jours de club)
   Z.innerHTML = `${jp.length ? `<p class="pl-plan">📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(jp)} à ${P.heure}`, `${et(jp)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}</p>` : ""}
     <h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste ms-liste">${W.jours.map(x => { const S = x.perso ? x.perso.s : x.mob ? x.mob.s : null, lance = S && S.go && !x.fait && x.d >= auj;
-      const retirable = S && !x.fait && x.d >= auj, changer = !x.fait && x.d >= auj ? `<button class="ms-retirer" data-chg="${x.d}">✎ ${L("Changer", "Change")}</button>` : "";
+      const futur = x.d >= auj, ajouter = futur ? `<button class="ms-retirer" data-add="${x.d}">+ ${L("Ajouter", "Add")}</button>` : "", retirable = S && !x.fait && x.d >= auj, changer = !x.fait && x.d >= auj ? `<button class="ms-retirer" data-chg="${x.d}">${L("Changer", "Change")}</button>` : "";
       return `<li class="${x.d === auj ? "auj" : ""}${S || x.clubs.length ? "" : " repos"}${x.dispo ? " dispo" : ""}" style="--c:${S ? S.c : x.clubs.length ? "var(--brand)" : "transparent"}">${x.d >= auj && !x.fait ? `<button class="jr ms-jr" data-chg="${x.d}" aria-label="${L("Choisir l’entraînement du ", "Choose the workout for ") + JOURS_LONGS()[x.d]}">` : `<span class="jr">`}${JOURS_LONGS()[x.d].slice(0, 3)}<small>${x.dt.getDate()}</small>${x.d >= auj && !x.fait ? "</button>" : "</span>"}<div>
         ${x.clubs.map(c => `<button class="ms-club-b" data-note="${c.sp}" data-j="${x.j}" aria-label="${L("Noter la séance de club", "Log the club session")}">${L(...SP[c.sp].nom)} · ${L(...c.nom)}${c.note ? " ✓" : ""}</button>`).join("")}
         ${x.retire && x.d >= auj ? `<b>${L("Séance retirée", "Session removed")}</b><small>${L("Tu as allégé ta semaine.", "You lightened your week.")}</small><span class="ms-liens"><button class="ms-retirer" data-on="${x.j}">↺ ${L("Remettre", "Put back")}</button>${changer}</span>`
-        : S ? `<b>${x.mob ? "🧘 " : ""}${S.t}</b><small>${x.mob ? x.mob.r : S.s}${x.perso && x.perso.note ? " · " + x.perso.note : ""}</small><span class="ms-liens">${changer}${retirable ? `<button class="ms-retirer" data-off="${x.j}">✕ ${L("Retirer", "Remove")}</button>` : ""}</span>` : x.clubs.length ? (x.avant && x.d >= auj ? `<button class="ms-avant" data-avant="${x.d}">🧘 ${L("10 min de mobilité avant le club", "10 min of mobility before the club")}</button>` : "") + (changer ? `<span class="ms-liens">${changer.replace("✎ " + L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : "") : `<b>${L("Repos", "Rest")}</b><small>${L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small>${changer ? `<span class="ms-liens">${changer.replace("✎ " + L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : ""}`}
+        : S ? `<b>${x.mob ? "🧘 " : ""}${S.t}</b><small>${x.mob ? x.mob.r : S.s}${x.perso && x.perso.note ? " · " + x.perso.note : ""}</small><span class="ms-liens">${changer}${ajouter}${retirable ? `<button class="ms-retirer" data-off="${x.j}">${L("Retirer", "Remove")}</button>` : ""}</span>` : x.clubs.length ? (x.avant && x.d >= auj ? `<button class="ms-avant" data-avant="${x.d}">🧘 ${L("10 min de mobilité avant le club", "10 min of mobility before the club")}</button>` : "") + (changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : "") : `<b>${L("Repos", "Rest")}</b><small>${L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small>${changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : ""}`}
+        ${x.extras.map((e, i) => `<div class="ms-extra" style="--c:${e.s.c}"><span><b>+ ${e.s.t}</b><small>${e.s.s} · ${L("ajoutée par toi", "added by you")}${e.note}</small></span>${futur ? `<button class="toggle" data-xgo="${x.d}:${i}" aria-label="${L("Lancer", "Start")}">▶</button><button class="ms-retirer" data-xdel="${x.j}:${i}" aria-label="${L("Enlever cette séance ajoutée", "Remove this added session")}">✕</button>` : ""}</div>`).join("")}
       </div>${x.fait ? `<span class="fait">✓</span>` : lance ? `<button class="toggle" data-go="${x.d}">${x.d === auj ? L("Lancer", "Start") : "▶"}</button>` : ""}</li>`; }).join("")}</ul>
     ${W.notes.length ? `<div class="carnet ms-notes"><h3>🔀 ${L("Ce qui a été adapté", "What was adapted")}</h3><ul class="prog-obj">${W.notes.map(n => `<li>${n}</li>`).join("")}</ul></div>` : ""}
     <button class="primary" id="msValider">✓ ${L("Valider ma semaine", "Confirm my week")}</button>
@@ -190,6 +195,10 @@ function listeSemaine() {
   const garderJour = (j, off, remp) => { const Q = lirePlan(); Q.off = semaineSeule({ ...Q.off, [j]: off }); Q.remp = semaineSeule({ ...Q.remp, [j]: remp }); stocker("planning", JSON.stringify(Q)); listeSemaine(); };
   const garderOff = (j, v) => garderJour(j, v, v ? "" : (lirePlan().remp || {})[j]);
   Z.querySelectorAll("[data-chg]").forEach(b => b.onclick = () => choisirJour(W, W.jours[+b.dataset.chg], garderJour));
+  const garderAjout = (j, f) => { const Q = lirePlan(), A = { ...(Q.ajout || {}), [j]: f(((Q.ajout || {})[j] || []).slice()) }; Q.ajout = Object.fromEntries(Object.entries(A).filter(([k, l]) => l.length && k >= jourCle(lundi()))); stocker("planning", JSON.stringify(Q)); listeSemaine(); };
+  Z.querySelectorAll("[data-add]").forEach(b => b.onclick = () => choisirJour(W, W.jours[+b.dataset.add], (j, off, v) => garderAjout(j, l => [...l, v]), 1));
+  Z.querySelectorAll("[data-xdel]").forEach(b => b.onclick = () => { const [j, i] = b.dataset.xdel.split(":"); garderAjout(j, l => l.filter((_, k) => k !== +i)); });
+  Z.querySelectorAll("[data-xgo]").forEach(b => b.onclick = () => { const [d, i] = b.dataset.xgo.split(":").map(Number); W.jours[d].extras[i].s.go(); });
   Z.querySelectorAll("[data-off]").forEach(b => b.onclick = () => garderOff(b.dataset.off, 1));
   Z.querySelectorAll("[data-on]").forEach(b => b.onclick = () => garderOff(b.dataset.on, 0));
   $("msValider").onclick = () => { const Q = lirePlan(); Q.valide = jourCle(); stocker("planning", JSON.stringify(Q)); if (typeof majRappelSW === "function") majRappelSW();
@@ -198,13 +207,13 @@ function listeSemaine() {
   if ($("plIcs")) { $("plIcs").onclick = exporterIcs; blocRappel(); majRappelSW(); }
 }
 // choix de l'entraînement d'un jour : les types, les séances du parcours de chaque sport de club, revenir au plan ou repos
-function choisirJour(W, x, garderJour) {
+function choisirJour(W, x, garderJour, ajout) {   // ajout : séance en plus de celle du jour (sans repos ni retour au prévu)
   const niv = lireNiv(), ops = TYPES_PERSO.map(([k, f, e]) => ["type:" + k, L(f, e), objType(k, W.sports, niv)]);
   W.sports.forEach(sp => { const S = spSemaine(sp); if (S) [...new Set(S.jours.flatMap(j => j.l).filter(c => SP[sp].S[c]))].forEach(c => ops.push(["sp:" + sp + ":" + c, L(...SP[sp].nom) + " · " + L(...SP[sp].S[c].t), objSport(sp, c)])); });
   const bt = (v, t, s, c) => `<button class="jr-opt" style="--c:${c || "var(--brand)"}" data-ch="${v}"><span><b>${t}</b>${s ? `<small>${s}</small>` : ""}</span><i aria-hidden="true">›</i></button>`;
-  ouvrirFeuilleInfo(L("Entraînement du ", "Workout for ") + JOURS_LONGS()[x.d], `${x.clubs.length ? `<p class="sh-aide">${L("Jour de club : préfère une séance légère (gainage, mobilité, technique).", "Club day: prefer a light session (core, mobility, technique).")}</p>` : ""}
+  ouvrirFeuilleInfo((ajout ? L("Ajouter une séance le ", "Add a session on ") : L("Entraînement du ", "Workout for ")) + JOURS_LONGS()[x.d], `${x.clubs.length ? `<p class="sh-aide">${L("Jour de club : préfère une séance légère (gainage, mobilité, technique).", "Club day: prefer a light session (core, mobility, technique).")}</p>` : ""}
     <div class="ms-choix">${ops.map(([v, t, S]) => bt(v, t, S.s + (S.dur ? " · " + L("dure", "hard") : " · " + L("légère", "light")), S.c)).join("")}
-    ${x.choisi ? bt("", "↺ " + L("Revenir à la séance prévue", "Back to the planned session"), "") : ""}${bt("off", "✕ " + L("Repos ce jour-là", "Rest that day"), "")}</div>`);
+    ${ajout ? "" : (x.choisi ? bt("", "↺ " + L("Revenir à la séance prévue", "Back to the planned session"), "") : "") + bt("off", "✕ " + L("Repos ce jour-là", "Rest that day"), "")}</div>`);
   document.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => { const v = b.dataset.ch; fermerFeuille(); v === "off" ? garderJour(x.j, 1, "") : garderJour(x.j, 0, v); });
 }
 // petit message de confirmation, lu par les lecteurs d'écran
