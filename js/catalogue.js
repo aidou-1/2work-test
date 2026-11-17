@@ -1,7 +1,7 @@
 /* ============ SALLE DE MUSCULATION : séances par objectif ============
    L'utilisateur choisit un objectif (méthode), puis une séance type. La séance est construite comme en salle :
    échauffement général → séries d'approche → exercices polyarticulaires lourds → isolation → retour au calme.
-   Paramètres issus des recommandations ACSM (2009), Schoenfeld et al. (2017, 2021) et des revues citées dans chaque fiche. */
+   Paramètres issus des recommandations et revues publiques (sources dans les pull requests). */
 // [couleur, nom FR, nom EN, accroche FR, accroche EN, principal [séries, reps, texte reps], accessoires [séries, reps, texte],
 //  charge principale, charge accessoires, RIR, tempo, repos principal s, repos accessoires s, effort visé, circuit]
 const METHODES = {
@@ -19,42 +19,42 @@ const METHODES_TXT = {   // principe, pour qui, fréquence, conseils (FR puis EN
     "Pratiquants ayant déjà au moins 6 mois de musculation et une technique propre sur les mouvements de base.", "Lifters with at least 6 months of training and clean technique on the basic lifts.",
     "2 à 3 séances par semaine, 48 à 72 h entre deux séances pour le même muscle.", "2 to 3 sessions a week, 48 to 72 h between sessions for the same muscle.",
     [["Utilise un partenaire ou des sécurités sur les exercices lourds (squat, développé couché).", "Use a spotter or safety bars on heavy lifts (squat, bench press)."], ["Monte la barre le plus vite possible tout en restant contrôlé : l’intention de vitesse compte.", "Drive the bar up as fast as possible while staying in control: intent matters."], ["Respecte les longs repos : sortir trop tôt fait perdre de la force sur la série suivante.", "Respect the long rests: starting too soon costs strength on the next set."]],
-    "ACSM (2009) recommande 1 à 6 répétitions à 80–100 % du maximum pour la force. La méta-analyse de Schoenfeld et al. (2017) montre que les charges lourdes donnent plus de force que les charges légères, à volume égal."],
+    "Les recommandations pour la force sont de 1 à 6 répétitions à 80–100 % du maximum. À volume égal, les charges lourdes donnent plus de force que les charges légères."],
   hypertrophie: ["Un volume important (nombre de séries par muscle), un temps sous tension contrôlé et des séries menées près de l’échec : ce sont les trois leviers principaux de la prise de muscle.", "High volume (sets per muscle), controlled time under tension and sets taken close to failure: the three main drivers of muscle growth.",
     "Tous niveaux. C’est la méthode la plus polyvalente pour gagner du muscle et de la force.", "All levels. The most versatile method to gain muscle and strength.",
     "2 séances par semaine et par muscle, soit 10 à 20 séries par muscle et par semaine.", "2 sessions per muscle each week, i.e. 10 to 20 sets per muscle per week.",
     [["Descends en 3 secondes en sentant le muscle travailler, remonte sans à-coup.", "Lower in 3 seconds, feeling the muscle, lift without jerking."], ["Ajoute 1 ou 2 répétitions, ou un peu de charge, d’une semaine à l’autre (surcharge progressive).", "Add 1 or 2 reps or a little weight from week to week (progressive overload)."], ["Mange assez de protéines (environ 1,6 g par kilo et par jour) et dors bien.", "Eat enough protein (about 1.6 g per kg per day) and sleep well."]],
-    "Schoenfeld et al. (2017) : plus de séries par semaine donnent plus de muscle, jusqu’à environ 10 séries et plus par muscle. Schoenfeld et al. (2021) : des charges de 30 à 85 % fonctionnent si les séries sont menées près de l’échec. Morton et al. (2018) : environ 1,6 g de protéines par kilo et par jour."],
+    "Plus de séries par semaine donnent plus de muscle, jusqu’à 10 séries et plus par muscle. Des charges de 30 à 85 % fonctionnent si les séries sont menées près de l’échec. Côté assiette, environ 1,6 g de protéines par kilo et par jour suffit."],
   endurance: ["Des charges légères répétées longtemps avec peu de repos. Le muscle apprend à résister à la fatigue et à mieux utiliser l’oxygène ; idéal pour se tonifier sans prendre beaucoup de volume.", "Light loads repeated many times with little rest. The muscle learns to resist fatigue and use oxygen better; ideal for toning without adding much size.",
     "Débutants, reprise, sports d’endurance, ou personnes qui veulent se tonifier.", "Beginners, comebacks, endurance athletes, or anyone wanting to tone up.",
     "2 à 4 séances par semaine.", "2 to 4 sessions a week.",
     [["Garde une technique impeccable jusqu’à la dernière répétition, même quand ça brûle.", "Keep perfect form to the last rep, even when it burns."], ["Respire de façon régulière : expire sur l’effort.", "Breathe steadily: breathe out on the effort."], ["Les repos courts font monter le cardio : c’est voulu.", "Short rests raise your heart rate: that is the point."]],
-    "ACSM (2009) recommande 10 à 25 répétitions avec des charges légères à modérées et des repos courts pour l’endurance musculaire locale."],
+    "Pour l’endurance musculaire, on recommande 10 à 25 répétitions avec des charges légères à modérées et des repos courts."],
   puissance: ["Des charges modérées déplacées le plus vite possible. On entraîne la vitesse de contraction et la capacité à produire beaucoup de force en peu de temps : utile pour sauter, sprinter, frapper.", "Moderate loads moved as fast as possible. It trains contraction speed and the ability to produce a lot of force quickly: useful to jump, sprint and strike.",
     "Sportifs (sports collectifs, combat, athlétisme) ayant déjà une bonne base de force.", "Athletes (team sports, combat, track) with a solid strength base.",
     "1 à 3 séances par semaine, toujours en début de séance, quand tu es frais.", "1 to 3 sessions a week, always early in the session while fresh.",
     [["Arrête la série dès que la vitesse diminue : on cherche la qualité, pas la fatigue.", "Stop the set as soon as speed drops: quality, not fatigue."], ["Chaque répétition doit être explosive à la montée, contrôlée à la descente.", "Every rep explosive on the way up, controlled on the way down."], ["Évite cette méthode si tu as une douleur articulaire.", "Avoid this method if you have joint pain."]],
-    "Suchomel et al. (2018) et Cormie et al. (2011) : la puissance se développe avec des charges de 30 à 70 % déplacées à vitesse maximale, sur une base de force déjà construite."],
+    "La puissance se développe avec des charges de 30 à 70 % déplacées à vitesse maximale, sur une base de force déjà construite."],
   excentrique: ["On ralentit volontairement la phase de descente (la phase « excentrique », quand le muscle s’allonge en freinant la charge). Le muscle est plus fort en freinant qu’en poussant : cette phase permet un stimulus intense.", "You deliberately slow the lowering phase (the eccentric phase, when the muscle lengthens while braking the load). Muscles are stronger when braking than pushing, so this phase gives an intense stimulus.",
     "Intermédiaires et confirmés qui veulent gagner en force et en solidité des tendons.", "Intermediate and advanced lifters who want more strength and sturdier tendons.",
     "1 séance par semaine et par muscle : les courbatures sont plus fortes, prévois 72 h de récupération.", "1 session per muscle per week: soreness is greater, allow 72 h to recover.",
     [["Compte 5 secondes à la descente, puis remonte normalement.", "Count 5 seconds on the way down, then lift normally."], ["Attends-toi à des courbatures la première semaine : elles diminuent ensuite (effet de protection).", "Expect soreness in the first week: it decreases afterwards (repeated-bout effect)."], ["Ne bloque pas ta respiration sur la longue descente.", "Don’t hold your breath during the long lowering."]],
-    "Roig et al. (2009, BJSM) : l’entraînement excentrique donne plus de force et un peu plus de masse musculaire que le concentrique. Il est aussi très utilisé pour renforcer les tendons, comme celui d’Achille."],
+    "L’entraînement excentrique donne plus de force et un peu plus de masse musculaire que le concentrique. Il est aussi très utilisé pour renforcer les tendons, comme celui d’Achille."],
   concentrique: ["On met l’accent sur la phase de poussée (concentrique), très rapide, et on redescend sans freiner fort. Comme ce sont surtout les phases de freinage qui causent les courbatures, cette méthode fatigue moins les muscles le lendemain.", "The focus is on a fast pushing (concentric) phase, with a quick lowering without heavy braking. As braking phases cause most soreness, this method leaves muscles less sore the next day.",
     "Reprise après une pause, sportifs la veille d’une compétition, ou périodes de fatigue. Privilégie les machines.", "Coming back from a break, athletes the day before competing, or tired periods. Prefer machines.",
     "2 à 3 séances par semaine possibles grâce à une récupération rapide.", "2 to 3 sessions a week thanks to fast recovery.",
     [["Sur les machines, laisse revenir la charge en 1 seconde, sans la lâcher.", "On machines, let the weight return in 1 second, without dropping it."], ["Pousse de façon explosive à chaque répétition.", "Push explosively on every rep."], ["Idéal pour garder la forme sans être courbaturé avant un match.", "Ideal to stay in shape without soreness before a match."]],
-    "Les courbatures sont principalement liées aux contractions excentriques (Proske & Morgan, 2001) ; l’entraînement à dominante concentrique en provoque nettement moins."],
+    "Les courbatures sont principalement liées aux contractions excentriques ; l’entraînement à dominante concentrique en provoque nettement moins."],
   isometrique: ["Tu fais une pause de 3 secondes au point le plus difficile de chaque répétition (en bas d’un squat, poitrine près de la barre…). Cela supprime l’élan, renforce le contrôle et le gainage, et charge les tendons de façon douce.", "You pause for 3 seconds at the hardest point of each rep (bottom of a squat, bar near the chest…). It removes momentum, builds control and bracing, and loads tendons gently.",
     "Tous niveaux, très utile pour corriger la technique ou en cas de tendons sensibles.", "All levels, very useful to fix technique or with sensitive tendons.",
     "2 à 3 séances par semaine.", "2 to 3 sessions a week.",
     [["Pendant la pause, reste gainé et immobile : pas de rebond.", "During the pause, stay braced and still: no bouncing."], ["Respire court pendant la pause, ne bloque pas.", "Take short breaths during the pause, don’t hold."], ["Choisis une charge un peu plus légère que d’habitude.", "Pick a slightly lighter load than usual."]],
-    "Oranchuk et al. (2019) : l’isométrie améliore la force et la raideur des tendons. Rio et al. (2015) : les contractions tenues réduisent la douleur des tendons."],
+    "L’isométrie améliore la force et la raideur des tendons, et les contractions tenues peuvent réduire la douleur des tendons."],
   circuit: ["Les exercices s’enchaînent avec seulement 15 secondes de transition, puis une récupération à la fin de chaque tour. Le cœur reste élevé tout le long : on combine renforcement et cardio pour une forte dépense énergétique.", "Exercises follow each other with only 15 seconds of transition, then a recovery at the end of each round. Heart rate stays high throughout: strength and cardio combined for high energy expenditure.",
     "Tous niveaux, perte de poids, manque de temps.", "All levels, weight loss, short on time.",
     "2 à 4 séances par semaine, en alternant avec des séances plus lourdes.", "2 to 4 sessions a week, alternating with heavier sessions.",
     [["Prépare tout le matériel avant de commencer pour enchaîner sans attendre.", "Set up all your equipment before starting so you can move without waiting."], ["Choisis des charges qui te permettent de faire toutes les répétitions proprement.", "Pick loads that let you complete every rep cleanly."], ["Bois entre les tours.", "Drink between rounds."]],
-    "Muñoz-Martínez et al. (2017) : l’entraînement en circuit améliore la condition cardiorespiratoire et la force chez l’adulte."]
+    "L’entraînement en circuit améliore la condition cardiorespiratoire et la force chez l’adulte."]
 };
 // séance type : [nom FR, nom EN, muscles FR, muscles EN, exercices (2 premiers = polyarticulaires lourds), échauffement, retour au calme]
 const SPLITS = {
@@ -152,7 +152,7 @@ function vueLibres() {
 /* ============ RETOUR AU CALME : séances de récupération complètes ============
    3 phases : retour progressif au calme (mobilité douce) → étirements statiques ciblés → respiration lente allongée.
    Étirements : 30 s par muscle et par côté (ACSM). Ils améliorent la souplesse et la détente ;
-   ils ne préviennent pas les courbatures (Herbert et al., Cochrane 2011) : on le dit honnêtement. */
+   ils ne préviennent pas les courbatures (revues publiées) : on le dit honnêtement. */
 // [id, titre FR, titre EN, quand FR, quand EN, couleur, mobilité douce, étirements, respiration (s), conseil FR, conseil EN]
 const RECUPS = [
   ["course", "Après la course ou le cardio", "After running or cardio", "Mollets, ischios, quadriceps, hanches", "Calves, hamstrings, quads, hips", "#0EA5E9", ["ankles", "armcircles", "twist"], ["molletMur", "soleaire", "quadDebout", "ischioCouche", "fenteBasse", "figure4"], 90, ["Marche 2 à 3 minutes avant de commencer : le cœur redescend en douceur.", "Walk for 2 to 3 minutes before starting: your heart rate comes down gently."]],
@@ -223,7 +223,7 @@ function ficheRecup() {
       <li>${L("Hydratation : bois régulièrement, davantage s’il fait chaud ou si tu as beaucoup transpiré.", "Hydration: drink regularly, more when it is hot or you sweated a lot.")}</li>
       <li>${L("Alimentation : un repas avec des protéines et des glucides dans les heures qui suivent l’effort.", "Nutrition: a meal with protein and carbohydrates in the hours after exercise.")}</li>
       <li>${L("Repos : au moins 1 à 2 jours plus calmes par semaine.", "Rest: at least 1 to 2 easier days a week.")}</li></ul>
-    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("L’ACSM recommande de tenir chaque étirement 10 à 30 secondes, 2 à 4 fois, pour gagner en souplesse. Une revue Cochrane (Herbert et al., 2011) montre en revanche que s’étirer ne réduit presque pas les courbatures : les étirements servent surtout la souplesse et la détente. La respiration lente avec expiration allongée active le système nerveux parasympathique, celui du repos (Zaccaro et al., 2018).", "The ACSM recommends holding each stretch for 10 to 30 seconds, 2 to 4 times, to improve flexibility. A Cochrane review (Herbert et al., 2011), however, shows that stretching barely reduces muscle soreness: stretching mainly serves flexibility and relaxation. Slow breathing with a longer exhale activates the parasympathetic “rest” nervous system (Zaccaro et al., 2018).")}</p></details>`;
+    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Pour gagner en souplesse, on recommande de tenir chaque étirement 10 à 30 secondes, 2 à 4 fois. En revanche, s’étirer ne réduit presque pas les courbatures : les étirements servent surtout la souplesse et la détente. La respiration lente avec expiration allongée active le système nerveux parasympathique, celui du repos.", "To improve flexibility, holding each stretch for 10 to 30 seconds, 2 to 4 times, is recommended. However, stretching barely reduces muscle soreness: stretching mainly serves flexibility and relaxation. Slow breathing with a longer exhale activates the parasympathetic “rest” nervous system.")}</p></details>`;
 }
 function vueCalme() {
   vue("choicesR", "calme", "Retour au calme", L("Récupère après ta séance : mobilité douce, étirements ciblés et respiration.", "Recover after your workout: gentle mobility, targeted stretches and breathing."), () => {
@@ -238,8 +238,8 @@ function vueCalme() {
 
 /* ============ ÉCHAUFFEMENTS : MÉTHODE RAMP ============
    RAMP (Jeffreys, 2007) : Raise (élever la température), Activate & Mobilise, Potentiate (préparer au geste, intensité croissante).
-   Fradkin et al. (2010) : l'échauffement améliore la performance dans 79 % des critères étudiés.
-   Behm et al. (2016) : étirements statiques < 60 s par muscle intégrés à un échauffement dynamique = effet négligeable sur la performance.
+   Revue de 32 études : l'échauffement améliore la performance dans 79 % des critères étudiés.
+   Étirements statiques < 60 s par muscle intégrés à un échauffement dynamique = effet négligeable sur la performance.
    ECHS[clé de routine] = [élever, mobiliser, activer, préparer au geste, conseil FR, conseil EN, pourquoi FR, pourquoi EN] */
 const ECHS = {
   athle: [["footwork", "rn_marche"], ["ankles", "hip9090", "legfwd", "rotEpaule"], ["pont", "calfraise", "equilibre"], ["atMarcheHaies", "rnBras", "atHaieVide", "atRotationLancer"],
@@ -329,7 +329,7 @@ function seanceEch(cle, fmt) {
 function ficheEch() {
   return `<details class="prog-info" style="--c:#1A3BC2"><summary>${L("Bien s’échauffer : le guide", "Warming up well: the guide")}</summary>
     <h3>${L("Pourquoi s’échauffer ?", "Why warm up?")}</h3><p>${L("Un muscle plus chaud est plus souple, plus rapide et plus fort. L’échauffement accélère le cœur et la respiration, augmente l’afflux de sang dans les muscles et réveille la coordination. Résultat : de meilleures performances et moins de blessures.", "A warmer muscle is more supple, faster and stronger. Warming up raises your heart rate and breathing, increases blood flow to the muscles and sharpens coordination. The result: better performance and fewer injuries.")}</p>
-    <h3>${L("La méthode RAMP en 4 phases", "The 4-phase RAMP method")}</h3><ul class="prog-obj">
+    <h3>${L("La méthode en 4 phases", "The 4-phase method")}</h3><ul class="prog-obj">
       ${PHASES_ECH.map(([a, b, c, d], i) => `<li><b>${i + 1}. ${L(a, b)}</b> — ${L(c, d)}</li>`).join("")}</ul>
     <h3>${L("Combien de temps ?", "How long?")}</h3><ul class="prog-obj">
       ${FMT_ECH.map(f => `<li><b>${L(f[1], f[2])}</b> — ${L(f[5], f[6])}</li>`).join("")}
@@ -340,7 +340,7 @@ function ficheEch() {
       <li>${L("Par temps froid ou tôt le matin, allonge la première phase.", "In cold weather or early in the morning, extend the first phase.")}</li>
       <li>${L("Aucun exercice ne doit faire mal. Une gêne qui augmente = on arrête.", "No exercise should hurt. Discomfort that gets worse = stop.")}</li></ul>
     <h3>${L("Tu es prêt quand…", "You are ready when…")}</h3><p>${L("tu transpires légèrement, ta respiration est plus rapide mais tu peux encore parler, tes mouvements sont fluides et tu te sens « réveillé ».", "you are sweating lightly, your breathing is faster but you can still talk, your movements feel smooth and you feel “switched on”.")}</p>
-    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Une revue de 32 études (Fradkin et al., 2010) montre que l’échauffement améliore la performance dans 79 % des critères mesurés. Les échauffements neuromusculaires structurés réduisent nettement les blessures chez les footballeurs dans les études (Thorborg et al., 2017). Les étirements statiques de plus de 60 secondes par muscle peuvent diminuer la force et la vitesse, alors que des étirements courts intégrés à un échauffement dynamique n’ont presque pas d’effet (Behm et al., 2016).", "A review of 32 studies (Fradkin et al., 2010) found that warming up improved performance in 79% of the criteria measured. Structured neuromuscular warm-ups clearly reduce injuries in footballers in studies (Thorborg et al., 2017). Static stretches held for more than 60 seconds per muscle can reduce strength and speed, while short stretches within a dynamic warm-up have almost no effect (Behm et al., 2016).")}</p></details>`;
+    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Selon une revue de 32 études, l’échauffement améliore la performance dans 79 % des critères mesurés. Les échauffements neuromusculaires structurés réduisent nettement les blessures chez les footballeurs dans les études. Les étirements statiques de plus de 60 secondes par muscle peuvent diminuer la force et la vitesse, alors que des étirements courts intégrés à un échauffement dynamique n’ont presque pas d’effet.", "A review of 32 studies found that warming up improved performance in 79% of the criteria measured. Structured neuromuscular warm-ups clearly reduce injuries in footballers in studies. Static stretches held for more than 60 seconds per muscle can reduce strength and speed, while short stretches within a dynamic warm-up have almost no effect.")}</p></details>`;
 }
 let echCle = "";
 function vueEch(cle) {
@@ -380,7 +380,7 @@ function listeSports() {   // guide en tête, sports regroupés par famille (rec
 }
 
 /* ============ RENFO PAR SPORT ============
-   Lauersen et al. (2014, 25 essais, 26 610 sportifs) : le renforcement musculaire réduit les blessures sportives à moins d'un tiers.
+   Synthèse de 25 essais (26 610 sportifs) : le renforcement musculaire réduit les blessures sportives à moins d'un tiers.
    Séance en 4 blocs : échauffement (tiré de ECHS) → circuit principal (tours/effort/repos selon le niveau) → prévention ciblée → retour au calme (tiré de RECUPS).
    RENFOS[groupe] = [qualités FR, EN, pourquoi FR, EN, exercices de prévention, séance de retour au calme] */
 const RENFOS = {
@@ -394,7 +394,7 @@ const RENFOS = {
   padel: ["Jambes, gainage, rotation, épaules et avant-bras", "Legs, core, rotation, shoulders and forearms", "Coude, épaule, mollet et cheville sont les zones les plus touchées au padel : on les renforce progressivement, sans douleur, avec équilibre et gainage pour le dos.", "Elbow, shoulder, calf and ankle are the most commonly injured areas in padel: build strength progressively and pain-free, with balance and core work for the back.", ["rqCoiffe", "rqPoignet", "mollet1", "equilibre", "bird"], "collectif"],
   boxe: ["Puissance des jambes et du tronc, épaules endurantes, gainage", "Leg and trunk power, enduring shoulders, core", "La force d’un coup vient surtout des jambes et de la rotation du tronc : des jambes puissantes et un gainage solide rendent les coups plus forts, des épaules endurantes tiennent la garde.", "Punching power comes mostly from the legs and trunk rotation: powerful legs and a solid core make punches stronger, while enduring shoulders hold the guard.", ["rotEpaule", "scap", "nuqueIso"], "haut"],
   escalade: ["Tirage, épaules, gainage, avant-bras", "Pulling strength, shoulders, core, forearms", "Des omoplates actives et une coiffe forte protègent l’épaule, très sollicitée bras en l’air. Le gainage garde les pieds sur les prises dans les dévers.", "Active shoulder blades and a strong rotator cuff protect the shoulder, which works hard overhead. Core strength keeps your feet on the holds on overhangs.", ["scap", "rotEpaule", "poignetExc"], "haut"],
-  cyclisme: ["Cuisses, fessiers, gainage, dos", "Thighs, glutes, core, back", "La musculation améliore l’économie et la performance des cyclistes entraînés (Rønnestad et Mujika, 2014), et le gainage protège le dos dans la position penchée.", "Strength training improves economy and performance in trained cyclists (Rønnestad and Mujika, 2014), and core work protects the back in the bent-over position.", ["bird", "hydrant", "planchelat"], "course"],
+  cyclisme: ["Cuisses, fessiers, gainage, dos", "Thighs, glutes, core, back", "La musculation améliore l’économie et la performance des cyclistes entraînés, et le gainage protège le dos dans la position penchée.", "Strength training improves economy and performance in trained cyclists, and core work protects the back in the bent-over position.", ["bird", "hydrant", "planchelat"], "course"],
   natation: ["Dorsaux, coiffe des rotateurs, gainage, battements", "Lats, rotator cuff, core, kicking", "L’« épaule du nageur » est la plainte n°1 : renforcer la coiffe et les muscles des omoplates est la base de la prévention. Le gainage garde le corps aligné dans l’eau.", "“Swimmer’s shoulder” is the number one complaint: strengthening the rotator cuff and shoulder-blade muscles is the basis of prevention. Core work keeps your body aligned in the water.", ["rotEpaule", "scap", "bird"], "haut"],
   ski: ["Quadriceps, fessiers, ischios, équilibre", "Quads, glutes, hamstrings, balance", "Le ligament croisé antérieur est la blessure grave la plus fréquente au ski. Des ischios forts et un bon équilibre aident à protéger le genou, des cuisses endurantes retardent la fatigue.", "The anterior cruciate ligament is the most common serious skiing injury. Strong hamstrings and good balance help protect the knee, and enduring thighs delay fatigue.", ["equilibre", "copenhague", "extender"], "jambes"],
   surf: ["Épaules et dos pour la rame, pop-up explosif, gainage, jambes", "Shoulders and back for paddling, explosive pop-up, core, legs", "La rame représente la plus grande partie du temps passé à l’eau : des épaules et un dos endurants et protégés, puis un pop-up explosif, font la différence.", "Paddling takes up most of your time in the water: enduring, well-protected shoulders and back, then an explosive pop-up, make the difference.", ["rotEpaule", "scap", "bird"], "complet"],
@@ -454,7 +454,7 @@ function ficheRenfo() {
       <li>${L("La technique d’abord : un geste propre vaut mieux qu’une répétition de plus.", "Technique first: a clean movement beats one more rep.")}</li>
       <li>${L("Progresse petit à petit : un tour de plus, moins de repos ou une variante plus difficile toutes les 2 à 3 semaines.", "Progress gradually: one more round, less rest or a harder variation every 2 to 3 weeks.")}</li>
       <li>${L("Une douleur articulaire ou tendineuse qui augmente = on arrête l’exercice.", "Joint or tendon pain that gets worse = stop the exercise.")}</li></ul>
-    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Une méta-analyse de 25 essais et 26 610 sportifs (Lauersen et al., 2014) montre que le renforcement musculaire réduit les blessures sportives à moins d’un tiers et presque de moitié les blessures de surmenage, bien plus que les étirements.", "A meta-analysis of 25 trials and 26,610 athletes (Lauersen et al., 2014) found that strength training cut sports injuries to less than a third and overuse injuries by almost half, far more than stretching.")}</p></details>`;
+    <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Une synthèse de 25 essais et 26 610 sportifs montre que le renforcement musculaire réduit les blessures sportives à moins d’un tiers et presque de moitié les blessures de surmenage, bien plus que les étirements.", "A review of 25 trials and 26,610 athletes found that strength training cut sports injuries to less than a third and overuse injuries by almost half, far more than stretching.")}</p></details>`;
 }
 const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course trail athle cyclisme natation"],
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "pilates"]];
@@ -486,7 +486,7 @@ function renduRenfo(grp) {
 }
 
 /* ============ TABATA ============
-   Tabata et al. (1996) : 8 × (20 s à très haute intensité / 10 s de repos) = 4 min. En 6 semaines, +14 % de VO2max et +28 % de capacité anaérobie.
+   Étude d’origine (1996) : 8 × (20 s à très haute intensité / 10 s de repos) = 4 min. En 6 semaines, +14 % de VO2max et +28 % de capacité anaérobie.
    TABATAS = [id, nom FR, EN, couleur, niveau FR, EN, blocs (2 exercices alternés par bloc), récup entre blocs (s), texte FR, EN] */
 const TABATAS = [
   ["decouverte", "Tabata découverte", "Tabata starter", "#F59E0B", "Débutant", "Beginner", [["jumpingJack", "squat"], ["kneeup", "pompesMur"]], 90, "Des exercices simples pour apprendre le format : chacun va à son rythme.", "Simple exercises to learn the format: go at your own pace."],
@@ -515,7 +515,7 @@ function seanceTabata(id) {
 function ficheTabata() {
   return `<details class="prog-info" style="--c:#D9480F"><summary>${L("Le Tabata : le guide", "Tabata: the guide")}</summary>
     <h3>${L("C’est quoi ?", "What is it?")}</h3><p>${L("Un bloc Tabata, c’est 8 fois 20 secondes d’effort à fond et 10 secondes de repos : 4 minutes qui font monter le cœur au maximum. On enchaîne un ou plusieurs blocs avec une minute de récupération entre deux blocs.", "One Tabata block is 8 rounds of 20 seconds all out and 10 seconds rest: 4 minutes that push your heart rate to the max. You do one or more blocks with a minute of recovery between them.")}</p>
-    <h3>${L("D’où ça vient ?", "Where does it come from?")}</h3><p>${L("Du professeur Izumi Tabata et de son équipe (1996) : en 6 semaines, ce format a amélioré à la fois l’endurance (+14 % de VO2max) et la capacité à produire des efforts intenses (+28 %), en seulement quelques minutes par séance.", "From Professor Izumi Tabata and his team (1996): in 6 weeks this format improved both endurance (+14% VO2max) and the capacity for intense efforts (+28%), in just a few minutes per session.")}</p>
+    <h3>${L("D’où ça vient ?", "Where does it come from?")}</h3><p>${L("Dans l’étude d’origine (1996), en 6 semaines, ce format a amélioré à la fois l’endurance (+14 % de VO2max) et la capacité à produire des efforts intenses (+28 %), en seulement quelques minutes par séance.", "In the original 1996 study, in 6 weeks this format improved both endurance (+14% VO2max) and the capacity for intense efforts (+28%), in just a few minutes per session.")}</p>
     <h3>${L("Les règles d’or", "Golden rules")}</h3><ul class="prog-obj">
       <li>${L("Toujours un échauffement avant : il est inclus dans chaque séance.", "Always warm up first: it is included in every session.")}</li>
       <li>${L("Intensité 9/10 sur chaque intervalle, mais jamais au détriment de la technique.", "9/10 intensity on every interval, but never at the expense of technique.")}</li>

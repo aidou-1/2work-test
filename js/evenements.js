@@ -55,7 +55,7 @@ function vue(nom, etat, titre, sous, avant) {
     scrollTo(0, 0);
   });
 }
-const vueCats = () => vue("choicesC", "cats", "Échauffements", L("Méthode RAMP en 4 phases, adaptée à chaque sport. Choisis le tien.", "4-phase RAMP method, tailored to each sport. Pick yours."), listeSports);
+const vueCats = () => vue("choicesC", "cats", "Échauffements", L("Méthode en 4 phases, adaptée à chaque sport. Choisis le tien.", "4-phase method, tailored to each sport. Pick yours."), listeSports);
 const vuePlan = () => vue("choicesP", "plan", "Entraînement", "Crée et enregistre ta séance, suis un objectif en salle, prépare-toi pour ton sport ou lance un Tabata.");
 const vueSCats = () => vue("choicesCS", "scats", L("Sports", "Sports"), L("Choisis ton sport : renfo, cardio et outils construits pour lui.", "Pick your sport: strength, cardio and tools built for it."), listeRenfo);
 function sousListe(conteneur, cat, etat, titre, sous) {
