@@ -145,6 +145,11 @@ function clubJour(sp, j, P = spPref(sp), C = lireClubs()) {   // séance de club
 // sports pratiqués en club : jours réglés ; avecJournal : aussi ceux d'une séance notée (charge et batterie), pour qu'un club retiré disparaisse de l'écran
 const sportsClub = (C = lireClubs(), avecJournal) => [...new Set([...Object.keys(SP).filter(sp => spPref(sp).jours.length), ...(avecJournal ? Object.values(C).flatMap(n => n.sp ? [n.sp] : Object.keys(n)) : [])])].filter(sp => SP[sp]);
 const clubsDu = (j, C = lireClubs()) => sportsClub(C, 1).map(sp => clubJour(sp, j, spPref(sp), C)).filter(Boolean);
+/* Part du volume prévu pour les sports collectifs à sauts : 1 en saison, montée progressive en reprise (0,5 → 1) puis affûtage (0,5) ;
+   divisée par deux si un club dur (tous sports) a lieu aujourd'hui ou a eu lieu hier : sauts et sprints du club comptent dans la même charge. */
+const chargeEquipe = x => { const P = x.P, w = Math.max(0, Math.floor((lundi() - lundi(new Date(P.debut + "T12:00"))) / 6048e5)), j = jourCle();
+  const v = P.match >= 0 && !P.treve ? Math.min(1, x.f) : Math.min(x.f, [0.5, 0.75, 1, 1, 1, 0.5][w] || 1);
+  return [j, decaler(j, -1)].some(d => clubsDu(d).some(c => c.dur)) ? v / 2 : v; };
 // la semaine du parcours d'un sport (null s'il n'en a pas) : sert à « Ma semaine »
 function spSemaine(sp) {
   const G = SP[sp], P = spPref(sp);
