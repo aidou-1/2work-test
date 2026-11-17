@@ -54,13 +54,13 @@ function spPlan(sp, code, k, x) {
   return { plan, blocs, dist, total: Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60) };
 }
 function spSeance(sp, code, o = {}) {
-  const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, x = { mat, dur: o.dur || P.dur, niv: P.niv, P, sac: mat.includes("gants"), court: o.f < 1, f: o.f || 1 }, cible = Math.round(x.dur * (o.f || 1));
+  const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, apresClub = !!G.equipe?.apresClub?.(P, code), x = { mat, dur: apresClub || (sp === "foot" && code === "tech_sansBallon" && P.match >= 0 && !P.treve && !mat.includes("ballon")) ? 20 : o.dur || P.dur, niv: o.niv || P.niv, P, sac: mat.includes("gants"), court: o.f < 1, f: o.f || 1 }, cible = Math.round(x.dur * (o.f || 1));
   let s = spPlan(sp, code, 1, x);
   for (let k = 2; k <= S.max && !S.fixe && S.max > 1; k++) { const t = spPlan(sp, code, k, x); if (t.total > cible + 2) break; s = t; }
   const zr = zoneRouge(), sup = supportDe(sp), dur = S.fixe ? "" : " · " + L("format ", "format ") + x.dur + " min";
   const html = `<li class="etude prog-carte-jour" style="--accent:${S.c}"><div><small><b>${L(...S.t)}${dur}${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</b></small><small>🎯 ${L(...S.d)}</small>
     <small>💬 ${L("Effort visé", "Target effort")} ${S.rpe}/10 ${L("(0 repos · 5 modéré · 8 très dur · 10 maximum)", "(0 rest · 5 moderate · 8 very hard · 10 max)")}${zr && /8|9|10/.test(S.rpe) && S.cardio ? L(` · zone rouge : ${zr} bpm et plus sur les efforts durs`, ` · red zone: ${zr} bpm and above on hard efforts`) : ""}</small>
-    ${S.cardio ? `<small>📍 ${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>🏃 ${alluresVma()}</small>` : ""}` : `<small>🧰 ${mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + mat.filter(k => G.mat.includes(k)).map(k => L(...MAT_X[k])).join(", ") : L(`Version sans matériel (coche ton matériel dans ${G.nom[0]} pour l’utiliser)`, `No-equipment version (tick your equipment in ${G.nom[1]} to use it)`)}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
+    ${apresClub ? `<small>${L("Complément de 20 min après le club : ajuste la charge avec ton entraîneur.", "20 min extra after club: adjust load with your coach.")}</small>` : ""}${S.cardio ? `<small>📍 ${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>🏃 ${alluresVma()}</small>` : ""}` : `<small>🧰 ${mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + mat.filter(k => G.mat.includes(k)).map(k => L(...MAT_X[k])).join(", ") : L(`Version sans matériel (coche ton matériel dans ${G.nom[0]} pour l’utiliser)`, `No-equipment version (tick your equipment in ${G.nom[1]} to use it)`)}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
   return { type: "seance", cat: sp, sp: code, fixe: true, couleur: S.c, plan: s.plan, dist: s.dist, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
 }
 const spOnglet = {}, spRetour = {};
@@ -100,7 +100,7 @@ function ouvrirSport(sp, onglet, rv) {
       bouton(C(), L("Toutes les séances de cardio", "All cardio sessions"), L("Pyramide, sprints, intermittent… avec les niveaux", "Pyramid, sprints, intermittent… with levels"), "#64748B", () => ouvrirCardio(sp));
       if (fiche !== undefined) h.fiche(fiche); brancherChips("bxs", s => { stocker("cardioSupport", JSON.stringify({ ...cardioPref(), s })); rendu(); }); },
     savoir: () => h.html(G.savoir.map((_, i) => ficheSp(sp, i)).join("")) };
-  const rendu = () => { C().innerHTML = sp === "boxe" ? "" : `<div class="etude ech-fiche sp-refonte" style="--accent:#F59E0B"><b>🛠️ ${L("Sport en cours de refonte", "Sport being reworked")}</b><p>${L("Cet écran sera bientôt refait pour être plus complet et plus réaliste, sur le modèle de la boxe. En attendant, tes idées d’amélioration sont les bienvenues : elles nous aident à faire mieux.", "This screen will soon be rebuilt to be more complete and realistic, like boxing. Meanwhile, your improvement ideas are very welcome: they help us do better.")}</p><button class="toggle" id="spAvis" style="background:#B45309">💬 ${L("Donner mon avis sur ce sport", "Give feedback on this sport")}</button></div>`;
+  const rendu = () => { C().innerHTML = sp === "boxe" || G.fini ? "" : `<div class="etude ech-fiche sp-refonte" style="--accent:#F59E0B"><b>🛠️ ${L("Sport en cours de refonte", "Sport being reworked")}</b><p>${L("Cet écran sera bientôt refait pour être plus complet et plus réaliste, sur le modèle de la boxe. En attendant, tes idées d’amélioration sont les bienvenues : elles nous aident à faire mieux.", "This screen will soon be rebuilt to be more complete and realistic, like boxing. Meanwhile, your improvement ideas are very welcome: they help us do better.")}</p><button class="toggle" id="spAvis" style="background:#B45309">💬 ${L("Donner mon avis sur ce sport", "Give feedback on this sport")}</button></div>`;
     if ($("spAvis")) $("spAvis").onclick = () => ouvrirAvis(L(...G.nom)); h.P = spPref(sp); O[3](h); };
   rendu();
 }
@@ -108,6 +108,7 @@ function ouvrirSport(sp, onglet, rv) {
 /* --- Semaine d'un parcours : S = { L0 lundi, f volume, jours: [{ d, club, l: [codes] }] }. Codes spéciaux : lib(c) donne leur nom, cle(c) la séance à lancer (null = rien) --- */
 function semaineSp(h, S, lib, cle, fOf = () => S.f < 1 ? S.f : undefined) {
   const G = SP[h.sp], auj = (new Date().getDay() + 6) % 7, a = jourCle(S.L0), b = jourCle(plusJ(S.L0, 6)), deja = {}, aFaire = S.jours[auj].l.filter(c => cle(c));
+  if (S.avert) h.html(`<p class="prog-avert">${S.avert}</p>`);
   h.html(`${aFaire.length ? `<h2 class="sec">${L("Aujourd’hui", "Today")}</h2><div id="bxAuj"></div>` : ""}
     <h2 class="sec">${L("Ta semaine", "Your week")}</h2><ul class="carnet bx-sem">${S.jours.map((j, d) => `<li class="${d === auj ? "auj" : ""}"><b>${L(...JOURS_SP[d])} ${j.d.getDate()}</b><span>${j.club ? `<i class="bx-club">${L(...(j.clubNom || ["Club", "Club"]))}</i>` : ""}${j.l.map(c => {
       const n = (deja[c] = (deja[c] || 0) + 1), k = cle(c), ok = !!k && G.S[c] && lireHist().filter(x => x.k === G.pre + c && x.j >= a && x.j <= b).length >= n;
@@ -121,12 +122,12 @@ function placerSp(liste, jours, club, dur, lim = 7) {
   [...liste.filter(dur), ...liste.filter(c => !dur(c))].forEach(c => {
     let best = -1, sc = 1e9;
     for (let d = 0; d < lim; d++) {
-      if (jours[d].length) continue;
+      if (jours[d].length || (!club(d) && jours.filter((l, j) => l.length || club(j)).length >= maxActifs())) continue;
       const voisinDur = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].some(dur)), voisin = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].length);
       const s = (dur(c) ? 8 : 2) * +club(d) + (dur(c) ? 4 * +club(d + 1) + 2 * +club(d - 1) : 0) + (dur(c) && voisinDur ? 3 : 0) + (voisin ? 1 : 0) + d * .01;
       if (s < sc) { sc = s; best = d; }
     }
-    if (best >= 0) jours[best].push(c);
+    if (best >= 0) jours[best].push(c); else jours.omis = true;
   });
 }
 /* --- Séances de club, tous sports : type prévu par jour (P.types), contenu de chaque type (P.contenus : ce que le club travaille déjà), durée (P.clubMin).
@@ -144,6 +145,9 @@ function clubJour(sp, j, P = spPref(sp), C = lireClubs()) {   // séance de club
 }
 // sports pratiqués en club : jours réglés ; avecJournal : aussi ceux d'une séance notée (charge et batterie), pour qu'un club retiré disparaisse de l'écran
 const sportsClub = (C = lireClubs(), avecJournal) => [...new Set([...Object.keys(SP).filter(sp => spPref(sp).jours.length), ...(avecJournal ? Object.values(C).flatMap(n => n.sp ? [n.sp] : Object.keys(n)) : [])])].filter(sp => SP[sp]);
+/* Jours actifs par semaine (club, match et séances perso compris) : 5 au plus pour garder deux jours libres, 6 si le club
+   s'entraîne déjà 5 jours ou plus (athlète) : il reste toujours au moins un jour de repos. habitudeClub vient de js/forme.js. */
+const maxActifs = () => typeof habitudeClub === "function" ? Math.min(6, Math.max(5, habitudeClub().jours + 1)) : 5;
 const clubsDu = (j, C = lireClubs()) => sportsClub(C, 1).map(sp => clubJour(sp, j, spPref(sp), C)).filter(Boolean);
 /* Part du volume prévu pour les sports collectifs à sauts : 1 en saison, montée progressive en reprise (0,5 → 1) puis affûtage (0,5) ;
    divisée par deux si un club dur (tous sports) a lieu aujourd'hui ou a eu lieu hier : sauts et sprints du club comptent dans la même charge. */
@@ -164,15 +168,24 @@ const brancherJours = (h, attr, champ, maj) => h.C().querySelectorAll(`[data-${a
    SP[sport].equipe = { saison(P) → [[séance, jours possibles par rapport au match]] par priorité, reprise [[nom FR, EN, texte FR, EN, séances]] (3 étapes de 2 semaines),
    dur (séances dures), map(P, c) (séance adaptée au poste), ico, ech (échauffement d'avant-match), fiche(saison), profil [FR, EN], poste [[clé, FR, EN]] facultatif, txtSaison [FR, EN] } */
 function semaineEquipe(E, P) {
-  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c), fin = (o) => ({ L0, f: 1, ...o, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Entraînement", "Training"], l })) });
+  const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c);
+  let retires = 0;
+  const fin = o => {
+    const actifs = () => jours.filter((l, d) => l.length || club(d)).length;
+    // Retirer d'abord les compléments les moins prioritaires, jamais le club ou le match.
+    const priorites = E.priorites || ["force", "vitesse", "activation"];
+    const candidats = jours.flatMap((l, d) => l.filter(c => c !== "match").map(c => ({ c, d }))).sort((a, b) => (priorites.indexOf(b.c) < 0 ? 99 : priorites.indexOf(b.c)) - (priorites.indexOf(a.c) < 0 ? 99 : priorites.indexOf(a.c)));
+    for (const { c, d } of candidats) { if (actifs() <= maxActifs()) break; jours[d].splice(jours[d].indexOf(c), 1); retires++; }
+    return { L0, f: 1, ...o, avert: retires || actifs() > maxActifs() || jours.flat().filter(c => c !== "match").length < P.n ? L(`Semaine allégée : ${maxActifs()} jours actifs maximum, club et match compris. Des compléments ont été omis. Si le club et les matchs dépassent déjà cette limite, prévois du repos avec ton entraîneur.`, `Lighter week: at most ${maxActifs()} active days including club and matches. Extra sessions were omitted. If club and matches already exceed this limit, arrange rest with your coach.`) : "", jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Entraînement", "Training"], l })) };
+  };
   if (P.match >= 0 && !P.treve) {
     const M = P.match, pris = new Set(); jours[M].push("match");
-    E.saison(P).slice(0, P.n).forEach(([c, offs]) => { const libres = offs.map(o => (M + o + 7) % 7).filter(d => d !== M && !jours[d].length && !pris.has(d)), d = libres.find(d => !club(d) || !dur(c)) ?? libres[0];
+    E.saison(P).forEach(([c, offs]) => { if (pris.size >= P.n) return; const libres = offs.map(o => (M + o + 7) % 7).filter(d => d !== M && !jours[d].length && !pris.has(d)), d = (E.clubForce && c === "force" ? libres.find(d => club(d)) : libres.find(d => !club(d) || !dur(c))) ?? libres[0];
       if (d !== undefined) { jours[d].push(c); pris.add(d); } });
     return fin({ saison: 1, info: L("En saison · semaine construite autour du match", "In season · week built around the match") });
   }
   const w = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5)), b = Math.min(2, Math.floor(w / 2)), R = E.reprise[b];
-  placerSp(R[4].slice(0, P.n).map(c => E.map ? E.map(P, c) : c), jours, club, dur);
+  placerSp((E.seances ? E.seances(P, w) : R[4]).slice(0, P.n).map(c => E.map ? E.map(P, c) : c), jours, club, dur);
   return fin({ bloc: b, R, info: (w < 6 ? L(`Reprise · semaine ${w + 1}/6`, `Pre-season · week ${w + 1}/6`) : L("Reprise terminée : indique ton jour de match", "Pre-season done: set your match day")) + " · " + L(R[0], R[1]) });
 }
 function parcoursEquipe(h) {
@@ -229,7 +242,7 @@ function semaineObjectif(E, P, brut) {
   if (nf) liste = liste.filter(c => c !== E.longue).slice(0, Math.min(3, P.n - 1));
   if (liste.includes(E.longue)) { const d = [6, 5, 4].find(d => !jours[d].length && !club(d)) ?? 6; jours[d].push(E.longue); liste = liste.filter(c => c !== E.longue); }
   placerSp(liste, jours, club, dur, lim);
-  return { L0, bloc, f, info, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), l })) };
+  return { L0, bloc, f, info, avert: jours.omis ? L(`Des séances ont été omises pour préserver les jours libres : ${maxActifs()} jours actifs maximum, club et compétition compris.`, `Sessions were omitted to preserve free days: at most ${maxActifs()} active days including club and competition.`) : "", jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), l })) };
 }
 function parcoursObjectif(h) {
   const G = SP[h.sp], E = G.objectif, P = h.P, S = semaineObjectif(E, P), B = S.bloc ? E.blocs[S.bloc - 1] : E.debut.txt.slice(0, 2).concat(E.debut.txt.slice(2)), sp = h.sp;
