@@ -5,6 +5,7 @@ const lire = k => { try { return localStorage.getItem(k); } catch (e) { return n
 let retourOutil = null;
 function outil(titre, sous, html, retourVers) {
   retourOutil = retourVers || ouvrirOutils;
+  if (retourVers && ecranCourant === "outil") depuisAccueil = "";   // sous-outil : son retour mène à l'outil parent
   $("oTitre").textContent = titre; $("oSub").textContent = sous; $("oCorps").innerHTML = html;   // rempli tout de suite : l'outil branche ses boutons sans attendre la transition
   ecran("outil", ecranCourant === "outil" ? undefined : () => scrollTo(0, 0));
 }
@@ -314,7 +315,7 @@ const msgRappel = () => { const n = lireProfil().nom, s = series(lireHist()).cur
 const msgSoir = (v, s) => [L(`⚡ La vitalité de ton avatar est à ${v} %`, `⚡ Your avatar’s vitality is at ${v}%`), L("Juste 5 minutes suffisent pour la faire remonter" + (s > 0 ? ` et sauver ta série de ${s} jour${s > 1 ? "s" : ""}` : "") + ". On y va ?", "Just 5 minutes is enough to raise it" + (s > 0 ? ` and save your ${s}-day streak` : "") + ". Shall we?")];
 async function majRappelSW() {   // copie pour le service worker (il n'a pas accès au stockage de la page)
   try { const P = lirePlanning(), c = await caches.open("2work-etat"), s = series(lireHist()).cur;
-    await c.put("rappel.json", new Response(JSON.stringify({ actif: rappelActif(), heure: P && P.heure || "18:00", jours: Object.fromEntries(semaine().map(x => [x.j, x.s.t])), fait: lireHist().some(h => h.j === jourCle()) ? jourCle() : "",
+    await c.put("rappel.json", new Response(JSON.stringify({ actif: rappelActif(), heure: P && P.heure || "18:00", jours: Object.fromEntries(semaine(1).map(x => [x.j, x.s.t])), fait: lireHist().some(h => h.j === jourCle()) ? jourCle() : "",
       envoye: lire("rappelEnvoye") || "", titre: msgRappel(), envoyeSoir: lire("rappelSoir") || "", hist: lireHist().slice(-40).map(x => [x.j, x.s]), soir: msgSoir("{v}", 0) })));
   } catch (e) {}
 }

@@ -38,9 +38,9 @@ function suiteProg(id, n, tags, sports) {
   return { l, saut, PR };
 }
 const focusProg = (PR, i) => { const [type, fF, fE] = PR[10][i % 7]; return L(PTYPES[type][1], PTYPES[type][2]) + " · " + L(fF, fE); };
-const objProg = (PR, i, court) => { const R = progJour(PR, i, undefined, court);
+const objProg = (PR, i, court, sautes = []) => { const R = progJour(PR, i, undefined, court);
   return { t: L(PR[1], PR[2]) + " · " + L("J", "D") + (i + 1), s: focusProg(PR, i) + (court ? " · " + L("version courte", "short version") : ""), c: PR[5], dur: ["fract", "hiit", "force", "cardio"].includes(R.ty), d: Math.round(R.plan.reduce((t, q) => t + q.d + q.r, 0) / 60),
-    go: () => { ROUTINES.prog = progJour(PR, i, undefined, court); CONSEILLES.prog = ROUTINES.prog.exercices; ouvrirRoutine("prog"); } }; };
+    go: () => { ROUTINES.prog = { ...progJour(PR, i, undefined, court), sautes }; CONSEILLES.prog = ROUTINES.prog.exercices; ouvrirRoutine("prog"); } }; };
 // séance dure : la liste du sport quand il en a une, sinon un effort visé de 8 ou plus
 const durSp = (sp, c) => { const G = SP[sp], l = sp === "boxe" ? DUR_BX : (G.equipe || G.objectif || (G.saison && G.saison.E) || {}).dur; return l ? l.includes(c) : !G.S[c].fixe && /8|9|10/.test(G.S[c].rpe); };
 const objSport = (sp, c, f) => { const G = SP[sp], S = G.S[c];
@@ -52,9 +52,9 @@ const choixDispo = (P, sports) => [...(P.prog && PROGRAMMES.some(p => p[0] === P
 
 /* La semaine en cours, jour par jour : { d, dt, j, clubs, fait, perso: { src, s, note }, mob: { s, r }, avant } ; notes : ce qui a été retiré ou raccourci, et pourquoi */
 function semaineComplete(P = lirePlan()) {
-  const L0 = lundi(), auj = jourSemaine(), C = lireClubs(), faits = new Set(lireHist().map(x => x.j)), sports = sportsClub(C), notes = [];
+  const L0 = lundi(), auj = jourSemaine(), C = lireClubs(), faits = new Set(lireHist().map(x => x.j)), sports = sportsClub(C), notes = [];   // sports = clubs réglés ; les clubs du jour (clubsDu) comptent aussi le journal
   const J = Array.from({ length: 8 }, (_, d) => { const dt = plusJ(L0, d), j = jourCle(dt); return { d, dt, j, clubs: clubsDu(j, C), fait: faits.has(j) }; });
-  const tags = new Set(J.slice(0, 7).flatMap(x => x.clubs.flatMap(c => c.contenu))), dispo = choixDispo(P, sports), src = d => dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0];
+  const tags = new Set(J.slice(0, 7).flatMap(x => x.clubs.flatMap(c => c.contenu))), dispo = choixDispo(P, sports), defaut = dispo.find(o => o[0] === "prog" || o[0] === "types") || ["plan"], src = d => dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : defaut[0];
   // un jour de club coché en séance perso ne reçoit qu'un complément léger (voir plus bas) : les vraies séances vont sur les jours sans club
   // séances retirées à la main : le jour devient repos, et les séances du programme ou du sport passent aux jours suivants
   // un jour choisi à la main sort aussi des séquences : il reçoit la séance choisie (plus bas)
@@ -64,7 +64,7 @@ function semaineComplete(P = lirePlan()) {
   // programme : les jours perso encore à faire reçoivent ses prochaines séances utiles
   if (P.prog) {
     const futurs = perso.filter(d => src(d) === "prog" && (d > auj || (d === auj && !J[d].fait))), S = suiteProg(P.prog, futurs.length, tags, sports);
-    futurs.forEach((d, k) => { if (S.l[k]) J[d].pg = S.l[k]; });
+    futurs.forEach((d, k) => { if (S.l[k]) J[d].pg = { ...S.l[k], sautes: S.saut.map(x => x.i) }; });
     const PR = S.PR, retires = S.saut.filter(x => x.p === "club"), courts = S.l.slice(0, futurs.length).filter(x => x.court);
     if (retires.length) notes.push(L(`Retiré de ${PR[1]} : ${retires.map(x => focusProg(PR, x.i)).join(" ; ")}. Ton club travaille déjà : ${nomContenus([...tags])}.`, `Removed from ${PR[2]}: ${retires.map(x => focusProg(PR, x.i)).join("; ")}. Your club already covers: ${nomContenus([...tags])}.`));
     if (courts.length) notes.push(L(`Gardé en version courte : ${courts.map(x => focusProg(PR, x.i)).join(" ; ")}. C’est propre au programme ${PR[1]}, ton club ne le travaille pas de cette façon.`, `Kept in a short version: ${courts.map(x => focusProg(PR, x.i)).join("; ")}. It is specific to ${PR[2]}; your club does not train it this way.`));
@@ -77,7 +77,7 @@ function semaineComplete(P = lirePlan()) {
   if (perso.some(d => src(d) === "types") && retiresT.length) notes.push(L(`Retiré de tes types : ${retiresT.map(k => TYPES_PERSO.find(t => t[0] === k)[1].toLowerCase()).join(", ")}. Ton club le travaille déjà.`, `Removed from your types: ${retiresT.map(k => TYPES_PERSO.find(t => t[0] === k)[2].toLowerCase()).join(", ")}. Your club already trains it.`));
   perso.forEach(d => {
     let c = src(d), s = null, note = "";
-    if (c === "prog" && J[d].pg) { const { i, court } = J[d].pg, PR = PROGRAMMES.find(x => x[0] === P.prog), dur = objProg(PR, i).dur; s = objProg(PR, i, court || (dur && proche(d))); if (!court && dur && proche(d)) note = L("club dur ce jour-là ou le lendemain", "hard club day that day or the next"); }
+    if (c === "prog" && J[d].pg) { const { i, court } = J[d].pg, PR = PROGRAMMES.find(x => x[0] === P.prog), dur = objProg(PR, i).dur; s = objProg(PR, i, court || (dur && proche(d)), J[d].pg.sautes); if (!court && dur && proche(d)) note = L("club dur ce jour-là ou le lendemain", "hard club day that day or the next"); }
     else if (c === "prog" && d < auj) { const PR = PROGRAMMES.find(x => x[0] === P.prog); s = { t: L(PR[1], PR[2]), s: L("Séance du programme", "Programme session"), c: PR[5], passe: 1 }; }
     else if (c.startsWith("sport:")) {
       const sp = c.slice(6), G = SP[sp], W = parSport[sp] || (parSport[sp] = { S: spSemaine(sp), k: 0 }), l = W.S ? W.S.jours.flatMap(x => x.l).filter(x => G.S[x]) : [], durS = x => objSport(sp, x).dur;
@@ -117,7 +117,8 @@ function semaineComplete(P = lirePlan()) {
   return { jours: J.slice(0, 7), notes, tags, sports };
 }
 // compatibilité : [{ j, s }] des jours perso, comme l'ancien planning (accueil, rappels, agenda)
-function semaine() { const P = lirePlanning(); if (!P || (!P.jours.length && !modeComplet(lirePlan()))) return []; return semaineComplete(lirePlan()).jours.filter(x => x.perso && x.perso.s && !x.perso.s.passe).map(x => ({ j: x.d, s: x.perso.s })); }
+// rappels : semaine type pour l'agenda et les rappels répétés, sans les choix ponctuels ni les compléments légers des jours de club
+function semaine(rappels) { const P = lirePlanning(); if (!P || (!P.jours.length && !modeComplet(lirePlan()))) return []; return semaineComplete(lirePlan()).jours.filter(x => x.perso && x.perso.s && !x.perso.s.passe && !(rappels && ["choix", "leger"].includes(x.perso.src))).map(x => ({ j: x.d, s: x.perso.s })); }
 
 /* --- L'écran Ma semaine : 4 étapes, puis la semaine calculée --- */
 const MS_OUVERTS = new Set();   // clubs dépliés : ils le restent quand l'écran se redessine
@@ -146,7 +147,7 @@ function renduPlanning() {
       ${chipsMs("pt", TYPES_PERSO.map(([k, f, e]) => couvertType(k, tags) ? [k, f + " · club", e + " · club"] : [k, f, e]), P.types)}</div>
     <div class="carnet ms-etape"><h3>4 · ${L("Un programme à intégrer ?", "A programme to fit in?")}</h3><p class="sh-aide">${L("Il avance au rythme de tes jours perso. Ce que ton club couvre déjà est retiré s’il est général, gardé en version courte s’il est propre au programme.", "It moves at the pace of your own days. What your club already covers is removed if general, kept short if specific to the programme.")}</p>
       ${chipsMs("pg", [["", "Aucun", "None"], ...PROGRAMMES.map(x => [x[0], x[1], x[2]])], P.prog)}</div>
-    ${persoLibres.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>5 · ${L("Chaque jour de séance perso", "Each own-session day")}</h3>${persoLibres.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
+    ${persoLibres.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>5 · ${L("Chaque jour de séance perso", "Each own-session day")}</h3>${persoLibres.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : (dispo.find(o => o[0] === "prog" || o[0] === "types") || ["plan"])[0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
     <div id="plSemaine"></div>`;
   C.querySelectorAll("details.ms-club").forEach(x => x.ontoggle = () => MS_OUVERTS[x.open ? "add" : "delete"](x.dataset.sp));
   const maj = () => { stocker("planning", JSON.stringify(P)); renduPlanning(); };
@@ -188,8 +189,9 @@ function listeSemaine() {
     <button class="primary" id="msValider">✓ ${L("Valider ma semaine", "Confirm my week")}</button>
     ${W.sports.length ? `<p class="sh-aide">${L("Touche une séance de club pour noter ce que tu as vraiment fait (ou qu’elle n’a pas eu lieu) : la semaine et ta batterie s’adaptent.", "Tap a club session to log what you actually did (or that it didn’t happen): your week and battery adapt.")}</p>` : ""}
     ${jp.length ? `<button class="primary" id="plIcs">🔔 ${L("Ajouter les rappels à mon agenda", "Add reminders to my calendar")}</button><div id="plNotif"></div><p class="sh-aide" id="plIcsAide">${L("Crée un rendez-vous chaque semaine dans l’agenda de ton téléphone, avec une alerte 15 minutes avant.", "Creates a weekly event in your phone’s calendar, with an alert 15 minutes before.")}</p>` : ""}`;
-  Z.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const x = W.jours[+b.dataset.go]; (x.perso ? x.perso.s : x.mob.s).go(); });
-  Z.querySelectorAll("[data-avant]").forEach(b => b.onclick = () => W.jours[+b.dataset.avant].avant.go());
+  const lancer = S => { S.go(); if (routine) routine.retour = () => ouvrirPlanning(planningRetourVers); };   // la séance lancée d'ici revient à Ma semaine
+  Z.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const x = W.jours[+b.dataset.go]; lancer(x.perso ? x.perso.s : x.mob.s); });
+  Z.querySelectorAll("[data-avant]").forEach(b => b.onclick = () => lancer(W.jours[+b.dataset.avant].avant));
   // retirer, remettre, choisir : on ne garde que la semaine en cours ; retirer annule un choix, choisir annule un retrait
   const semaineSeule = o => Object.fromEntries(Object.entries(o).filter(([k, x]) => x && k >= jourCle(lundi())));
   const garderJour = (j, off, remp) => { const Q = lirePlan(); Q.off = semaineSeule({ ...Q.off, [j]: off }); Q.remp = semaineSeule({ ...Q.remp, [j]: remp }); stocker("planning", JSON.stringify(Q)); listeSemaine(); };
@@ -198,7 +200,7 @@ function listeSemaine() {
   const garderAjout = (j, f) => { const Q = lirePlan(), A = { ...(Q.ajout || {}), [j]: f(((Q.ajout || {})[j] || []).slice()) }; Q.ajout = Object.fromEntries(Object.entries(A).filter(([k, l]) => l.length && k >= jourCle(lundi()))); stocker("planning", JSON.stringify(Q)); listeSemaine(); };
   Z.querySelectorAll("[data-add]").forEach(b => b.onclick = () => choisirJour(W, W.jours[+b.dataset.add], (j, off, v) => garderAjout(j, l => [...l, v]), 1));
   Z.querySelectorAll("[data-xdel]").forEach(b => b.onclick = () => { const [j, i] = b.dataset.xdel.split(":"); garderAjout(j, l => l.filter((_, k) => k !== +i)); });
-  Z.querySelectorAll("[data-xgo]").forEach(b => b.onclick = () => { const [d, i] = b.dataset.xgo.split(":").map(Number); W.jours[d].extras[i].s.go(); });
+  Z.querySelectorAll("[data-xgo]").forEach(b => b.onclick = () => { const [d, i] = b.dataset.xgo.split(":").map(Number); lancer(W.jours[d].extras[i].s); });
   Z.querySelectorAll("[data-off]").forEach(b => b.onclick = () => garderOff(b.dataset.off, 1));
   Z.querySelectorAll("[data-on]").forEach(b => b.onclick = () => garderOff(b.dataset.on, 0));
   $("msValider").onclick = () => { const Q = lirePlan(); Q.valide = jourCle(); stocker("planning", JSON.stringify(Q)); if (typeof majRappelSW === "function") majRappelSW();
@@ -223,7 +225,7 @@ function carteJourComplet(Z) {
   if (!modeComplet()) return false;
   const x = semaineComplete().jours[jourSemaine()]; if (x.perso) return false;
   const S = x.mob ? x.mob.s : x.clubs.length ? x.avant : null, c = x.clubs[0];
-  Z.innerHTML = `<button class="sc-corps" id="scOuvrir" style="--c:${S ? S.c : "#64748B"}"><span class="sc-ico">${c ? "🏟️" : x.mob ? "🧘" : "🌙"}</span><span><strong>${c ? L("Aujourd’hui : club", "Today: club") + " · " + x.clubs.map(k => L(...SP[k.sp].nom) + " " + L(...k.nom).toLowerCase()).join(" + ") : x.mob ? L("Aujourd’hui", "Today") + " · " + S.t : L("Aujourd’hui : repos", "Today: rest")}</strong><small>${c ? L("10 min de mobilité avant, si tu veux", "10 min of mobility before, if you like") : x.mob ? x.mob.r : L("Ça fait partie du plan.", "It is part of the plan.")}</small></span></button>${S && !x.fait ? `<button class="sc-go" id="scGo" aria-label="${L("Lancer", "Start")}">${ico("lecture")}</button>` : ""}`;
+  Z.innerHTML = `<button class="sc-corps" id="scOuvrir" style="--c:${S ? S.c : "var(--muted)"}"><span class="sc-ico">${c ? "🏟️" : x.mob ? "🧘" : "🌙"}</span><span><strong>${c ? L("Aujourd’hui : club", "Today: club") + " · " + x.clubs.map(k => L(...SP[k.sp].nom) + " " + L(...k.nom).toLowerCase()).join(" + ") : x.mob ? L("Aujourd’hui", "Today") + " · " + S.t : L("Aujourd’hui : repos", "Today: rest")}</strong><small>${c ? L("10 min de mobilité avant, si tu veux", "10 min of mobility before, if you like") : x.mob ? x.mob.r : L("Ça fait partie du plan.", "It is part of the plan.")}</small></span></button>${S && !x.fait ? `<button class="sc-go" id="scGo" aria-label="${L("Lancer", "Start")}">${ico("lecture")}</button>` : ""}`;
   if ($("scGo")) $("scGo").onclick = e => { e.stopPropagation(); S.go(); };
   $("scOuvrir").onclick = () => ouvrirPlanning("menu");
   return true;

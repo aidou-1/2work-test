@@ -162,7 +162,7 @@ function celebrer() {   // renvoie false si la séance est écourtée (moins de 
   const mn = Math.max(1, Math.round(sReel / 60)), n = mode === "souffle" ? (routine.blocs || []).length : mode === "tabata" ? cycles : new Set(ids).size;
   const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: routineCle, t: routine.titre, m: mode, s: sReel, n, c: routine.cat || routine.grp || "", b: routine.blessure ? 1 : 0, p: routine.prog ? 1 : 0, g: routine.gym || routine.salle ? 1 : 0, tb: routine.tbt ? 1 : 0, nv: routine.niv || "", e: mode === "tabata" || mode === "souffle" ? [] : ids.slice(0, 30), ...(fc.n && { fc: Math.round(fc.somme / fc.n), fcMax: fc.max }) });
   if (!stocker("historique", JSON.stringify(h.slice(-3000)))) setTimeout(() => alert(L("⚠️ Mémoire du téléphone pleine : cette séance n’a pas pu être enregistrée. Sauvegarde ton suivi (Réglages → Mes données) puis libère de la place.", "⚠️ Phone storage full: this workout could not be saved. Back up your progress (Settings → My data) then free some space.")), 1500);
-  if (routine.prog) progTerminer(routine.prog, routine.progI);
+  if (routine.prog) progTerminer(routine.prog, routine.progI, routine.sautes);
   if (typeof compter === "function") { if (routine.s1) s1Valider(routine.s1); compter("seance", "seance_" + (mode === "tabata" ? "tabata" : routine.cat || routine.grp || routineCle)); }
   if (routine.club && typeof clubSeanceFinie === "function") clubSeanceFinie(routine);
   if (routine.prevClub && typeof prevFinie === "function") prevFinie(routine.prevClub);
@@ -404,8 +404,8 @@ function progJour(P, i, choix, court) {   // construit la séance du jour i (0-2
 }
 const dureesProg = P => { const d = Array.from({ length: NB_PROG }, (_, i) => Math.round(progJour(P, i).plan.reduce((s, q) => s + q.d + q.r, 0) / 60)); return Math.min(...d) + "–" + Math.max(...d) + " min"; };
 const avecMat = P => P[10].some(d => d[3].some(e => EXERCICES[e] && EXERCICES[e].mat));   // vrai pour un programme sur mesure composé avec du matériel
-// Ma semaine peut lancer un jour plus loin (les jours couverts par le club sont sautés) : les jours d'avant comptent alors comme faits
-function progTerminer(id, i) { if (i >= progAvance(id)) stocker("prog_" + id, i + 1); }
+// Ma semaine peut lancer un jour plus loin : il n'est validé que si tous les jours d'avant ont été sautés (couverts par le club, mobilité), jamais un jour réellement à faire
+function progTerminer(id, i, sautes = []) { const a = progAvance(id); if (i === a || (i > a && Array.from({ length: i - a }, (_, k) => a + k).every(k => sautes.includes(k)))) stocker("prog_" + id, i + 1); }
 let pgOnglet = "";   // onglet affiché dans Programmes : « prog » ou « rep »
 function ouvrirProgs(sens, onglet) {
   $("pgTitre").textContent = L("Programmes", "Programmes");

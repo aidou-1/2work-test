@@ -16,7 +16,7 @@ const QF = [["q", "Qualité du sommeil", "Sleep quality", ["😫", "😕", "😐
 const borne01 = v => Math.max(0, Math.min(1, v));
 const chargeX = x => Math.round(x.s / 60 * ({ tabata: 3, seance: 2, salle: 2 }[x.m] || 1));   // minutes × intensité, comme la charge de Mes progrès
 // séances de club entre deux jours, tous sports (notées, sinon prévues) ; charge = minutes × effort sur 10 / 4, comme une séance de l'appli
-const clubsEntre = (de, a) => { const C = lireClubs(), l = []; if (!sportsClub(C).length) return l; for (let j = de; j <= a; j = decaler(j, 1)) clubsDu(j, C).forEach(x => l.push({ j, ...x })); return l; };
+const clubsEntre = (de, a) => { const C = lireClubs(), l = []; if (!sportsClub(C, 1).length) return l; for (let j = de; j <= a; j = decaler(j, 1)) clubsDu(j, C).forEach(x => l.push({ j, ...x })); return l; };
 const chargeEntre = (h, de, a) => h.filter(x => x.j >= de && x.j <= a).reduce((t, x) => t + chargeX(x), 0) + clubsEntre(de, a).reduce((t, x) => t + Math.round(x.min * x.ef / 4), 0);
 // charge des 7 derniers jours rapportée à la moyenne hebdomadaire des 28 derniers jours (null sans 4 semaines d'historique : sinon la moyenne serait sous-estimée)
 function ratioCharge(j = jourCle(), h = lireHist()) {
@@ -45,7 +45,7 @@ function conseilsForme(B) {
   if (r.h < 6) l.push(L("Nuit courte : pas de record ni de sprint maximal aujourd’hui, le risque de blessure monte.", "Short night: no records or all-out sprints today, injury risk goes up."));
   if (r.c >= 4) l.push(L("Fortes courbatures : travaille d’autres muscles ou bouge en douceur.", "Strong soreness: train other muscles or move gently."));
   if (r.st >= 4) l.push(L("Stress élevé : une séance modérée aide, une séance épuisante en rajoute.", "High stress: a moderate session helps, an exhausting one adds to it."));
-  if (r.dl) { const z = (r.z || []).map(k => L(...ZONES_FM[k]).toLowerCase()).join(", ");
+  if (r.dl) { const z = (r.z || []).filter(k => ZONES_FM[k]).map(k => L(...ZONES_FM[k]).toLowerCase()).join(", ");
     l.push(r.dl === 2 ? L(`Douleur${z ? " (" + z + ")" : ""} : aucun effort qui la réveille. Si elle est vive, gonfle ou dure plus de quelques jours, montre-la à un médecin.`, `Pain${z ? " (" + z + ")" : ""}: no effort that triggers it. If it is sharp, swollen or lasts more than a few days, see a doctor.`)
       : L(`Gêne${z ? " (" + z + ")" : ""} : les séances qui la sollicitent sont mises de côté ; arrête si elle devient une douleur.`, `Discomfort${z ? " (" + z + ")" : ""}: sessions that load it are set aside; stop if it turns into pain.`)); }
   if (B.parts.some(p => p[0] === L("Fatigue des séances", "Training fatigue"))) l.push(L("Tes dernières séances pèsent encore : la batterie en tient compte.", "Your recent sessions still weigh on you: the battery accounts for it."));
@@ -85,7 +85,7 @@ const EVITER_BX = { haut: ["tech_", "puissance", "specifique", "rsa", "forceA", 
 function propositionsBx() {
   const P = bxPref(), auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), v = B ? B.v : 60, r = B ? B.r : {};
   const S = bxSemaine(P), a = jourCle(S.L0), h = lireHist(), club = clubJourBx(auj, P), hier = clubJourBx(decaler(auj, -1), P), dem = clubJourBx(decaler(auj, 1), P);
-  const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_BX[ZONES_FM[z][2]] || []).some(p => c.startsWith(p))), dur = c => DUR_BX.includes(c);
+  const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_BX[(ZONES_FM[z] || [])[2]] || []).some(p => c.startsWith(p))), dur = c => DUR_BX.includes(c);
   const dursApp = h.filter(x => x.j >= a && x.j < auj && /^bx_/.test(x.k || "") && dur(x.k.slice(3))).length, dursClub = clubsEntre(a, decaler(auj, -1)).filter(x => x.dur).length;
   // avec Ma semaine, la séance perso du jour peut venir d'un programme ou de l'objectif : elle remplace alors la prépa boxe prévue
   const W = modeComplet() ? semaineComplete().jours[d] : null, autre = W && W.perso && W.perso.src !== "sport:boxe" && !W.perso.s.passe ? W.perso.s : null;
@@ -227,5 +227,5 @@ function blocsForme() {
 // boutons des statistiques, branchés après l'affichage de Mes progrès
 function brancherForme() {
   if ($("fmStatGo")) $("fmStatGo").onclick = questionnaire;
-  if ($("fmEffacer")) $("fmEffacer").onclick = () => { if (confirm(L("Effacer toutes tes réponses au questionnaire (sommeil, énergie, courbatures, stress) ?", "Delete all your check-in answers (sleep, energy, soreness, stress)?"))) { try { localStorage.removeItem("forme"); } catch (e) {} ouvrirProgres(); } };
+  if ($("fmEffacer")) $("fmEffacer").onclick = () => { if (confirm(L("Effacer toutes tes réponses au questionnaire (sommeil, énergie, courbatures, stress, douleur) ?", "Delete all your check-in answers (sleep, energy, soreness, stress, pain)?"))) { try { localStorage.removeItem("forme"); } catch (e) {} ouvrirProgres(); } };
 }

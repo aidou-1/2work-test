@@ -142,9 +142,9 @@ function clubJour(sp, j, P = spPref(sp), C = lireClubs()) {   // séance de club
   const t = n && Ty[n.t] ? n.t : Ty[(P.types || {})[d]] ? P.types[d] : Object.keys(Ty)[0], T = Ty[t];
   return { sp, t, ef: n ? n.ef : T[2], nom: [T[0], T[1]], dur: !!T[3] || (!!n && n.ef >= 8), note: !!n, min: P.clubMin || 90, contenu: (P.contenus || {})[t] || T[4] };
 }
-// sports pratiqués en club : jours réglés, ou séance notée dans le journal
-const sportsClub = (C = lireClubs()) => [...new Set([...Object.keys(SP).filter(sp => spPref(sp).jours.length), ...Object.values(C).flatMap(n => n.sp ? [n.sp] : Object.keys(n))])].filter(sp => SP[sp]);
-const clubsDu = (j, C = lireClubs()) => sportsClub(C).map(sp => clubJour(sp, j, spPref(sp), C)).filter(Boolean);
+// sports pratiqués en club : jours réglés ; avecJournal : aussi ceux d'une séance notée (charge et batterie), pour qu'un club retiré disparaisse de l'écran
+const sportsClub = (C = lireClubs(), avecJournal) => [...new Set([...Object.keys(SP).filter(sp => spPref(sp).jours.length), ...(avecJournal ? Object.values(C).flatMap(n => n.sp ? [n.sp] : Object.keys(n)) : [])])].filter(sp => SP[sp]);
+const clubsDu = (j, C = lireClubs()) => sportsClub(C, 1).map(sp => clubJour(sp, j, spPref(sp), C)).filter(Boolean);
 // la semaine du parcours d'un sport (null s'il n'en a pas) : sert à « Ma semaine »
 function spSemaine(sp) {
   const G = SP[sp], P = spPref(sp);
