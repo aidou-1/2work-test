@@ -79,28 +79,34 @@ function feuilleClub(j, sp = "boxe", apres = majForme) {
   $("fmClOk").onclick = () => { noterClub(j, c); fermerFeuille(); majForme(); if (apres !== majForme) apres(); };
 }
 
-/* --- Carte « Aujourd'hui · Boxe » : 2 ou 3 séances au choix selon la batterie, le club du jour, de la veille et du lendemain, et les efforts durs de la semaine --- */
-// séances mises de côté selon la zone qui fait mal (préfixes des codes de BXS)
-const EVITER_BX = { haut: ["tech_", "puissance", "specifique", "rsa", "forceA", "forceB", "affutage"], bas: ["puissance", "sprints", "rsa", "specifique", "affutage"], tronc: ["puissance", "gainage", "forceA", "forceB"] };
-function propositionsBx() {
-  const P = bxPref(), auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), v = B ? B.v : 60, r = B ? B.r : {};
-  const S = bxSemaine(P), a = jourCle(S.L0), h = lireHist(), club = clubJourBx(auj, P), hier = clubJourBx(decaler(auj, -1), P), dem = clubJourBx(decaler(auj, 1), P);
-  const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_BX[(ZONES_FM[z] || [])[2]] || []).some(p => c.startsWith(p))), dur = c => DUR_BX.includes(c);
-  const dursApp = h.filter(x => x.j >= a && x.j < auj && /^bx_/.test(x.k || "") && dur(x.k.slice(3))).length, dursClub = clubsEntre(a, decaler(auj, -1)).filter(x => x.dur).length;
-  // avec Ma semaine, la séance perso du jour peut venir d'un programme ou de l'objectif : elle remplace alors la prépa boxe prévue
-  const W = modeComplet() ? semaineComplete().jours[d] : null, autre = W && W.perso && W.perso.src !== "sport:boxe" && !W.perso.s.passe ? W.perso.s : null;
-  const fait = h.some(x => x.j === auj && /^bx_/.test(x.k || "")), prevues = autre ? [] : S.jours[d].l.filter(c => BXS[c]), tech = "tech_" + Object.keys(THEMES_BX)[d % Object.keys(THEMES_BX).length];
-  const recup = v < 35 || r.dl === 2 || (hier && hier.dur && v < 55) || dursApp + dursClub >= 5, l = [], ajout = (c, f, fr, en) => { if (BXS[c] && !evite(c) && !l.some(o => o.c === c)) l.push({ c, t: L(...BXS[c].t), col: BXS[c].c, rpe: BXS[c].rpe + "/10", f, p: L(fr, en), go: () => lancerBx(c, f < 1 ? f : undefined) }); };
+/* --- Carte « Aujourd'hui · <sport> » : 2 ou 3 séances au choix selon la batterie, la douleur, les clubs du jour, de la veille et du lendemain,
+   et les efforts durs de la semaine. Pour le sport de club du jour (sinon celui de la veille, du lendemain, ou le premier réglé). --- */
+// séances mises de côté selon la zone qui fait mal (motifs des codes de séance des sports)
+const EVITER_SP = { haut: /^tech|puiss|specif|rsa|force|affut|frappe|lancer|service|tir/, bas: /puiss|sprint|rsa|specif|affut|vitesse|plio|saut|explo|deten/, tronc: /puiss|gainage|force/ };
+const ICO_SP = { boxe: "🥊", foot: "⚽", basket: "🏀", handball: "🤾", volley: "🏐", tennis: "🎾", padel: "🎾", course: "🏃", cyclisme: "🚴", natation: "🏊", escalade: "🧗", ski: "⛷️", surf: "🏄", pilates: "🧘" };
+function propositionsSp(sp) {
+  const G = SP[sp], auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), v = B ? B.v : 60, r = B ? B.r : {}, S = spSemaine(sp), a = jourCle(lundi()), h = lireHist();
+  const plusDur = l => l.find(x => x.dur) || l[0] || null, club = plusDur(clubsDu(auj)), hier = plusDur(clubsDu(decaler(auj, -1))), dem = plusDur(clubsDu(decaler(auj, 1)));
+  const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_SP[(ZONES_FM[z] || [])[2]] || /$^/).test(c)), dur = c => durSp(sp, c), code = re => Object.keys(G.S).filter(c => re.test(c));
+  const dursApp = h.filter(x => x.j >= a && x.j < auj && (x.k || "").startsWith(G.pre) && G.S[x.k.slice(G.pre.length)] && dur(x.k.slice(G.pre.length))).length, dursClub = clubsEntre(a, decaler(auj, -1)).filter(x => x.dur).length;
+  // avec Ma semaine, la séance perso du jour peut venir d'un programme, de tes types ou de l'objectif : elle remplace alors la prépa du sport
+  const W = modeComplet() ? semaineComplete().jours[d] : null, autre = W && W.perso && W.perso.src !== "sport:" + sp && !W.perso.s.passe ? W.perso.s : null;
+  const fait = h.some(x => x.j === auj && (x.k || "").startsWith(G.pre)), prevues = autre || !S ? [] : S.jours[d].l.filter(c => G.S[c]), techs = code(/^tech/), tech = techs[d % (techs.length || 1)];
+  const recup = v < 35 || r.dl === 2 || (hier && hier.dur && v < 55) || dursApp + dursClub >= 5, l = [];
+  // c : code de séance du sport, ou repli (type de Ma semaine) quand le sport n'en a pas
+  const ajout = (c, f, fr, en, repli) => { if (c && G.S[c] && !evite(c) && !l.some(o => o.c === c)) l.push({ c, t: L(...G.S[c].t), col: G.S[c].c, rpe: G.S[c].rpe + "/10", f, p: L(fr, en), go: () => lancerSp(sp, c, f < 1 ? f : undefined) });
+    else if (!c && repli && !l.some(o => o.t === repli.t)) l.push({ t: repli.t, col: repli.c, rpe: "", f: 1, p: L(fr, en), go: repli.go }); };
+  const mob = (fr, en) => ajout(code(/^mobil/)[0], 1, fr, en, objType("mobilite", [sp], lireNiv())), rec = (fr, en) => ajout(code(/^recup/)[0], 1, fr, en, tpl("C:complet"));
   let etat;
   if (club) {
-    etat = L(`Jour de club · ${club.nom[0]}`, `Club day · ${club.nom[1]}`);
-    ajout("mobilite", 1, "10 min avant le club, pour arriver délié.", "10 min before the club, to arrive loose.");
-    if (recup) ajout("recup", 1, "Batterie basse : vas-y doucement au club, ou remplace-le par ceci.", "Low battery: go easy at the club, or swap it for this.");
-    else if (!club.dur && v >= 55) prevues.filter(c => !dur(c)).forEach(c => ajout(c, .7, "Club technique : un complément léger reste possible.", "Technique club: a light extra is fine."));
+    etat = L(`Jour de club · ${L(...SP[club.sp].nom)} ${club.nom[0].toLowerCase()}`, `Club day · ${L(...SP[club.sp].nom)} ${club.nom[1].toLowerCase()}`);
+    mob("10 min avant le club, pour arriver délié.", "10 min before the club, to arrive loose.");
+    if (recup) rec("Batterie basse : vas-y doucement au club, ou remplace-le par ceci.", "Low battery: go easy at the club, or swap it for this.");
+    else if (!club.dur && v >= 55) prevues.filter(c => !dur(c)).forEach(c => ajout(c, .7, "Club tranquille : un complément léger reste possible.", "Easy club day: a light extra is fine."));
   } else if (recup) {
     etat = L("Jour de récupération", "Recovery day");
-    ajout("recup", 1, v < 35 ? "Batterie basse : on fait circuler le sang, sans fatigue." : "Ta semaine a déjà été dure : le corps reconstruit.", v < 35 ? "Low battery: get the blood flowing, no fatigue." : "Your week has already been hard: your body is rebuilding.");
-    ajout("mobilite", 1, "Hanches, dos et épaules, sans douleur.", "Hips, back and shoulders, pain-free.");
+    rec(v < 35 ? "Batterie basse : on fait circuler le sang, sans fatigue." : "Ta semaine a déjà été dure : le corps reconstruit.", v < 35 ? "Low battery: get the blood flowing, no fatigue." : "Your week has already been hard: your body is rebuilding.");
+    mob("Hanches, dos et épaules, sans douleur.", "Hips, back and shoulders, pain-free.");
   } else {
     etat = prevues.length ? L("Séance prévue dans ton parcours", "Session planned in your plan") : L("Jour libre", "Free day");
     // séance dure prévue : entière au feu vert loin d'un club dur, allégée à côté d'un seul, remplacée entre deux clubs durs ou batterie sous 55 %
@@ -108,28 +114,31 @@ function propositionsBx() {
     prevues.forEach(c => {
       if (dur(c) && (v < 55 || serre === 2 || (serre && v < 75))) return;
       const f = !dur(c) || (v >= 75 && !serre) ? 1 : serre ? .6 : .8;
-      ajout(c, f, f === 1 ? "Feu vert : la séance telle que prévue." : proche ? `${proche.nom[0]} ${proche === dem ? "demain" : "hier"} : volume réduit pour garder de la fraîcheur.` : "Batterie moyenne : volume réduit.", f === 1 ? "Green light: the session as planned." : proche ? `${proche.nom[1]} ${proche === dem ? "tomorrow" : "yesterday"}: reduced volume to stay fresh.` : "Average battery: reduced volume.");
+      ajout(c, f, f === 1 ? "Feu vert : la séance telle que prévue." : proche ? `Club ${proche.nom[0].toLowerCase()} ${proche === dem ? "demain" : "hier"} : volume réduit pour garder de la fraîcheur.` : "Batterie moyenne : volume réduit.", f === 1 ? "Green light: the session as planned." : proche ? `${proche.nom[1]} club ${proche === dem ? "tomorrow" : "yesterday"}: reduced volume to stay fresh.` : "Average battery: reduced volume.");
     });
     if (autre && !(autre.dur && (v < 55 || serre === 2 || (serre && v < 75)))) l.unshift({ t: autre.t, col: autre.c, rpe: "", f: 1, p: L("Ta séance perso prévue dans Ma semaine.", "Your own session planned in My week.") + " " + autre.s, go: autre.go });
     else if (autre) etat += " · " + L("séance perso remplacée : trop dure pour aujourd’hui", "own session swapped: too hard for today");
-    if (prevues.some(dur) && !l.some(o => dur(o.c))) etat += " · " + L(serre === 2 ? "séance dure remplacée : entre deux clubs durs" : "séance dure remplacée : batterie trop basse", serre === 2 ? "hard session swapped: between two hard club days" : "hard session swapped: battery too low");
-    if (v >= 55 && !serre) ajout(tech, 1, "Technique au sac ou en shadow, effort modéré.", "Technique on the bag or shadow boxing, moderate effort.");
+    if (prevues.some(dur) && !l.some(o => o.c && dur(o.c))) etat += " · " + (serre === 2 ? L("séance dure remplacée : entre deux clubs durs", "hard session swapped: between two hard club days") : serre && v >= 55 ? L(`séance dure remplacée : club dur ${hier && hier.dur ? "hier" : "demain"}`, `hard session swapped: hard club day ${hier && hier.dur ? "yesterday" : "tomorrow"}`) : L("séance dure remplacée : batterie trop basse", "hard session swapped: battery too low"));
+    if (v >= 55 && !serre) ajout(tech, 1, "Technique de ton sport, effort modéré.", "Your sport’s technique, moderate effort.");
     else ajout(tech, .6, "Technique tranquille : la qualité sans la fatigue.", "Easy technique: quality without fatigue.");
-    if (v >= 55) ajout("gainage", 1, "Gainage et rotation : le lien entre jambes et poings.", "Core and rotation: the link between legs and fists.");
-    ajout("mobilite", 1, "Si tu manques de temps ou d’envie : 10 min.", "Short on time or motivation: 10 min.");
+    if (v >= 55) ajout(code(/^gainage/)[0], 1, "Gainage : le lien entre le bas et le haut du corps.", "Core: the link between lower and upper body.", objType("gainage", [sp], lireNiv()));
+    mob("Si tu manques de temps ou d’envie : 10 min.", "Short on time or motivation: 10 min.");
   }
-  if (!l.length) ajout("mobilite", 1, "Sans douleur, en respirant.", "Pain-free, breathing.");
+  if (!l.length) mob("Sans douleur, en respirant.", "Pain-free, breathing.");
   return { etat, l: l.slice(0, 3), B, club, hier, fait, durs: dursApp + dursClub };
 }
+const propositionsBx = () => propositionsSp("boxe");
+// sport de la carte : celui du club du jour, sinon de la veille, du lendemain, ou le premier réglé
+const sportDuJour = () => { const auj = jourCle(), l = sportsClub(); return ([auj, decaler(auj, -1), decaler(auj, 1)].map(j => (clubsDu(j)[0] || {}).sp).find(sp => l.includes(sp))) || l[0]; };
 function majJour() {
   const Z = $("jourCarte"); if (!Z) return;
-  if (!bxPref().jours.length) { Z.innerHTML = ""; return; }
-  const O = propositionsBx(), auj = jourCle(), notable = O.club ? auj : O.hier && !O.hier.note ? decaler(auj, -1) : "";
-  Z.innerHTML = `<strong>🥊 ${L("Aujourd’hui · Boxe", "Today · Boxing")}</strong><small>${O.etat}${O.fait ? " · " + L("séance faite ✓", "workout done ✓") : ""} · ${L(`${O.durs} effort${O.durs > 1 ? "s" : ""} dur${O.durs > 1 ? "s" : ""} cette semaine`, `${O.durs} hard effort${O.durs > 1 ? "s" : ""} this week`)}${O.B ? "" : " · " + L("remplis ta batterie pour un conseil précis", "fill in your battery for precise advice")}</small>
+  const sp = sportDuJour(); if (!sp) { Z.innerHTML = ""; return; }
+  const O = propositionsSp(sp), auj = jourCle(), hierNote = clubsDu(decaler(auj, -1)).find(x => !x.note), cAuj = clubsDu(auj)[0], notable = cAuj ? [auj, cAuj.sp] : hierNote ? [decaler(auj, -1), hierNote.sp] : null;
+  Z.innerHTML = `<strong>${ICO_SP[sp] || "🏟️"} ${L("Aujourd’hui", "Today")} · ${L(...SP[sp].nom)}</strong><small>${O.etat}${O.fait ? " · " + L("séance faite ✓", "workout done ✓") : ""} · ${L(`${O.durs} effort${O.durs > 1 ? "s" : ""} dur${O.durs > 1 ? "s" : ""} cette semaine`, `${O.durs} hard effort${O.durs > 1 ? "s" : ""} this week`)}${O.B ? "" : " · " + L("remplis ta batterie pour un conseil précis", "fill in your battery for precise advice")}</small>
     ${O.l.map((o, k) => `<button class="jr-opt" style="--c:${o.col}" data-jk="${k}"><span><b>${o.t}</b><small>${o.p}${o.rpe ? " · " + L("effort", "effort") + " " + o.rpe : ""}${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</small></span><i aria-hidden="true">▶</i></button>`).join("")}
-    ${notable ? `<button class="toggle" id="jrClub">📝 ${notable === auj ? L("Noter ma séance de club", "Log my club session") : L("Noter mon club d’hier", "Log yesterday’s club")}</button>` : ""}`;
+    ${notable ? `<button class="toggle" id="jrClub">📝 ${notable[0] === auj ? L("Noter ma séance de club", "Log my club session") : L("Noter mon club d’hier", "Log yesterday’s club")}</button>` : ""}`;
   Z.querySelectorAll("[data-jk]").forEach(b => b.onclick = () => O.l[+b.dataset.jk].go());
-  if ($("jrClub")) $("jrClub").onclick = () => feuilleClub(notable, "boxe");
+  if ($("jrClub")) $("jrClub").onclick = () => feuilleClub(notable[0], notable[1]);
 }
 $("formeCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte jour-carte" id="jourCarte"></div>`);
 

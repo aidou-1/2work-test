@@ -205,6 +205,7 @@ function exporterIcs() {
 function majSemaine() {   // carte « Aujourd'hui » du menu et salutation
   if (typeof majForme === "function") majForme();
   const p = lireProfil(), Z = $("semaineCarte"); if (!Z) return;
+  if (typeof carteBilan === "function") carteBilan();   // le dimanche et le lundi : bilan de la semaine (js/masemaine.js)
   document.querySelector("#menu .entete h1").textContent = p.nom ? L(`On s’y met, ${p.nom} ?`, `Ready, ${p.nom}?`) : T("On s’y met ?");
   const S = semaine(), auj = jourSemaine(), x = S.find(s => s.j === auj), fait = lireHist().some(h => h.j === jourCle());
   if (!x && carteJourComplet(Z)) return;   // clubs ou programme : le club du jour, la mobilité prévue ou le repos
