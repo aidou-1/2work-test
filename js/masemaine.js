@@ -53,7 +53,9 @@ function semaineComplete(P = lirePlan()) {
   const L0 = lundi(), auj = jourSemaine(), C = lireClubs(), faits = new Set(lireHist().map(x => x.j)), sports = sportsClub(C), notes = [];
   const J = Array.from({ length: 8 }, (_, d) => { const dt = plusJ(L0, d), j = jourCle(dt); return { d, dt, j, clubs: clubsDu(j, C), fait: faits.has(j) }; });
   const tags = new Set(J.slice(0, 7).flatMap(x => x.clubs.flatMap(c => c.contenu))), dispo = choixDispo(P, sports), src = d => dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0];
-  const perso = [...P.jours].sort((a, b) => a - b), clubDur = d => J[d].clubs.some(c => c.dur), proche = d => clubDur(d) || clubDur(d + 1);
+  // jamais de séance perso un jour de club : le club est la séance du jour (un jour coché avant d'être jour de club reste gardé, mais sans effet)
+  const surClub = P.jours.filter(d => J[d].clubs.length).sort((a, b) => a - b), perso = P.jours.filter(d => !J[d].clubs.length).sort((a, b) => a - b), clubDur = d => J[d].clubs.some(c => c.dur), proche = d => clubDur(d) || clubDur(d + 1);
+  if (surClub.length) notes.push(L(`Pas de séance perso le ${surClub.map(d => JOURS_LONGS()[d]).join(", ")} : c’est un jour de club, le club suffit.`, `No own session on ${surClub.map(d => JOURS_LONGS()[d]).join(", ")}: it is a club day, the club is enough.`) + (perso.length ? "" : " " + L("Pour une séance perso, coche un jour sans club à l’étape 2.", "For an own session, tick a day without club in step 2.")));
   // programme : les jours perso encore à faire reçoivent ses prochaines séances utiles
   if (P.prog) {
     const futurs = perso.filter(d => src(d) === "prog" && (d > auj || (d === auj && !J[d].fait))), S = suiteProg(P.prog, futurs.length, tags, sports);
@@ -106,10 +108,11 @@ function semaine() { const P = lirePlanning(); if (!P || (!P.jours.length && !mo
 
 /* --- L'écran Ma semaine : 4 étapes, puis la semaine calculée --- */
 const MS_OUVERTS = new Set();   // clubs dépliés : ils le restent quand l'écran se redessine
-const chipsMs = (a, l, actif, attrs = "") => `<div class="chips">${l.map(([k, f, e]) => `<button class="toggle" data-a="${a}" data-v="${k}" ${attrs} aria-pressed="${Array.isArray(actif) ? actif.includes(k) : String(k) === String(actif)}">${L(f, e)}</button>`).join("")}</div>`;
+// l : [valeur, FR, EN, indisponible]
+const chipsMs = (a, l, actif, attrs = "") => `<div class="chips">${l.map(([k, f, e, off]) => `<button class="toggle" data-a="${a}" data-v="${k}" ${attrs}${off ? " disabled" : ""} aria-pressed="${!off && (Array.isArray(actif) ? actif.includes(k) : String(k) === String(actif))}">${L(f, e)}</button>`).join("")}</div>`;
 function renduPlanning() {
   const P = lirePlan(), C = $("plCorps"), p = lireProfil(), obj = OBJECTIFS.find(o => o[0] === p.objectif), sports = sportsClub(), aff = [...new Set([...P.clubs, ...sports])].filter(sp => SP[sp]);
-  const J7 = JOURS_SP.map(([f, e], d) => [d, f, e]), J7c = J7.map(([d, f, e]) => sports.some(sp => spPref(sp).jours.includes(d)) ? [d, f + " · club", e + " · club"] : [d, f, e]), tags = new Set(sports.flatMap(sp => { const Q = spPref(sp); return Q.jours.flatMap(d => clubJour(sp, jourCle(plusJ(lundi(), d)), Q) || { contenu: [] }).flatMap(x => x.contenu); })), perso = [...P.jours].sort((a, b) => a - b), dispo = choixDispo(P, sports);
+  const J7 = JOURS_SP.map(([f, e], d) => [d, f, e]), persoLibres = [...P.jours].sort((a, b) => a - b).filter(d => !sports.some(sp => spPref(sp).jours.includes(d))), J7c = J7.map(([d, f, e]) => sports.some(sp => spPref(sp).jours.includes(d)) ? [d, f + " · club", e + " · club", 1] : [d, f, e]), tags = new Set(sports.flatMap(sp => { const Q = spPref(sp); return Q.jours.flatMap(d => clubJour(sp, jourCle(plusJ(lundi(), d)), Q) || { contenu: [] }).flatMap(x => x.contenu); })), perso = [...P.jours].sort((a, b) => a - b), dispo = choixDispo(P, sports);
   const club = sp => { const Q = spPref(sp), Ty = typesClub(sp), at = `data-sp="${sp}"`;
     return `<details class="ms-club" data-sp="${sp}" ${Q.jours.length && !MS_OUVERTS.has(sp) ? "" : "open"}><summary><b>${L(...SP[sp].nom)}</b><small>${Q.jours.length ? [...Q.jours].sort().map(d => L(...JOURS_SP[d]) + " " + L(...Ty[(Q.types || {})[d]] ? Ty[Q.types[d]].slice(0, 2) : Object.values(Ty)[0].slice(0, 2)).split(" /")[0].toLowerCase()).join(" · ") : L("aucun jour", "no day yet")}</small></summary>
       <span class="champ-titre">${L("Jours de club", "Club days")}</span>${chipsMs("cj", J7, Q.jours, at)}
@@ -120,9 +123,9 @@ function renduPlanning() {
       <button class="toggle contour" data-a="cx" ${at}>${L("Retirer ce club", "Remove this club")}</button></details>`; };
   C.innerHTML = `<div class="carnet ms-etape"><h3>1 · ${L("Mes clubs", "My clubs")}</h3><p class="sh-aide">${L("Le sport que tu pratiques en club, avec tes jours et ce que tu y fais. Tes séances perso se placent autour, sans refaire ce que le club travaille déjà.", "The sport you do at a club, with your days and what you do there. Your own sessions fit around it, without repeating what the club already trains.")}</p>
       ${chipsMs("ca", Object.keys(SP).map(sp => [sp, ...SP[sp].nom]), aff)}${aff.map(club).join("")}</div>
-    <div class="carnet ms-etape"><h3>2 · ${L("Mes jours", "My days")}</h3><p class="sh-aide">${L("« Club » : tes jours de club, pour t’y retrouver.", "“Club”: your club days, for reference.")}</p>
-      <span class="champ-titre">${L("Jours d’entraînement : une vraie séance", "Training days: a real session")}</span>${chipsMs("pj", J7c, P.jours)}
-      <span class="champ-titre">${L("Jours disponibles : léger ou mobilité, si l’enchaînement le permet", "Available days: light or mobility, if the sequence allows")}</span>${chipsMs("pd", J7c, P.dispo)}
+    <div class="carnet ms-etape"><h3>2 · ${L("Mes jours sans club", "My days without club")}</h3><p class="sh-aide">${L("Tes jours de club (grisés) sont déjà pris : le club est la séance du jour. Choisis parmi les autres.", "Your club days (greyed out) are already taken: the club is the day’s session. Pick among the others.")}</p>
+      <span class="champ-titre">${L("Séance perso : une vraie séance avec l’appli", "Own session: a real workout with the app")}</span>${chipsMs("pj", J7c, P.jours)}
+      <span class="champ-titre">${L("Disponible : séance légère ou mobilité, facultative", "Available: light session or mobility, optional")}</span>${chipsMs("pd", J7c, P.dispo)}
       <div class="champ-duo"><label class="champ"><span>${L("Heure du rappel", "Reminder time")}</span><input id="plHeure" type="time" value="${P.heure}"></label>
       <div class="champ"><span>${L("Objectif", "Goal")}</span><button class="toggle contour" id="plObj">${obj ? L(obj[1], obj[2]) : L("À choisir", "To choose")} ›</button></div></div>
       <label class="champ"><span>${L("Où ? (facultatif)", "Where? (optional)")}</span><input id="plLieu" maxlength="40" value="${echap(P.lieu || "")}" placeholder="${L("ex. à la maison, au parc, à la salle", "e.g. at home, at the park, at the gym")}"></label></div>
@@ -130,7 +133,7 @@ function renduPlanning() {
       ${chipsMs("pt", TYPES_PERSO.map(([k, f, e]) => couvertType(k, tags) ? [k, f + " · club", e + " · club"] : [k, f, e]), P.types)}</div>
     <div class="carnet ms-etape"><h3>4 · ${L("Un programme à intégrer ?", "A programme to fit in?")}</h3><p class="sh-aide">${L("Il avance au rythme de tes jours perso. Ce que ton club couvre déjà est retiré s’il est général, gardé en version courte s’il est propre au programme.", "It moves at the pace of your own days. What your club already covers is removed if general, kept short if specific to the programme.")}</p>
       ${chipsMs("pg", [["", "Aucun", "None"], ...PROGRAMMES.map(x => [x[0], x[1], x[2]])], P.prog)}</div>
-    ${perso.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>5 · ${L("Chaque jour d’entraînement", "Each training day")}</h3>${perso.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
+    ${persoLibres.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>5 · ${L("Chaque jour de séance perso", "Each own-session day")}</h3>${persoLibres.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
     <div id="plSemaine"></div>`;
   C.querySelectorAll("details.ms-club").forEach(x => x.ontoggle = () => MS_OUVERTS[x.open ? "add" : "delete"](x.dataset.sp));
   const maj = () => { stocker("planning", JSON.stringify(P)); renduPlanning(); };
@@ -158,7 +161,7 @@ function renduPlanning() {
 function listeSemaine() {
   const P = lirePlan(), W = semaineComplete(P), auj = jourSemaine(), Z = $("plSemaine");
   if (!W.jours.some(x => x.clubs.length || x.perso)) { Z.innerHTML = `<p class="vide">${L("Ajoute un club ou touche les jours où tu veux t’entraîner.", "Add a club or tap the days you want to train.")}</p>`; return; }
-  const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = [...P.jours].sort().map(i => JOURS_LONGS()[i]);
+  const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = W.jours.filter(x => x.perso).map(x => JOURS_LONGS()[x.d]);   // jours de séance perso réels (sans les jours de club)
   Z.innerHTML = `${jp.length ? `<p class="pl-plan">📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(jp)} à ${P.heure}`, `${et(jp)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}</p>` : ""}
     <h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste ms-liste">${W.jours.map(x => { const S = x.perso ? x.perso.s : x.mob ? x.mob.s : null, lance = S && S.go && !x.fait && x.d >= auj;
       return `<li class="${x.d === auj ? "auj" : ""}${S || x.clubs.length ? "" : " repos"}${x.dispo ? " dispo" : ""}" style="--c:${S ? S.c : x.clubs.length ? "var(--brand)" : "transparent"}"><span class="jr">${JOURS_LONGS()[x.d].slice(0, 3)}<small>${x.dt.getDate()}</small></span><div>
