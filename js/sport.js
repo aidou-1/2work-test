@@ -211,7 +211,9 @@ const seancesEquipe = (sp, mob) => ({
 /* --- Sports à objectif daté (cyclisme, natation, ski…) : 3 blocs de 4 semaines à rebours de la date, affûtage, séance J-2, repos J-1 ; sans date, blocs en boucle avec une semaine allégée.
    SP[sport].objectif = { objs [[clé, FR, EN]], debut { obj, sem (semaines), txt [FR, EN, texte FR, EN] } facultatif, blocs [[nom FR, EN, texte FR, EN]] × 3, sem(P, bloc, semaine) → séances par priorité,
    dur (séances dures), longue (séance du week-end), taper(P) → semaines d'affûtage, jour [ico, FR, EN] (jour J), ech, profil [FR, EN], fiche(P, S), date [FR, EN] (libellé de la date), n (choix du nombre de séances, facultatif) } */
-function semaineObjectif(E, P) {
+// E.semaine : calendrier propre à un sport (le trail ajuste ce calendrier commun, appelé alors avec brut = 1)
+function semaineObjectif(E, P, brut) {
+  if (E.semaine && !brut) return E.semaine(P);
   const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => E.dur.includes(c), w0 = Math.max(0, Math.floor((L0 - lundi(new Date(P.debut + "T12:00"))) / 6048e5));
   const cse = P.date ? new Date(P.date + "T12:00") : null, D = E.debut; let bloc = 1, f = 1, info, fixes = {}, liste;
   if (D && P.obj === D.obj) { bloc = 0; liste = E.sem(P, 0, Math.min(D.sem - 1, w0)); info = w0 < D.sem ? L(`${D.txt[0]} · semaine ${w0 + 1}/${D.sem}`, `${D.txt[1]} · week ${w0 + 1}/${D.sem}`) : L("Bases terminées : choisis un objectif", "Basics done: pick a goal"); }

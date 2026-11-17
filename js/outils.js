@@ -223,7 +223,7 @@ function ouvrirTests(rv) {
   if (rv !== undefined && rv !== 0) retourTests = rv || null;
   const R = lireTests();
   outil(L("Tests de forme", "Fitness tests"), L("Refais chaque test environ une fois par mois, échauffé et dans les mêmes conditions : c’est la courbe qui compte, pas le chiffre du jour.", "Repeat each test about once a month, warmed up and in the same conditions: the trend matters, not today’s number."),
-    TESTS.map(([id, f, e, uf, ue, pf, pe]) => { const l = R.filter(x => x.id === id), d = l[l.length - 1], best = l.length ? Math.max(...l.map(x => x.v)) : null, age = d ? joursDepuis(d.j) : null;
+    TESTS.map(([id, f, e, uf, ue, pf, pe]) => { const l = R.filter(x => x.id === id), d = l[l.length - 1], best = l.length ? (id === "rn5chrono" || id === "rn10chrono" ? Math.min : Math.max)(...l.map(x => x.v)) : null, age = d ? joursDepuis(d.j) : null;
       return `<div class="carnet"><h3>${L(f, e)}</h3><p>${L(pf, pe)}</p>${courbe(l.map(x => x.v), "#16A34A")}
         <p class="sh-ok">${d ? L(`Dernier : ${d.v} ${uf} (${dateCourte(d.j)}) · record : ${best} ${uf}`, `Last: ${d.v} ${ue} (${dateCourte(d.j)}) · best: ${best} ${ue}`) + (l.length > 1 ? " · " + (d.v - l[0].v >= 0 ? "+" : "") + (d.v - l[0].v) + " " + L("depuis le début", "since the start") : "") : L("Pas encore de mesure.", "No result yet.")}${age !== null && age >= 28 ? " · " + L("à refaire !", "time to retest!") : ""}</p>
         ${id === "navette" ? `<button class="primary" id="navGo">${L("Lancer le test guidé", "Start the guided test")}</button>` : ""}
@@ -231,6 +231,7 @@ function ouvrirTests(rv) {
   $("navGo").onclick = ouvrirNavette;
   setTimeout(() => $("oCorps").querySelectorAll("[data-ok]").forEach(b => b.onclick = () => {
     const v = parseFloat($("oCorps").querySelector(`[data-test="${b.dataset.ok}"]`).value); if (!Number.isFinite(v) || v < -60 || v > 2000) return;
+    if (["rn5chrono", "rn10chrono", "trMontee", "trStepG", "trStepD"].includes(b.dataset.ok) && (v < (b.dataset.ok.startsWith("rn") ? 1 : 0) || (b.dataset.ok.startsWith("trStep") && (v > 10 || !Number.isInteger(v))))) return;
     stocker("tests", JSON.stringify([...lireTests().filter(x => !(x.id === b.dataset.ok && x.j === jourCle())), { j: jourCle(), id: b.dataset.ok, v }])); const y = scrollY; ouvrirTests(0); setTimeout(() => scrollTo(0, y), 60); }), 0);
 }
 
