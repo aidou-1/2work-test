@@ -1,5 +1,6 @@
 /* ============ MA SEMAINE : clubs (tous sports), séances perso, programme intégré, mobilité automatique ============
-   « planning » = { jours: jours perso [0 = lundi … 6], heure, lieu, clubs: sports affichés, prog: programme intégré ou "", choix: { jour: "prog" | "sport:<sp>" | "plan" } }.
+   « planning » = { jours: jours d'entraînement perso [0 = lundi … 6], dispo: jours disponibles (léger ou mobilité si besoin), heure, lieu, clubs: sports affichés,
+   prog: programme intégré ou "", types: ce que l'on veut travailler (TYPES_PERSO), choix: { jour: "prog" | "sport:<sp>" | "types" | "plan" } }.
    Les jours, types, contenus et durée des clubs restent dans les réglages de chaque sport (spPref : jours, types, contenus, clubMin) : une seule source avec l'écran du sport.
    Un programme intégré saute les séances que le club couvre déjà (cardio, renfo…) quand elles sont générales, et les garde en version courte quand elles sont
    propres à un autre sport (prépa ski avec un club de boxe). Sa mobilité et sa récupération sont remplacées par la mobilité placée automatiquement.
@@ -7,7 +8,19 @@
 const SPEC_PROG = { ski: "ski", cardioBoxe: "boxe" };   // programmes propres à un sport
 // ce qu'une séance de programme travaille, d'après son type et la zone de son retour au calme
 const tagsProg = (type, rac) => ({ fract: ["cardio"], cardio: ["cardio"], hiit: ["cardio"], gainage: ["gainage"], force: rac === "haut" ? ["haut"] : rac === "bas" ? ["jambes"] : ["haut", "jambes"] }[type] || []);
-const lirePlan = () => ({ jours: [], heure: "18:00", clubs: [], prog: "", choix: {}, ...(lirePlanning() || {}) });
+const lirePlan = () => ({ jours: [], dispo: [], heure: "18:00", clubs: [], prog: "", types: [], choix: {}, ...(lirePlanning() || {}) });
+// ce que l'on veut travailler en perso : [clé, FR, EN, contenu de club qui le couvre déjà, dur]
+const TYPES_PERSO = [["cardio", "Cardio / fractionné", "Cardio / intervals", ["cardio"], 1], ["haut", "Renfo haut", "Upper body", ["haut"], 1], ["jambes", "Renfo jambes", "Legs", ["jambes"], 1],
+  ["complet", "Renfo complet", "Full body", ["haut", "jambes"], 1], ["gainage", "Gainage", "Core", ["gainage"], 0], ["mobilite", "Mobilité", "Mobility", ["mobilite"], 0],
+  ["technique", "Technique du sport", "Sport technique", [], 0], ["explo", "Explosivité", "Power", [], 1]];
+const couvertType = (k, tags) => { const c = TYPES_PERSO.find(t => t[0] === k)[3]; return c.length > 0 && c.every(t => tags.has(t)); };
+// séance d'un type : celle du sport de club quand il en a une (technique, puissance, gainage), sinon une séance de l'appli
+function objType(k, sports, niv) {
+  const sp = sports.find(x => spSemaine(x)) || sports[0], G = sp && SP[sp], code = re => G && Object.keys(G.S).find(c => re.test(c)), dur = TYPES_PERSO.find(t => t[0] === k)[4];
+  const c = k === "technique" ? code(/^tech/) : k === "explo" ? code(/puiss|explo|plio|deten|vitesse|sprint/) : k === "gainage" ? code(/^gainage/) : null;
+  const s = k === "mobilite" ? objMob(sports) : c ? objSport(sp, c) : tpl({ cardio: "T:cardio", haut: "R:haut", jambes: "R:bas", complet: "R:complet", gainage: "R:pilates", technique: "C:complet", explo: "T:jambes" }[k], niv);
+  return { ...s, dur: !!dur, type: k };
+}
 const modeComplet = (P = lirePlan()) => !!(P.prog || sportsClub().length);
 const nomContenus = l => l.map(k => L(...CONTENUS_CLUB.find(c => c[0] === k).slice(1)).toLowerCase()).join(", ");
 
@@ -33,7 +46,7 @@ const objSport = (sp, c, f) => { const G = SP[sp], S = G.S[c];
 const objMob = sports => sports.includes("boxe") ? { ...objSport("boxe", "mobilite"), s: L("Hanches, dos, épaules · effort 3/10", "Hips, back, shoulders · effort 3/10") } : tpl("C:" + (sports.some(sp => SP[sp].equipe) ? "collectif" : "complet"));
 // ce que chaque jour perso peut recevoir : [valeur, FR, EN]
 const choixDispo = (P, sports) => [...(P.prog && PROGRAMMES.some(p => p[0] === P.prog) ? [["prog", ...PROGRAMMES.find(p => p[0] === P.prog).slice(1, 3)]] : []),
-  ...sports.filter(sp => spSemaine(sp)).map(sp => ["sport:" + sp, "Prépa " + SP[sp].nom[0].toLowerCase(), SP[sp].nom[1] + " prep"]), ["plan", "Mon objectif", "My goal"]];
+  ...sports.filter(sp => spSemaine(sp)).map(sp => ["sport:" + sp, "Prépa " + SP[sp].nom[0].toLowerCase(), SP[sp].nom[1] + " prep"]), ...(P.types.length ? [["types", "Mes types", "My types"]] : []), ["plan", "Mon objectif", "My goal"]];
 
 /* La semaine en cours, jour par jour : { d, dt, j, clubs, fait, perso: { src, s, note }, mob: { s, r }, avant } ; notes : ce qui a été retiré ou raccourci, et pourquoi */
 function semaineComplete(P = lirePlan()) {
@@ -53,7 +66,8 @@ function semaineComplete(P = lirePlan()) {
   }
   // objectif : le modèle de l'ancien planning, sur les jours qui le choisissent
   const p = lireProfil(), niv = lireNiv(), obj = PLANS[p.objectif] ? p.objectif : "forme", spR = RENFOS[p.sport] ? p.sport : "complet", nP = perso.filter(d => src(d) === "plan" || (src(d) === "prog" && !J[d].pg && d >= auj)).length || 1, modele = typeof PLANS[obj] === "function" ? PLANS[obj](nP) : PLANS[obj];
-  const parSport = {}; let kp = 0;
+  const parSport = {}, file = P.types.filter(k => !couvertType(k, tags)), retiresT = P.types.filter(k => couvertType(k, tags)); let kp = 0, dernier = null;
+  if (perso.some(d => src(d) === "types") && retiresT.length) notes.push(L(`Retiré de tes types : ${retiresT.map(k => TYPES_PERSO.find(t => t[0] === k)[1].toLowerCase()).join(", ")}. Ton club le travaille déjà.`, `Removed from your types: ${retiresT.map(k => TYPES_PERSO.find(t => t[0] === k)[2].toLowerCase()).join(", ")}. Your club already trains it.`));
   perso.forEach(d => {
     let c = src(d), s = null, note = "";
     if (c === "prog" && J[d].pg) { const { i, court } = J[d].pg, PR = PROGRAMMES.find(x => x[0] === P.prog), dur = objProg(PR, i).dur; s = objProg(PR, i, court || (dur && proche(d))); if (!court && dur && proche(d)) note = L("club dur ce jour-là ou le lendemain", "hard club day that day or the next"); }
@@ -64,6 +78,12 @@ function semaineComplete(P = lirePlan()) {
       // séance dure un jour de club dur, ou coincée entre deux : remplacée par une séance non dure du parcours, sinon de la technique
       if (code && durS(code) && (clubDur(d) || (d > 0 && clubDur(d - 1) && clubDur(d + 1)))) { const alt = l.find(x => !durS(x)) || Object.keys(G.S).find(x => /^tech/.test(x) && !durS(x)); if (alt) { code = alt; note = L("séance dure remplacée : entre deux clubs durs", "hard session swapped: between two hard club days"); } }
       if (code) { const f0 = W.S.f < 1 ? W.S.f : undefined, dur = durS(code), f = dur && proche(d) ? Math.min(f0 || 1, .7) : f0; s = objSport(sp, code, f); if (dur && proche(d)) note = L("club dur ce jour-là ou le lendemain", "hard club day that day or the next"); }
+    }
+    else if (c === "types") {
+      // léger demandé près d'un club dur ou après une séance dure ; sinon on alterne avec le type précédent
+      const leger = proche(d) || (d > 0 && clubDur(d - 1)) || dernier === 1, l = file.length ? file : ["mobilite"], i = Math.max(0, l.findIndex(k => !TYPES_PERSO.find(t => t[0] === k)[4] === leger)), k = l[i];
+      if (file.length) file.push(...file.splice(i, 1));
+      s = objType(k, sports, niv); dernier = s.dur ? 1 : 0; if (leger && s.dur) note = L("pas de type léger dans ta liste : vas-y à effort modéré", "no light type in your list: keep the effort moderate");
     }
     if (!s) { c = "plan"; s = tpl(modele[kp++ % modele.length].replace("@", spR), niv); }
     J[d].perso = { src: c, s, note };
@@ -76,6 +96,9 @@ function semaineComplete(P = lirePlan()) {
     if (dur(d - 1)) J[d].mob = { s: objMob(sports), r: dur(d + 1) ? L("Entre deux grosses séances : bouge sans te fatiguer.", "Between two big sessions: move without tiring yourself.") : L("Lendemain d’une grosse séance : la mobilité aide à récupérer.", "Day after a big session: mobility helps you recover.") };
     else if (dur(d + 1)) J[d].mob = { s: objMob(sports), r: L("Veille d’une grosse séance : reste frais, 10 min suffisent.", "Day before a big session: stay fresh, 10 min is enough.") };
   }
+  const legers = P.types.filter(k => !TYPES_PERSO.find(t => t[0] === k)[4]);
+  (P.dispo || []).forEach(d => { const x = J[d]; if (x.perso || x.clubs.length) return; x.dispo = 1;
+    if (!x.mob) x.mob = { s: legers.length ? objType(legers[d % legers.length], sports, niv) : objMob(sports), r: L("Jour disponible : séance légère facultative.", "Available day: optional light session.") }; });
   return { jours: J.slice(0, 7), notes, tags, sports };
 }
 // compatibilité : [{ j, s }] des jours perso, comme l'ancien planning (accueil, rappels, agenda)
@@ -86,7 +109,7 @@ const MS_OUVERTS = new Set();   // clubs dépliés : ils le restent quand l'écr
 const chipsMs = (a, l, actif, attrs = "") => `<div class="chips">${l.map(([k, f, e]) => `<button class="toggle" data-a="${a}" data-v="${k}" ${attrs} aria-pressed="${Array.isArray(actif) ? actif.includes(k) : String(k) === String(actif)}">${L(f, e)}</button>`).join("")}</div>`;
 function renduPlanning() {
   const P = lirePlan(), C = $("plCorps"), p = lireProfil(), obj = OBJECTIFS.find(o => o[0] === p.objectif), sports = sportsClub(), aff = [...new Set([...P.clubs, ...sports])].filter(sp => SP[sp]);
-  const J7 = JOURS_SP.map(([f, e], d) => [d, f, e]), perso = [...P.jours].sort((a, b) => a - b), dispo = choixDispo(P, sports);
+  const J7 = JOURS_SP.map(([f, e], d) => [d, f, e]), J7c = J7.map(([d, f, e]) => sports.some(sp => spPref(sp).jours.includes(d)) ? [d, f + " · club", e + " · club"] : [d, f, e]), tags = new Set(sports.flatMap(sp => { const Q = spPref(sp); return Q.jours.flatMap(d => clubJour(sp, jourCle(plusJ(lundi(), d)), Q) || { contenu: [] }).flatMap(x => x.contenu); })), perso = [...P.jours].sort((a, b) => a - b), dispo = choixDispo(P, sports);
   const club = sp => { const Q = spPref(sp), Ty = typesClub(sp), at = `data-sp="${sp}"`;
     return `<details class="ms-club" data-sp="${sp}" ${Q.jours.length && !MS_OUVERTS.has(sp) ? "" : "open"}><summary><b>${L(...SP[sp].nom)}</b><small>${Q.jours.length ? [...Q.jours].sort().map(d => L(...JOURS_SP[d]) + " " + L(...Ty[(Q.types || {})[d]] ? Ty[Q.types[d]].slice(0, 2) : Object.values(Ty)[0].slice(0, 2)).split(" /")[0].toLowerCase()).join(" · ") : L("aucun jour", "no day yet")}</small></summary>
       <span class="champ-titre">${L("Jours de club", "Club days")}</span>${chipsMs("cj", J7, Q.jours, at)}
@@ -97,14 +120,17 @@ function renduPlanning() {
       <button class="toggle contour" data-a="cx" ${at}>${L("Retirer ce club", "Remove this club")}</button></details>`; };
   C.innerHTML = `<div class="carnet ms-etape"><h3>1 · ${L("Mes clubs", "My clubs")}</h3><p class="sh-aide">${L("Le sport que tu pratiques en club, avec tes jours et ce que tu y fais. Tes séances perso se placent autour, sans refaire ce que le club travaille déjà.", "The sport you do at a club, with your days and what you do there. Your own sessions fit around it, without repeating what the club already trains.")}</p>
       ${chipsMs("ca", Object.keys(SP).map(sp => [sp, ...SP[sp].nom]), aff)}${aff.map(club).join("")}</div>
-    <div class="carnet ms-etape"><h3>2 · ${L("Mes jours perso", "My own training days")}</h3><p class="sh-aide">${L("Les jours où tu t’entraînes seul avec l’appli. Les jours restants : repos, ou mobilité quand l’enchaînement le demande.", "The days you train on your own with the app. Other days: rest, or mobility when the sequence calls for it.")}</p>
-      ${chipsMs("pj", J7, P.jours)}
+    <div class="carnet ms-etape"><h3>2 · ${L("Mes jours", "My days")}</h3><p class="sh-aide">${L("« Club » : tes jours de club, pour t’y retrouver.", "“Club”: your club days, for reference.")}</p>
+      <span class="champ-titre">${L("Jours d’entraînement : une vraie séance", "Training days: a real session")}</span>${chipsMs("pj", J7c, P.jours)}
+      <span class="champ-titre">${L("Jours disponibles : léger ou mobilité, si l’enchaînement le permet", "Available days: light or mobility, if the sequence allows")}</span>${chipsMs("pd", J7c, P.dispo)}
       <div class="champ-duo"><label class="champ"><span>${L("Heure du rappel", "Reminder time")}</span><input id="plHeure" type="time" value="${P.heure}"></label>
       <div class="champ"><span>${L("Objectif", "Goal")}</span><button class="toggle contour" id="plObj">${obj ? L(obj[1], obj[2]) : L("À choisir", "To choose")} ›</button></div></div>
       <label class="champ"><span>${L("Où ? (facultatif)", "Where? (optional)")}</span><input id="plLieu" maxlength="40" value="${echap(P.lieu || "")}" placeholder="${L("ex. à la maison, au parc, à la salle", "e.g. at home, at the park, at the gym")}"></label></div>
-    <div class="carnet ms-etape"><h3>3 · ${L("Un programme à intégrer ?", "A programme to fit in?")}</h3><p class="sh-aide">${L("Il avance au rythme de tes jours perso. Ce que ton club couvre déjà est retiré s’il est général, gardé en version courte s’il est propre au programme.", "It moves at the pace of your own days. What your club already covers is removed if general, kept short if specific to the programme.")}</p>
+    <div class="carnet ms-etape"><h3>3 · ${L("Ce que je veux travailler", "What I want to train")}</h3><p class="sh-aide">${L("Réparti sur tes jours qui choisissent « Mes types », en alternant dur et léger. « Club » : ton club le travaille déjà, il sera retiré.", "Spread over your days set to “My types”, alternating hard and light. “Club”: your club already trains it, it will be removed.")}</p>
+      ${chipsMs("pt", TYPES_PERSO.map(([k, f, e]) => couvertType(k, tags) ? [k, f + " · club", e + " · club"] : [k, f, e]), P.types)}</div>
+    <div class="carnet ms-etape"><h3>4 · ${L("Un programme à intégrer ?", "A programme to fit in?")}</h3><p class="sh-aide">${L("Il avance au rythme de tes jours perso. Ce que ton club couvre déjà est retiré s’il est général, gardé en version courte s’il est propre au programme.", "It moves at the pace of your own days. What your club already covers is removed if general, kept short if specific to the programme.")}</p>
       ${chipsMs("pg", [["", "Aucun", "None"], ...PROGRAMMES.map(x => [x[0], x[1], x[2]])], P.prog)}</div>
-    ${perso.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>4 · ${L("Chaque jour perso", "Each own day")}</h3>${perso.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
+    ${perso.length && dispo.length > 1 ? `<div class="carnet ms-etape"><h3>5 · ${L("Chaque jour d’entraînement", "Each training day")}</h3>${perso.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chipsMs("pc", dispo, dispo.some(o => o[0] === P.choix[d]) ? P.choix[d] : dispo[0][0], `data-d="${d}"`)}</div>`).join("")}</div>` : ""}
     <div id="plSemaine"></div>`;
   C.querySelectorAll("details.ms-club").forEach(x => x.ontoggle = () => MS_OUVERTS[x.open ? "add" : "delete"](x.dataset.sp));
   const maj = () => { stocker("planning", JSON.stringify(P)); renduPlanning(); };
@@ -117,7 +143,9 @@ function renduPlanning() {
     else if (a === "ct") spGarder(sp, { ...Q, types: { ...(Q.types || {}), [d]: v } });
     else if (a === "cm") spGarder(sp, { ...Q, clubMin: +v });
     else if (a === "cc") spGarder(sp, { ...Q, contenus: { ...(Q.contenus || {}), [t]: bascule((Q.contenus || {})[t] || typesClub(sp)[t][4], v) } });
-    else if (a === "pj") P.jours = bascule(P.jours, +v).sort();
+    else if (a === "pj") { P.jours = bascule(P.jours, +v).sort(); P.dispo = P.dispo.filter(x => !P.jours.includes(x)); }   // un jour est soit d'entraînement, soit disponible
+    else if (a === "pd") { P.dispo = bascule(P.dispo, +v).sort(); P.jours = P.jours.filter(x => !P.dispo.includes(x)); }
+    else if (a === "pt") { P.types = bascule(P.types, v); if (P.types.length && !Object.keys(P.choix).length && !P.prog) P.jours.forEach(d => P.choix[d] = "types"); }
     else if (a === "pg") P.prog = v;
     else if (a === "pc") P.choix = { ...P.choix, [d]: v };
     maj();
@@ -133,7 +161,7 @@ function listeSemaine() {
   const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = [...P.jours].sort().map(i => JOURS_LONGS()[i]);
   Z.innerHTML = `${jp.length ? `<p class="pl-plan">📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(jp)} à ${P.heure}`, `${et(jp)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}</p>` : ""}
     <h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste ms-liste">${W.jours.map(x => { const S = x.perso ? x.perso.s : x.mob ? x.mob.s : null, lance = S && S.go && !x.fait && x.d >= auj;
-      return `<li class="${x.d === auj ? "auj" : ""}${S || x.clubs.length ? "" : " repos"}" style="--c:${S ? S.c : x.clubs.length ? "var(--brand)" : "transparent"}"><span class="jr">${JOURS_LONGS()[x.d].slice(0, 3)}<small>${x.dt.getDate()}</small></span><div>
+      return `<li class="${x.d === auj ? "auj" : ""}${S || x.clubs.length ? "" : " repos"}${x.dispo ? " dispo" : ""}" style="--c:${S ? S.c : x.clubs.length ? "var(--brand)" : "transparent"}"><span class="jr">${JOURS_LONGS()[x.d].slice(0, 3)}<small>${x.dt.getDate()}</small></span><div>
         ${x.clubs.map(c => `<button class="ms-club-b" data-note="${c.sp}" data-j="${x.j}" aria-label="${L("Noter la séance de club", "Log the club session")}">${L(...SP[c.sp].nom)} · ${L(...c.nom)}${c.note ? " ✓" : ""}</button>`).join("")}
         ${S ? `<b>${x.mob ? "🧘 " : ""}${S.t}</b><small>${x.mob ? x.mob.r : S.s}${x.perso && x.perso.note ? " · " + x.perso.note : ""}</small>` : x.clubs.length ? (x.avant && x.d >= auj ? `<button class="ms-avant" data-avant="${x.d}">🧘 ${L("10 min de mobilité avant le club", "10 min of mobility before the club")}</button>` : "") : `<b>${L("Repos", "Rest")}</b><small>${L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small>`}
       </div>${x.fait ? `<span class="fait">✓</span>` : lance ? `<button class="toggle" data-go="${x.d}">${x.d === auj ? L("Lancer", "Start") : "▶"}</button>` : ""}</li>`; }).join("")}</ul>
