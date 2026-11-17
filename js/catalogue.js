@@ -242,6 +242,9 @@ function vueCalme() {
    Behm et al. (2016) : étirements statiques < 60 s par muscle intégrés à un échauffement dynamique = effet négligeable sur la performance.
    ECHS[clé de routine] = [élever, mobiliser, activer, préparer au geste, conseil FR, conseil EN, pourquoi FR, pourquoi EN] */
 const ECHS = {
+  athle: [["footwork", "rn_marche"], ["ankles", "hip9090", "legfwd", "rotEpaule"], ["pont", "calfraise", "equilibre"], ["atMarcheHaies", "rnBras", "atHaieVide", "atRotationLancer"],
+    ["Prépare les appuis sans sauts supplémentaires ; accélérations progressives ensuite si tu es prêt.", "Prepare foot placement without extra jumps; add progressive accelerations afterwards if ready."],
+    ["Hanches et chevilles mobiles, ischios activés, épaules préparées sans engin réel.", "Mobile hips and ankles, active hamstrings, shoulders prepared without throwing implements."]],
   course: [["footwork", "kneeup", "heelkick"], ["legfwd", "legside", "wgs", "dogpedal", "hip9090"], ["pont", "calfraise", "rdl"], ["askip", "squatsaute", "skater"],
     ["Termine par 2 ou 3 accélérations progressives de 60 m avant une séance rapide ou une course.", "Finish with 2 or 3 progressive 60 m strides before a fast session or a race."],
     ["À chaque foulée, la jambe encaisse 2 à 3 fois le poids du corps. Les blessures du coureur touchent surtout le genou, le mollet et le tendon d’Achille : on prépare tendons et chevilles aux impacts.", "With every stride your leg absorbs 2 to 3 times your body weight. Runners’ injuries mostly affect the knee, calf and Achilles tendon: we prepare tendons and ankles for impact."]],
@@ -353,7 +356,7 @@ function vueEch(cle) {
 // liste des sports regroupée par famille, guide en tête
 [...$("choices").children].forEach(b => { if (ECHS[b.dataset.cle]) b.onclick = () => vueEch(b.dataset.cle); });
 const parCat = {}; [...$("choicesC").children].forEach(b => parCat[b.dataset.k] = b);
-const GROUPES_ECH = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course cyclisme natation"],
+const GROUPES_ECH = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course athle cyclisme natation"],
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "yoga pilates"], ["Avant la musculation", "Before strength training", "renfo"]];
 /* Les sports pratiqués le plus souvent ces 90 derniers jours (toutes séances de l'historique confondues) passent en tête des listes, sous « Tes sports » */
 function sportsFrequents(dispo, max = 4) {   // d'abord les sports pratiqués ou qui te tentent (questionnaire d'accueil), puis les plus pratiqués dans l'appli
@@ -362,7 +365,7 @@ function sportsFrequents(dispo, max = 4) {   // d'abord les sports pratiqués ou
   return [...new Set([...dispo.filter(k => scorePref(k) >= 6).sort(triPref), ...Object.keys(n).sort((a, b) => n[b] - n[a])])].slice(0, max + 2);
 }
 /* Préférences du questionnaire d'accueil : environnements et style de chaque sport. Score : pratiqué 10, me tente 6, environnement 2 chacun, style 2 */
-const SP_PREF = { foot: "ext salle|equipe", basket: "salle ext|equipe", handball: "salle|equipe", volley: "salle ext|equipe", tennis: "ext salle|duel", padel: "ext salle|duel", course: "ext|seul",
+const SP_PREF = { athle: "ext salle|seul", foot: "ext salle|equipe", basket: "salle ext|equipe", handball: "salle|equipe", volley: "salle ext|equipe", tennis: "ext salle|duel", padel: "ext salle|duel", course: "ext|seul",
   cyclisme: "ext maison|seul", natation: "eau|seul", boxe: "salle maison|combat", escalade: "salle montagne|seul", ski: "montagne|seul", surf: "eau|seul", yoga: "maison salle|seul", pilates: "maison salle|seul", renfo: "maison salle|seul" };
 const scorePref = k => { const p = lireProfil(), [env, st] = (SP_PREF[k] || "|").split("|");
   return ((p.sportsPratiques || []).includes(k) ? 10 : 0) + ((p.sportsEnvie || []).includes(k) ? 6 : 0) + (p.envs || []).filter(e => env.split(" ").includes(e)).length * 2 + ((p.styles || []).includes(st) ? 2 : 0); };
@@ -381,6 +384,7 @@ function listeSports() {   // guide en tête, sports regroupés par famille (rec
    Séance en 4 blocs : échauffement (tiré de ECHS) → circuit principal (tours/effort/repos selon le niveau) → prévention ciblée → retour au calme (tiré de RECUPS).
    RENFOS[groupe] = [qualités FR, EN, pourquoi FR, EN, exercices de prévention, séance de retour au calme] */
 const RENFOS = {
+  athle: ["Appuis, ischios et gainage", "Foot placement, hamstrings and core", "La force part du sol ; privilégie la technique et la progressivité.", "Power starts at the ground; prioritise technique and gradual progression.", ["pont", "equilibre", "rotEpaule"], "course"],
   course: ["Jambes en unilatéral, mollets et tendon d’Achille, gainage", "Single-leg strength, calves and Achilles tendon, core", "Le renforcement améliore l’économie de course : tu dépenses moins d’énergie à la même vitesse (méta-analyse Balsalobre-Fernández et al., 2016). Il protège aussi mollets et tendons des milliers d’impacts de chaque sortie.", "Strength training improves running economy: you use less energy at the same speed (meta-analysis by Balsalobre-Fernández et al., 2016). It also protects calves and tendons from the thousands of impacts in every run.", ["alfredson", "equilibre", "hydrant"], "course"],
   foot: ["Ischios, adducteurs, mollets, équilibre et gainage", "Hamstrings, adductors, calves, balance and core", "Renforce progressivement, sans douleur, en comptant le travail déjà fait au club. Les variantes au sol ne nécessitent ni banc ni ancrage ; elles ne garantissent pas les résultats d’un protocole étudié. Pour l’équilibre : yeux ouverts et appui à portée de main. Ne cumule pas ce circuit avec la séance Force le même jour.", "Build strength gradually, pain-free, accounting for club work. Floor variants need no bench or anchor; they do not guarantee the results of a studied protocol. For balance: eyes open and support within reach. Do not combine this circuit with the Strength session on the same day.", ["ftIschios", "ftAdducteurs", "mollet1", "equilibre"], "collectif"],
   basket: ["Détente, appuis latéraux, chevilles et genoux stables", "Jumping power, lateral footwork, stable ankles and knees", "L’entraînement neuromusculaire (équilibre, sauts contrôlés, renforcement) réduit les blessures du genou et de la cheville dans les sports de sauts et de pivots.", "Neuromuscular training (balance, controlled jumps, strength work) reduces knee and ankle injuries in jumping and pivoting sports.", ["equilibre", "alfredson", "hydrant"], "collectif"],
@@ -451,7 +455,7 @@ function ficheRenfo() {
       <li>${L("Une douleur articulaire ou tendineuse qui augmente = on arrête l’exercice.", "Joint or tendon pain that gets worse = stop the exercise.")}</li></ul>
     <h3>${L("Ce que dit la science", "What the science says")}</h3><p>${L("Une méta-analyse de 25 essais et 26 610 sportifs (Lauersen et al., 2014) montre que le renforcement musculaire réduit les blessures sportives à moins d’un tiers et presque de moitié les blessures de surmenage, bien plus que les étirements.", "A meta-analysis of 25 trials and 26,610 athletes (Lauersen et al., 2014) found that strength training cut sports injuries to less than a third and overuse injuries by almost half, far more than stretching.")}</p></details>`;
 }
-const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course cyclisme natation"],
+const GROUPES_RENFO = [["Sports collectifs", "Team sports", "foot basket handball volley"], ["Raquettes", "Racket sports", "tennis padel"], ["Endurance", "Endurance", "course athle cyclisme natation"],
   ["Combat et grimpe", "Combat and climbing", "boxe escalade"], ["Glisse", "Board sports", "ski surf"], ["Corps et esprit", "Mind and body", "pilates"]];
 function listeRenfo() {
   const C = $("choicesCS"); C.innerHTML = ficheRenfo();
