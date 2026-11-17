@@ -17,6 +17,14 @@ const borne01 = v => Math.max(0, Math.min(1, v));
 const chargeX = x => Math.round(x.s / 60 * ({ tabata: 3, seance: 2, salle: 2 }[x.m] || 1));   // minutes × intensité, comme la charge de Mes progrès
 // séances de club entre deux jours, tous sports (notées, sinon prévues) ; charge = minutes × effort sur 10 / 4, comme une séance de l'appli
 const clubsEntre = (de, a) => { const C = lireClubs(), l = []; if (!sportsClub(C, 1).length) return l; for (let j = de; j <= a; j = decaler(j, 1)) clubsDu(j, C).forEach(x => l.push({ j, ...x })); return l; };
+/* Seuils selon l'habitude d'entraînement en club : 1 séance loisir ou 5 séances d'athlète, une semaine « chargée » n'a pas le même sens.
+   seuilDurs : efforts durs dans la semaine au-delà desquels on propose un jour de récupération (au moins 5, sinon clubs durs + 2, + 3 en compétition) ;
+   seuilAffilee : jours d'entraînement d'affilée avant de signaler l'absence de repos (3, jusqu'à 6 si le club s'entraîne presque tous les jours). */
+function habitudeClub() {
+  const l = sportsClub(), jours = l.reduce((t, sp) => t + spPref(sp).jours.length, 0), compet = l.some(sp => spPref(sp).niv === "compet");
+  const durs = l.reduce((t, sp) => { const Q = spPref(sp), Ty = typesClub(sp); return t + Q.jours.filter(d => (Ty[(Q.types || {})[d]] || Object.values(Ty)[0])[3]).length; }, 0);
+  return { jours, durs, seuilDurs: Math.max(5, durs + (compet ? 3 : 2)), seuilAffilee: Math.max(3, Math.min(6, jours)) };
+}
 const chargeEntre = (h, de, a) => h.filter(x => x.j >= de && x.j <= a).reduce((t, x) => t + chargeX(x), 0) + clubsEntre(de, a).reduce((t, x) => t + Math.round(x.min * x.ef / 4), 0);
 // charge des 7 derniers jours rapportée à la moyenne hebdomadaire des 28 derniers jours (null sans 4 semaines d'historique : sinon la moyenne serait sous-estimée)
 function ratioCharge(j = jourCle(), h = lireHist()) {
@@ -92,7 +100,7 @@ function propositionsSp(sp) {
   // avec Ma semaine, la séance perso du jour peut venir d'un programme, de tes types ou de l'objectif : elle remplace alors la prépa du sport
   const W = modeComplet() ? semaineComplete().jours[d] : null, autre = W && W.perso && W.perso.src !== "sport:" + sp && !W.perso.s.passe ? W.perso.s : null;
   const fait = h.some(x => x.j === auj && (x.k || "").startsWith(G.pre)), prevues = autre || !S ? [] : S.jours[d].l.filter(c => G.S[c]), techs = code(/^tech/), tech = techs[d % (techs.length || 1)];
-  const recup = v < 35 || r.dl === 2 || (hier && hier.dur && v < 55) || dursApp + dursClub >= 5, l = [];
+  const recup = v < 35 || r.dl === 2 || (hier && hier.dur && v < 55) || dursApp + dursClub >= habitudeClub().seuilDurs, l = [];
   // c : code de séance du sport, ou repli (type de Ma semaine) quand le sport n'en a pas
   const ajout = (c, f, fr, en, repli) => { if (c && G.S[c] && !evite(c) && !l.some(o => o.c === c)) l.push({ c, t: L(...G.S[c].t), col: G.S[c].c, rpe: G.S[c].rpe + "/10", f, p: L(fr, en), go: () => lancerSp(sp, c, f < 1 ? f : undefined) });
     else if (!c && repli && !l.some(o => o.t === repli.t)) l.push({ t: repli.t, col: repli.c, rpe: "", f: 1, p: L(fr, en), go: repli.go }); };

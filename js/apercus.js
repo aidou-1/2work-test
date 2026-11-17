@@ -82,7 +82,7 @@ function etatDu(j, h = lireHist()) {
   const ra = ratioCharge(veille, h); if (ra && ra > 1.3) l.push("charge");
   if (h.some(x => x.j === veille && (x.ef >= 8 || x.rs === 3 || chargeX(x) >= 80)) || clubsDu(veille).some(c => c.dur)) l.push("veille");
   let n = 0; for (let k = 1; k <= 6; k++) { const d = decaler(j, -k); if (h.some(x => x.j === d) || clubsDu(d).length) n++; else break; }
-  if (n >= 3) l.push("affilee");
+  if (n >= habitudeClub().seuilAffilee) l.push("affilee");   // seuil selon le nombre d'entraînements habituels en club
   return { l, B, ra };
 }
 // aperçu d'une séance de l'historique (x) : { sens, phrase, facteurs, conseils }
