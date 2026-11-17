@@ -153,16 +153,9 @@ const BX_EX = [
 
 /* --- Réglages et choix du matériel --- */
 const bxPref = () => spPref("boxe"), bxGarder = p => spGarder("boxe", p);
-/* Séances de club : un type prévu par jour de club (P.types), corrigé après coup dans le journal « clubJournal » { "AAAA-MM-JJ": { sp, t, ef } }
-   (t = type ou « non » si la séance n'a pas eu lieu, ef = effort sur 10). Le type pèse sur le placement des séances, la charge et la batterie. */
-const TYPES_CLUB_BX = { tech: ["Technique / pattes", "Technique / pads", 6, 0], spar: ["Sparring", "Sparring", 8, 1], phys: ["Physique / cardio", "Conditioning", 8, 1] };
-const lireClubs = () => lireJSON("clubJournal", {});
-function clubJourBx(j, P = bxPref(), C = lireClubs()) {   // séance de club du jour j : { t, ef, nom, dur, note } ou null
-  const n = C[j] && C[j].sp === "boxe" ? C[j] : null, prevu = P.jours.includes((new Date(j + "T12:00").getDay() + 6) % 7);
-  if (n ? n.t === "non" : !prevu) return null;
-  const t = n ? n.t : (P.types || {})[(new Date(j + "T12:00").getDay() + 6) % 7] || "tech", T = TYPES_CLUB_BX[t] || TYPES_CLUB_BX.tech;
-  return { t, ef: n ? n.ef : T[2], nom: [T[0], T[1]], dur: !!T[3] || (n && n.ef >= 8), note: !!n, min: P.clubMin || 90 };
-}
+// types de séance de club propres à la boxe (le reste : TYPES_CLUB dans js/sport.js)
+TYPES_CLUB.boxe = { tech: ["Technique / pattes", "Technique / pads", 6, 0, []], spar: ["Sparring", "Sparring", 8, 1, ["cardio"]], phys: ["Physique / cardio", "Conditioning", 8, 1, ["cardio", "jambes", "gainage"]] };
+const TYPES_CLUB_BX = TYPES_CLUB.boxe, clubJourBx = (j, P = bxPref(), C = lireClubs()) => clubJour("boxe", j, P, C);
 const ouvrirBoxe = (o, rv) => ouvrirSport("boxe", o, rv), lancerBx = (c, f) => lancerSp("boxe", c, f), bxSeance = (c, o) => spSeance("boxe", c, o);
 const COMBOS_BX = [["1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3", "1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3"], ["1-2-3-2 · 1-6-3 · 1c-2 · 3c-3 · 2-3-2 · 1-2-5-2", "1-2-3-2 · 1-6-3 · 1b-2 · 3b-3 · 2-3-2 · 1-2-5-2"],
   ["1-2 · esquive · 2 / 1-2 · roulé · 3-2 / bloque · 2-3 / retrait · 2 / 1-1-2-3c-3", "1-2 · slip · 2 / 1-2 · roll · 3-2 / block · 2-3 / pull back · 2 / 1-1-2-3b-3"]];

@@ -154,8 +154,8 @@ function recommandations() {
 }
 
 /* ============ PLANNING DE LA SEMAINE ============
-   « planning » = { jours: [0 = lundi … 6 = dimanche], heure: "18:00" }. Les séances sont placées selon l'objectif du profil,
-   en alternant intensité et récupération. Rappels : fichier agenda .ics (événements hebdomadaires avec alerte 15 min avant). */
+   « planning » = { jours: [0 = lundi … 6 = dimanche], heure: "18:00", lieu, clubs, prog, choix } (détail dans js/masemaine.js). Les séances sont placées selon l'objectif du profil,
+   les clubs et le programme intégré, en alternant intensité et récupération. Rappels : fichier agenda .ics (événements hebdomadaires avec alerte 15 min avant). */
 const TPL = {
   R: (g, nv = lireNiv()) => { const R = ROUTINES[SEANCE(g)], s = seanceRenfo(g, 0, nv); return { t: R.titre, s: `${L(...NIV_RENFO.find(n => n[0] === nv).slice(1, 3))} · ${s.total} min`, c: R.couleur, d: s.total, go: () => { ROUTINES.renfo = seanceRenfo(g, 0, nv); CONSEILLES.renfo = ROUTINES.renfo.exercices; ouvrirRoutine("renfo"); } }; },
   T: id => { const T0 = TABATAS.find(t => t[0] === id), s = seanceTabata(id); return { t: L(T0[1], T0[2]), s: `Tabata · ${s.total} min`, c: T0[3], d: s.total, go: () => { ROUTINES.tbt = seanceTabata(id); CONSEILLES.tbt = ROUTINES.tbt.exercices; ouvrirRoutine("tbt"); } }; },
@@ -179,47 +179,17 @@ const PLANS = {
 const lirePlanning = () => lireJSON("planning", null);
 const JOURS_LONGS = () => L("lundi mardi mercredi jeudi vendredi samedi dimanche", "Monday Tuesday Wednesday Thursday Friday Saturday Sunday").split(" ");
 const jourSemaine = (d = new Date()) => (d.getDay() + 6) % 7;
-function semaine() {   // [{ j: 0-6, s: séance }] pour les jours choisis
-  const P = lirePlanning(); if (!P || !P.jours.length) return [];
-  const p = lireProfil(), niv = lireNiv(), obj = PLANS[p.objectif] ? p.objectif : "forme", sp = RENFOS[p.sport] ? p.sport : "complet";
-  const modele = typeof PLANS[obj] === "function" ? PLANS[obj](P.jours.length) : PLANS[obj];
-  return [...P.jours].sort().map((j, k) => ({ j, s: tpl(modele[k % modele.length].replace("@", sp), niv) }));
-}
+// semaine() : séances perso de la semaine, calculées dans js/masemaine.js (clubs, programme intégré, objectif)
 function dateDuJour(j) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - jourSemaine(d) + j); return d; }
 const cleDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 let planningRetourVers = "menu";
 function ouvrirPlanning(depuis) {
   planningRetourVers = depuis || "menu";
   $("plTitre").textContent = L("Ma semaine", "My week");
-  $("plSub").textContent = L("Choisis tes jours d’entraînement : l’appli place tes séances selon ton objectif, en alternant effort et récupération.", "Pick your training days: the app places your workouts according to your goal, alternating effort and recovery.");
+  $("plSub").textContent = L("Tes clubs, tes jours perso et, si tu veux, un programme : l’appli place tout en alternant effort et récupération, sans refaire ce que ton club travaille déjà.", "Your clubs, your own days and, if you like, a programme: the app places everything, alternating effort and recovery, without repeating what your club already trains.");
   renduPlanning(); ecran("planning");
 }
-function renduPlanning() {
-  const P = lirePlanning() || { jours: [], heure: "18:00" }, p = lireProfil(), C = $("plCorps"), J = L("LMMJVSD", "MTWTFSS").split(""), obj = OBJECTIFS.find(o => o[0] === p.objectif);
-  C.innerHTML = `<div class="carnet"><span class="champ-titre">${L("Mes jours d’entraînement", "My training days")}</span>
-      <div class="jours-choix">${J.map((x, i) => `<button class="toggle" data-j="${i}" aria-pressed="${P.jours.includes(i)}" aria-label="${JOURS_LONGS()[i]}">${x}</button>`).join("")}</div>
-      <div class="champ-duo"><label class="champ"><span>${L("Heure du rappel", "Reminder time")}</span><input id="plHeure" type="time" value="${P.heure}"></label>
-      <div class="champ"><span>${L("Objectif", "Goal")}</span><button class="toggle contour" id="plObj">${obj ? L(obj[1], obj[2]) : L("À choisir", "To choose")} ›</button></div></div>
-      <label class="champ"><span>${L("Où ? (facultatif)", "Where? (optional)")}</span><input id="plLieu" maxlength="40" value="${echap(P.lieu || "")}" placeholder="${L("ex. à la maison, au parc, à la salle", "e.g. at home, at the park, at the gym")}"></label>
-      <p class="pl-plan" id="plPlan"></p></div><div id="plSemaine"></div>`;
-  const phrase = () => { const j = [...P.jours].sort().map(i => JOURS_LONGS()[i]), et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "";
-      $("plPlan").innerHTML = j.length ? `📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(j)} à ${P.heure}`, `${et(j)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}` : ""; },
-    maj = () => { stocker("planning", JSON.stringify(P)); phrase(); listeSemaine(); };
-  C.querySelectorAll("[data-j]").forEach(b => b.onclick = () => { const j = +b.dataset.j; P.jours = P.jours.includes(j) ? P.jours.filter(x => x !== j) : [...P.jours, j].sort(); b.setAttribute("aria-pressed", P.jours.includes(j)); maj(); });
-  $("plHeure").onchange = e => { P.heure = e.target.value || "18:00"; maj(); };
-  $("plLieu").onchange = e => { P.lieu = propre(e.target.value.trim()).slice(0, 40); maj(); }; phrase();
-  $("plObj").onclick = () => ouvrirProfil("planning");
-  listeSemaine();
-}
-function listeSemaine() {
-  const S = semaine(), faits = new Set(lireHist().map(x => x.j)), auj = jourSemaine(), Z = $("plSemaine");
-  if (!S.length) { Z.innerHTML = `<p class="vide">${L("Touche les jours où tu veux t’entraîner.", "Tap the days you want to train.")}</p>`; return; }
-  Z.innerHTML = `<h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste">${JOURS_LONGS().map((n, j) => { const x = S.find(s => s.j === j), d = dateDuJour(j), fait = faits.has(cleDate(d));
-    return `<li class="${j === auj ? "auj" : ""}${x ? "" : " repos"}" style="--c:${x ? x.s.c : "transparent"}"><span class="jr">${n.slice(0, 3)}<small>${d.getDate()}</small></span><div><b>${x ? x.s.t : L("Repos", "Rest")}</b><small>${x ? x.s.s : L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small></div>${fait ? `<span class="fait">✓</span>` : x ? `<button class="toggle" data-go="${j}">${j === auj ? L("Lancer", "Start") : "▶"}</button>` : ""}</li>`; }).join("")}</ul>
-    <button class="primary" id="plIcs">🔔 ${L("Ajouter les rappels à mon agenda", "Add reminders to my calendar")}</button><div id="plNotif"></div><p class="sh-aide" id="plIcsAide">${L("Crée un rendez-vous chaque semaine dans l’agenda de ton téléphone, avec une alerte 15 minutes avant.", "Creates a weekly event in your phone’s calendar, with an alert 15 minutes before.")}</p>`;
-  Z.querySelectorAll("[data-go]").forEach(b => b.onclick = () => S.find(s => s.j === +b.dataset.go).s.go());
-  $("plIcs").onclick = exporterIcs; $("plIcs").after($("plIcsAide")); blocRappel(); majRappelSW();
-}
+// l'écran (renduPlanning, listeSemaine) est dans js/masemaine.js
 function exporterIcs() {
   const P = lirePlanning(), S = semaine(), [hh, mm] = (P.heure || "18:00").split(":").map(Number), JJ = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
   const f = d => `${cleDate(d).replace(/-/g, "")}T${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}00`, pli = l => l.match(/.{1,73}/g).join("\r\n ");
@@ -237,11 +207,12 @@ function majSemaine() {   // carte « Aujourd'hui » du menu et salutation
   const p = lireProfil(), Z = $("semaineCarte"); if (!Z) return;
   document.querySelector("#menu .entete h1").textContent = p.nom ? L(`On s’y met, ${p.nom} ?`, `Ready, ${p.nom}?`) : T("On s’y met ?");
   const S = semaine(), auj = jourSemaine(), x = S.find(s => s.j === auj), fait = lireHist().some(h => h.j === jourCle());
+  if (!x && carteJourComplet(Z)) return;   // clubs ou programme : le club du jour, la mobilité prévue ou le repos
   if (!S.length) { Z.innerHTML = `<button class="sc-corps" id="scOuvrir"><span class="sc-ico">${ico("agenda")}</span><span><strong>${L("Planifie ta semaine", "Plan your week")}</strong><small>${L("Choisis tes jours, l’appli place tes séances", "Pick your days, the app places your workouts")}</small></span></button>`; }
   else { const pro = x ? null : S.find(s => s.j > auj) || S[0];
     Z.innerHTML = `<button class="sc-corps" id="scOuvrir" style="--c:${x ? x.s.c : "#64748B"}"><span class="sc-ico">${x ? (fait ? "✅" : "🎯") : "🌙"}</span><span><strong>${x ? (fait ? L("Séance du jour faite !", "Today’s workout done!") : L("Aujourd’hui", "Today") + " · " + x.s.t) : L("Aujourd’hui : repos", "Today: rest")}</strong><small>${x ? x.s.s : L("Prochaine séance", "Next workout") + " " + JOURS_LONGS()[pro.j] + " : " + pro.s.t}</small></span></button>${x && !fait ? `<button class="sc-go" id="scGo" aria-label="${L("Lancer", "Start")}">${ico("lecture")}</button>` : ""}`;
     if ($("scGo")) $("scGo").onclick = e => { e.stopPropagation(); x.s.go(); }; }
-  const D = !fait && seanceDuJour(x);   // proposition du jour : récupération si la fatigue monte, sinon programme en cours, planning, ou séance choisie d'après les derniers jours
+  const D = !fait && !modeComplet() && seanceDuJour(x);   // avec clubs ou programme, la séance du jour vient de Ma semaine   // proposition du jour : récupération si la fatigue monte, sinon programme en cours, planning, ou séance choisie d'après les derniers jours
   if (D) { Z.innerHTML = `<button class="sc-corps" id="scOuvrir" style="--c:${D.c}"><span class="sc-ico">${D.ico || "🎯"}</span><span><strong>${L("Aujourd’hui", "Today")} · ${D.t}</strong><small>${D.r || D.s}</small></span></button><button class="sc-go" id="scGo" aria-label="${L("Lancer", "Start")}">${ico("lecture")}</button>`; $("scGo").onclick = e => { e.stopPropagation(); D.go(); }; }
   $("scOuvrir").onclick = () => ouvrirPlanning("menu");
   if (x && !fait) {   // plan B : une version courte plutôt que rien, et le lieu prévu pour rappel

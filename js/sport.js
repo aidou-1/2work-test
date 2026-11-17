@@ -129,6 +129,28 @@ function placerSp(liste, jours, club, dur, lim = 7) {
     if (best >= 0) jours[best].push(c);
   });
 }
+/* --- Séances de club, tous sports : type prévu par jour (P.types), contenu de chaque type (P.contenus : ce que le club travaille déjà), durée (P.clubMin).
+   Journal « clubJournal » { "AAAA-MM-JJ": { sport: { t, ef } } } : la séance réelle (t = type ou « non » si elle n'a pas eu lieu, ef = effort sur 10).
+   Ancien format d'un seul sport { sp, t, ef } toujours lu. Types : [FR, EN, effort habituel /10, dur, contenu par défaut]. --- */
+const TYPES_CLUB = { _: { tech: ["Technique / tactique", "Technique / tactics", 6, 0, []], match: ["Opposition / match", "Match play", 8, 1, ["cardio"]], phys: ["Physique / cardio", "Conditioning", 8, 1, ["cardio", "jambes", "gainage"]] } };
+const CONTENUS_CLUB = [["cardio", "Cardio", "Cardio"], ["haut", "Renfo haut", "Upper body"], ["jambes", "Renfo jambes", "Legs"], ["gainage", "Gainage", "Core"], ["mobilite", "Mobilité", "Mobility"]];
+const typesClub = sp => TYPES_CLUB[sp] || TYPES_CLUB._, lireClubs = () => lireJSON("clubJournal", {});
+const noteClub = (C, j, sp) => { const n = C[j]; return !n ? null : n.sp ? (n.sp === sp ? n : null) : n[sp] || null; };
+function clubJour(sp, j, P = spPref(sp), C = lireClubs()) {   // séance de club du sport sp le jour j, ou null
+  const n = noteClub(C, j, sp), d = (new Date(j + "T12:00").getDay() + 6) % 7, Ty = typesClub(sp);
+  if (n ? n.t === "non" : !P.jours.includes(d)) return null;
+  const t = n && Ty[n.t] ? n.t : Ty[(P.types || {})[d]] ? P.types[d] : Object.keys(Ty)[0], T = Ty[t];
+  return { sp, t, ef: n ? n.ef : T[2], nom: [T[0], T[1]], dur: !!T[3] || (!!n && n.ef >= 8), note: !!n, min: P.clubMin || 90, contenu: (P.contenus || {})[t] || T[4] };
+}
+// sports pratiqués en club : jours réglés, ou séance notée dans le journal
+const sportsClub = (C = lireClubs()) => [...new Set([...Object.keys(SP).filter(sp => spPref(sp).jours.length), ...Object.values(C).flatMap(n => n.sp ? [n.sp] : Object.keys(n))])].filter(sp => SP[sp]);
+const clubsDu = (j, C = lireClubs()) => sportsClub(C).map(sp => clubJour(sp, j, spPref(sp), C)).filter(Boolean);
+// la semaine du parcours d'un sport (null s'il n'en a pas) : sert à « Ma semaine »
+function spSemaine(sp) {
+  const G = SP[sp], P = spPref(sp);
+  try { return sp === "boxe" ? bxSemaine(P) : sp === "course" ? rnSemaine(P) : sp === "escalade" ? semaineEs(P) : sp === "pilates" ? semainePlt(P) : G.equipe ? semaineEquipe(G.equipe, P) : G.objectif ? semaineObjectif(G.objectif, P) : G.saison ? semaineSaison(sp, P) : null; } catch (e) { return null; }
+}
+
 // réglages du profil : chips à choix unique, jours (plusieurs), date ; maj(p) enregistre et redessine
 const choixJours = (attr, l) => `<div class="chips">${JOURS_SP.map(([f, e], d) => `<button class="toggle" data-${attr}="${d}" aria-pressed="${l.includes(d)}">${L(f, e)}</button>`).join("")}</div>`;
 const brancherJours = (h, attr, champ, maj) => h.C().querySelectorAll(`[data-${attr}]`).forEach(x => x.onclick = () => { const p = spPref(h.sp), d = +x.dataset[attr]; p[champ] = p[champ].includes(d) ? p[champ].filter(y => y !== d) : [...p[champ], d]; maj(p); });

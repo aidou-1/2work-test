@@ -375,12 +375,12 @@ const PROGRAMMES = [
     [30, 30, [3, 4, 4, 2], "dyn"]]
 ];
 const progAvance = id => { try { return Math.min(NB_PROG, parseInt(localStorage.getItem("prog_" + id), 10) || 0); } catch (e) { return 0; } };
-function progJour(P, i, choix) {   // construit la séance du jour i (0-27) : blocs, plan détaillé, textes
+function progJour(P, i, choix, court) {   // construit la séance du jour i (0-27) : blocs, plan détaillé, textes ; court : version raccourcie (Ma semaine, quand le club couvre déjà ce travail)
   const [id, tFr, tEn, , , couleur, , , , , sem, [eff, rep, tours, ech]] = P, w = Math.floor(i / 7), test = i === NB_PROG - 1;
   const [type, fFr, fEn, ex, rac] = test ? sem[0] : sem[i % 7], ty = test ? "test" : type, ww = test ? 2 : w;
   const ok = l => l.filter(e => EXERCICES[e]), blocs = []; let regl = {};
   if (type === "fract") {   // cardio par intervalles : séance de la semaine (suffixe « - » = volume allégé), au support et au niveau choisis
-    const k = ex[test ? 4 : w], S = seanceCardio(P[12] || "boxe", k.replace("-", ""), lireNiv(), k.endsWith("-")), cs = CONSEILS.fract[i % 4];
+    const k = ex[test ? 4 : w], S = seanceCardio(P[12] || "boxe", k.replace("-", ""), lireNiv(), k.endsWith("-") || !!court), cs = CONSEILS.fract[i % 4];
     return { ...S, prog: id, progI: i, titre: L("J", "D") + (i + 1) + " · " + S.titre, titreFr: tFr + " J" + (i + 1), semaine: w, nomProg: L(tFr, tEn), couleurProg: couleur, ty: test ? "test" : type, objectif: L(PTYPES.fract[3], PTYPES.fract[4]), conseil: L(...cs),
       listeHtml: `<li class="etude prog-carte-jour"><div><small><b>${L("Semaine", "Week")} ${w + 1} · ${L(...(PHASES_FRACT[P[12] || "boxe"] || PHASES_FRACT.defaut)[w])}</b></small><small>💡 ${L(...cs)}</small></div></li>` + S.listeHtml };
   }
@@ -389,9 +389,9 @@ function progJour(P, i, choix) {   // construit la séance du jour i (0-27) : bl
     blocs.push({ n: L(type === "recup" ? "Séance de récupération" : "Circuit de mobilité", type === "recup" ? "Recovery session" : "Mobility circuit"), t: ww < 3 ? 2 : 1, ex: ok(ex).map(e => [e, type === "recup" ? 50 : 40 + Math.min(ww, 2) * 5]), r: 10, rt: 30 });
   } else {
     const intense = type === "hiit", d = eff + [0, 5, 10, 0][ww] - (intense ? 5 : 0), r0 = Math.max(10, rep - [0, 0, 5, -5][ww] + (intense ? 5 : 0)), r = choix ?? reposLu("prog:" + id + ":" + i, r0);
-    regl = { repos: r, reposProp: r0, reposId: "prog:" + id + ":" + i, reglerRepos: v => progJour(P, i, v) };
+    regl = { repos: r, reposProp: r0, reposId: "prog:" + id + ":" + i, reglerRepos: v => progJour(P, i, v, court) };
     blocs.push({ n: L("Échauffement", "Warm-up"), t: 1, ex: ok(ECH[ech]).map(e => [e, 30]), r: 5 });
-    blocs.push({ n: L("Corps de séance", "Main workout"), t: test ? tours[2] : tours[w], ex: ok(ex).map(e => [e, d]), r, rt: Math.round(r * 2.5 / 5) * 5 });
+    blocs.push({ n: L("Corps de séance", "Main workout"), t: test ? tours[2] : Math.max(1, tours[w] - (court ? 1 : 0)), ex: ok(ex).map(e => [e, d]), r, rt: Math.round(r * 2.5 / 5) * 5 });
     if (rac) blocs.push({ n: L("Retour au calme", "Cool-down"), t: 1, ex: ok(RAC[rac]).map(e => [e, 30]), r: 5 });
   }
   const plan = [];
@@ -404,7 +404,8 @@ function progJour(P, i, choix) {   // construit la séance du jour i (0-27) : bl
 }
 const dureesProg = P => { const d = Array.from({ length: NB_PROG }, (_, i) => Math.round(progJour(P, i).plan.reduce((s, q) => s + q.d + q.r, 0) / 60)); return Math.min(...d) + "–" + Math.max(...d) + " min"; };
 const avecMat = P => P[10].some(d => d[3].some(e => EXERCICES[e] && EXERCICES[e].mat));   // vrai pour un programme sur mesure composé avec du matériel
-function progTerminer(id, i) { if (i === progAvance(id)) stocker("prog_" + id, i + 1); }
+// Ma semaine peut lancer un jour plus loin (les jours couverts par le club sont sautés) : les jours d'avant comptent alors comme faits
+function progTerminer(id, i) { if (i >= progAvance(id)) stocker("prog_" + id, i + 1); }
 let pgOnglet = "";   // onglet affiché dans Programmes : « prog » ou « rep »
 function ouvrirProgs(sens, onglet) {
   $("pgTitre").textContent = L("Programmes", "Programmes");
