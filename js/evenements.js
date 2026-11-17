@@ -1,5 +1,5 @@
 /* ============ ÉVÉNEMENTS ============ */
-$("back").onclick = () => retour(() => routine && routine.retour ? routine.retour() : routine && routine.reprise ? ouvrirReprise(routine.reprise, true) : routine && routine.prog ? ouvrirProg(routine.prog, true) : routine && routine.perso ? (vueListe === "favoris" ? vueFavoris() : vuePlan()) : ecran(routine && routine.defi ? "menu" : "home"));
+$("back").onclick = () => versAccueil() || retour(() => routine && routine.retour ? routine.retour() : routine && routine.reprise ? ouvrirReprise(routine.reprise, true) : routine && routine.prog ? ouvrirProg(routine.prog, true) : routine && routine.perso ? (vueListe === "favoris" ? vueFavoris() : vuePlan()) : ecran(routine && routine.defi ? "menu" : "home"));
 const MOTEUR = { tabata: [demarrerTab, suivantTab, precedentTab], souffle: [demarrerSouf, suivantSouf, precedentSouf] };
 const moteur = i => (MOTEUR[mode] || [demarrer, suivant, precedent])[i];
 /* Compte à rebours de PREP secondes avant chaque activité : le temps de poser le téléphone */

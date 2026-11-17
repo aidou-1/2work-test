@@ -8,7 +8,7 @@ function outil(titre, sous, html, retourVers) {
   $("oTitre").textContent = titre; $("oSub").textContent = sous; $("oCorps").innerHTML = html;   // rempli tout de suite : l'outil branche ses boutons sans attendre la transition
   ecran("outil", ecranCourant === "outil" ? undefined : () => scrollTo(0, 0));
 }
-$("outilRetour").onclick = () => retour(() => retourOutil());
+$("outilRetour").onclick = () => versAccueil() || retour(() => retourOutil());
 function ouvrirOutils() { ecran("outils"); }
 $("nOutils").onclick = () => ecranCourant !== "outils" && ouvrirOutils();
 $("otTitre").textContent = L("Outils", "Tools"); $("otSub").textContent = L("Tout ce qui complète tes séances : exercices, minuteurs, tests, mesures et calculs.", "Everything around your workouts: exercises, timers, tests, measurements and calculators.");

@@ -222,6 +222,7 @@ const mouvementReduit = () => matchMedia("(prefers-reduced-motion: reduce)").mat
    Pour revenir en arrière, appeler retour(() => ...) : la transition part dans l'autre sens. */
 function ecran(nom, avant) {
   if (nom !== "pret") clearInterval(tPret);
+  if (ONGLETS_APP.includes(nom)) depuisAccueil = ""; else if (ecranCourant === "menu" && nom !== "home") depuisAccueil = nom;
   const change = nom !== ecranCourant || avant, sens = sensRetour ? "retour" : "avant";
   sensRetour = false;
   const g = ++genEcran;   // un écran demandé entre-temps l'emporte (sinon une transition en retard couperait le chrono)
@@ -233,6 +234,12 @@ function ecran(nom, avant) {
   const el = $(nom); el.classList.remove("entre-avant", "entre-retour"); void el.offsetWidth; el.classList.add("entre-" + sens);
 }
 const retour = fn => { sensRetour = true; fn(); };
+/* Écran ouvert directement depuis l'accueil (Quick start, séance du jour, programme…) : son bouton retour ramène à l'accueil,
+   pas à son menu habituel (Outils, écran du sport, Programmes). Les écrans ouverts ensuite gardent leur retour normal.
+   « home » (Entraînement) a ses propres niveaux et revient déjà à l'accueil depuis le premier. */
+const ONGLETS_APP = ["accueil", "menu", "progres", "progs", "outils", "moi", "reglages"];
+let depuisAccueil = "";
+const versAccueil = () => depuisAccueil && depuisAccueil === ecranCourant && (retour(() => ecran("menu")), true);
 function afficherEcran(nom) {
   ecranCourant = nom;
   if (nom !== "session") clearInterval(timer);

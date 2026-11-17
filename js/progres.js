@@ -552,7 +552,7 @@ $("tProgs").onclick = () => ouvrirProgs();
 $("progsRetour").onclick = () => retour(() => ecran("menu"));
 // programme ouvert depuis un club : « Retour » y ramène (progRetourVers, js/clubs.js), sinon à la liste des programmes
 let progRetourVers = null;
-$("progRetour").onclick = () => { const f = progRetourVers; progRetourVers = null; f ? retour(f) : ouvrirProgs(true); };
+$("progRetour").onclick = () => { if (versAccueil()) return; const f = progRetourVers; progRetourVers = null; f ? retour(f) : ouvrirProgs(true); };
 
 /* ============ STYLE « SOCLE » : objets en volume (js/volume.js, chargé seulement quand ce style est choisi) ============
    volEcran(nom) est appelé à chaque changement d'écran : kettlebell à l'accueil, mini-personnage pendant un exercice sans vidéo,
