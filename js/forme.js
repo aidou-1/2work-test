@@ -2,7 +2,7 @@
    Le questionnaire (facultatif) note la nuit et l'état du corps ; on en tire une « batterie » de 0 à 100 % et un conseil d'effort.
    Données de santé : elles restent sur le téléphone (clé « forme »), sont gardées un an, vont dans le fichier de sauvegarde
    mais jamais dans la sauvegarde en ligne (js/clubs.js). Format : { "AAAA-MM-JJ": { h: heures, q, e, c, st, dl, z, rv, si } }, notes de 1 à 5 ; dl : 0 rien, 1 gêne, 2 douleur ; z : zones concernées ;
-   rv : heure du réveil approchée (minutes, heure de la 1re réponse du jour, bornée 5 h-11 h) ; si : siestes [{ t: minutes, d: durée en min }].
+   rv : heure du réveil approchée (minutes, heure de la 1re réponse du jour, bornée 5 h-11 h) ; si : siestes [{ t: minutes, d: durée en min }] ; p : points de la journée [{ t: minutes, e, st, f }] (f : corps lourd, 1 léger à 5 lourd).
    Les séances de club, tous sports (js/sport.js, clé « clubJournal ») comptent dans la charge et la fatigue de la veille. */
 const lireForme = () => lireJSON("forme", {});
 function stockerForme(F) {
@@ -32,31 +32,85 @@ function ratioCharge(j = jourCle(), h = lireHist()) {
   const aigue = chargeEntre(h, decaler(j, -6), j), chro = chargeEntre(h, decaler(j, -27), j) / 4;
   return h.some(x => x.j <= decaler(j, -27)) && chro >= 20 ? aigue / chro : null;
 }
-/* Batterie (0-100) : sommeil 30 %, qualité 15 %, énergie 25 %, courbatures 15 %, stress 15 %, moins la fatigue des séances
-   (semaine bien au-dessus de l'habitude, séance ou club très dur la veille, sparring encore plus) et une douleur signalée. Renvoie { v, parts } ou null sans réponse ce jour-là. */
+/* Base personnelle : chacun a sa « normale » (un 3/5 d'énergie n'a pas le même sens pour tout le monde) et le corps change avec le temps.
+   On garde la moyenne et l'écart habituel de chaque réponse sur les 28 jours précédents (au moins 7 réponses), puis on compare le jour à cette base,
+   comme le suivi d'un athlète par rapport à sa propre moyenne glissante. Le poids de la comparaison monte avec les réponses (jusqu'à moitié-moitié). */
+function basePerso(j, F) {
+  const l = Object.keys(F).filter(d => d < j && d >= decaler(j, -28)).map(d => F[d]);
+  if (l.length < 7) return null;
+  const st = k => { const v = l.map(r => r[k]).filter(x => x != null), m = moyenne(v); return [m, Math.sqrt(moyenne(v.map(x => (x - m) ** 2)))]; };
+  return { n: l.length, ...Object.fromEntries(["h", "q", "e", "c", "st"].map(k => [k, st(k)])) };
+}
+// besoin de sommeil propre à chacun : la durée moyenne des nuits suivies d'une bonne énergie (4 ou 5) sur 60 jours, entre 6 h 30 et 9 h 30 ; 8 h par défaut
+function besoinSommeil(j, F) {
+  const v = Object.keys(F).filter(d => d < j && d >= decaler(j, -60) && F[d].e >= 4).map(d => F[d].h);
+  return v.length >= 5 ? Math.max(6.5, Math.min(9.5, Math.round(moyenne(v) * 4) / 4)) : 8;
+}
+/* Batterie au réveil (0-100) : sommeil 30 % (par rapport à ton besoin), qualité 15 %, énergie 25 %, courbatures 15 %, stress 15 %, chaque note mêlant
+   une échelle commune et l'écart à ta base personnelle ; moins la dette de sommeil des 3 nuits d'avant (le manque s'additionne), la fatigue des séances
+   (semaine bien au-dessus de l'habitude, séance ou club très dur la veille, sparring encore plus) et une douleur. Renvoie { v, parts, r, besoin, n } ou null. */
 function batterie(j = jourCle(), F = lireForme(), h = lireHist()) {
   const r = F[j]; if (!r) return null;
-  const note = (k, inv) => (inv ? 5 - r[k] : r[k] - 1) / 4, parts = [[L("Sommeil", "Sleep"), borne01((r.h - 4) / 4) * 30, 30], [L("Qualité", "Quality"), note("q") * 15, 15], [L("Énergie", "Energy"), note("e") * 25, 25], [L("Courbatures", "Soreness"), note("c", 1) * 15, 15], [L("Stress", "Stress"), note("st", 1) * 15, 15]];
+  const B0 = basePerso(j, F), besoin = besoinSommeil(j, F), a = B0 ? Math.min(.5, B0.n / 56) : 0;
+  const item = (k, abs, max, inv) => { if (!a) return abs * max; const [m, sd] = B0[k], z = (r[k] - m) / Math.max(sd, .5) * (inv ? -1 : 1); return ((1 - a) * abs + a * borne01(.5 + z / 4)) * max; };
+  const note = (k, inv) => item(k, (inv ? 5 - r[k] : r[k] - 1) / 4, k === "e" ? 25 : 15, inv);
+  const parts = [[L("Sommeil", "Sleep"), item("h", borne01((r.h - besoin + 4) / 4), 30), 30], [L("Qualité", "Quality"), note("q"), 15], [L("Énergie", "Energy"), note("e"), 25], [L("Courbatures", "Soreness"), note("c", 1), 15], [L("Stress", "Stress"), note("st", 1), 15]];
+  const dette = [1, 2, 3].reduce((t, k) => { const x = F[decaler(j, -k)]; return t + (x ? Math.max(0, besoin - x.h) : 0); }, 0);
+  if (dette >= 1.5) parts.push([L("Dette de sommeil (3 nuits)", "Sleep debt (3 nights)"), -Math.min(10, dette * 2.5), 0]);
   const ra = ratioCharge(decaler(j, -1), h), veille = h.filter(x => x.j === decaler(j, -1)), cl = clubsDu(decaler(j, -1)), dure = veille.some(x => x.ef >= 8 || x.rs === 3 || chargeX(x) >= 80) || cl.some(x => x.dur);
   const malus = (ra && ra > 1.3 ? Math.min(15, (ra - 1.3) * 30) : 0) + (cl.some(x => x.t === "spar") ? 8 : dure ? 5 : 0);
   if (malus) parts.push([L("Fatigue des séances", "Training fatigue"), -malus, 0]);
   if (r.dl) parts.push([L("Douleur ou gêne", "Pain or discomfort"), r.dl === 2 ? -15 : -6, 0]);
-  return { v: Math.round(Math.max(0, Math.min(100, parts.reduce((t, p) => t + p[1], 0)))), parts, r };
+  return { v: Math.round(Math.max(0, Math.min(100, parts.reduce((t, p) => t + p[1], 0)))), parts, r, besoin, n: B0 ? B0.n : 0 };
 }
-/* Batterie au fil de la journée : pleine au réveil (questionnaire), elle se vide avec les heures d'éveil (≈ 2,5 points par heure, plus avec un stress
-   ou une énergie basse), les séances faites (charge / 5) et les clubs déjà passés (notés, ou après 21 h) ; une sieste la recharge (10-20 min : +8,
-   30 min : +10, 1 h : +12, 1 h 30 : +15). Modèle simplifié, transparent, sans capteur. t : minutes depuis minuit.
-   conseil : valeur qui guide l'effort conseillé = réveil + séances, clubs et siestes du jour, sans la baisse normale due à l'éveil. */
+/* Points dans la journée (facultatifs, 20 secondes) : énergie, stress, corps léger ou lourd. Ils donnent un niveau ressenti (0-100) qui recale la courbe
+   et apprend ton rythme de baisse : le ressenti suit la fatigue de façon plus fine et plus régulière que bien des mesures, à condition de le noter souvent. */
+const QP = [QF[1], QF[3], ["f", "Corps", "Body", ["🪶", "🙂", "😐", "😓", "🧱"], ["Léger", "Light"], ["Lourd", "Heavy"], 1]];
+const ressentiPoint = p => Math.round(((p.e - 1) / 4 * .5 + (5 - p.st) / 4 * .25 + (5 - p.f) / 4 * .25) * 100);
+// créneaux où l'on propose un point : [début en minutes, FR, EN]
+const CRENEAUX_PT = [[690, "Midi", "Midday"], [930, "Après-midi", "Afternoon"], [1170, "Soir", "Evening"]];
+const creneauPt = t => CRENEAUX_PT.filter(c => t >= c[0]).pop();
 const RECHARGE_SIESTE = d => d <= 20 ? 8 : d <= 30 ? 10 : d <= 60 ? 12 : 15;
-function batterieA(j, t, F = lireForme(), h = lireHist()) {
+// ce qui a joué depuis le réveil jusqu'à t (minutes) : heures d'éveil, séances faites (charge / 6), clubs passés (notés, ou après 21 h), siestes
+function fluxJour(j, t, r, h) {
+  return { eveil: Math.max(0, t - (r.rv || 420)) / 60, mult: (r.st >= 4 ? 1.25 : 1) * (r.e <= 2 ? 1.15 : 1), s: h.filter(x => x.j === j && (x.hr === undefined || x.hr * 60 <= t)).reduce((s, x) => s + chargeX(x) / 6, 0),
+    c: clubsDu(j).filter(c => c.note || t >= 21 * 60).reduce((s, c) => s + c.min * c.ef / 25, 0), n: (r.si || []).filter(n => n.t <= t).reduce((s, n) => s + RECHARGE_SIESTE(n.d), 0) };
+}
+/* Rythme de baisse personnel (points par heure d'éveil) appris des points des 28 derniers jours : pour chaque point pris après au moins 3 h d'éveil,
+   on déduit le rythme qui expliquerait le ressenti noté. Médiane (une journée bizarre ne fausse rien), bornée entre 1 et 5, et rapprochée de 2,5
+   tant qu'il y a moins de 10 points. */
+function rythmePerso(j, F = lireForme(), h = lireHist()) {
+  const l = [];
+  Object.keys(F).filter(d => d < j && d >= decaler(j, -28) && (F[d].p || []).length).forEach(d => { const B = batterie(d, F, h); F[d].p.forEach(p => { const x = fluxJour(d, p.t, F[d], h); if (x.eveil >= 3) l.push(Math.max(1, Math.min(5, (B.v - x.s - x.c + x.n - ressentiPoint(p)) / x.eveil / x.mult))); }); });
+  if (l.length < 3) return { v: 2.5, n: l.length };
+  const m = l.sort((a, b) => a - b)[l.length >> 1];
+  return { v: 2.5 + (m - 2.5) * Math.min(1, l.length / 10), n: l.length };
+}
+/* Batterie au fil de la journée : pleine au réveil, elle se vide avec les heures d'éveil (à ton rythme, plus avec un stress ou une énergie basse),
+   les séances et les clubs ; une sieste la recharge ; le dernier point de la journée la recale (60 % de l'écart entre ce que tu ressens et le calcul).
+   conseil : valeur qui guide l'effort = réveil + séances, clubs, siestes et recalage, sans la baisse normale due à l'éveil. t : minutes depuis minuit. */
+function batterieA(j, t, F = lireForme(), h = lireHist(), ry) {
   const B = batterie(j, F, h); if (!B) return null;
-  const r = B.r, rv = r.rv || 420, eveil = Math.max(0, t - rv) / 60, rythme = 2.5 * (r.st >= 4 ? 1.25 : 1) * (r.e <= 2 ? 1.15 : 1), parts = [];
-  const seances = h.filter(x => x.j === j && (x.hr === undefined || x.hr * 60 <= t)).reduce((s, x) => s + chargeX(x) / 6, 0);
-  const clubs = clubsDu(j).filter(c => c.note || t >= 21 * 60).reduce((s, c) => s + c.min * c.ef / 25, 0), sieste = (r.si || []).filter(n => n.t <= t).reduce((s, n) => s + RECHARGE_SIESTE(n.d), 0);
-  if (eveil) parts.push([L("Heures d’éveil", "Hours awake"), -eveil * rythme]); if (seances) parts.push([L("Séances du jour", "Today’s workouts"), -seances]);
-  if (clubs) parts.push([L("Club du jour", "Today’s club"), -clubs]); if (sieste) parts.push([L("Sieste", "Nap"), sieste]);
-  const borne = x => Math.round(Math.max(5, Math.min(100, x)));
-  return { v: borne(B.v + parts.reduce((s, p) => s + p[1], 0)), conseil: borne(B.v - seances - clubs + sieste), matin: B.v, parts, r, B };
+  const r = B.r, R = ry || rythmePerso(j, F, h), modele = u => { const x = fluxJour(j, u, r, h); return B.v - x.eveil * R.v * x.mult - x.s - x.c + x.n; };
+  const x = fluxJour(j, t, r, h), pt = (r.p || []).filter(p => p.t <= t).sort((a, b) => a.t - b.t).pop(), corr = pt ? (ressentiPoint(pt) - modele(pt.t)) * .6 : 0, parts = [];
+  if (x.eveil) parts.push([L("Heures d’éveil", "Hours awake"), -x.eveil * R.v * x.mult]); if (x.s) parts.push([L("Séances du jour", "Today’s workouts"), -x.s]);
+  if (x.c) parts.push([L("Club du jour", "Today’s club"), -x.c]); if (x.n) parts.push([L("Sieste", "Nap"), x.n]);
+  if (Math.round(corr)) parts.push([L(`Ton point de ${heureTxt(pt.t)}`, `Your ${heureTxt(pt.t)} check-in`), corr]);
+  const borne = v => Math.round(Math.max(5, Math.min(100, v)));
+  return { v: borne(modele(t) + corr), conseil: borne(B.v - x.s - x.c + x.n + corr), matin: B.v, parts, r, B, R, pt };
+}
+const heureTxt = t => Math.floor(t / 60) + " h " + String(t % 60).padStart(2, "0");
+// courbe du jour : du réveil à 23 h, trait plein jusqu'à maintenant, pointillé ensuite (sans les séances à venir) ; les points notés en ronds
+function courbeJour(j, maintenant) {
+  const F = lireForme(), h = lireHist(), r = F[j]; if (!r) return "";
+  const R = rythmePerso(j, F, h), de = r.rv || 420, a = Math.max(de + 60, 23 * 60), X = t => 10 + (t - de) / (a - de) * 280, Y = v => 100 - v * .9;
+  const pas = []; for (let t = de; t < a; t += 30) pas.push(t); pas.push(a);
+  const pt = t => X(t).toFixed(1) + "," + Y(batterieA(j, t, F, h, R).v).toFixed(1), avant = pas.filter(t => t <= maintenant).concat(maintenant <= a ? [maintenant] : []), apres = [maintenant, ...pas.filter(t => t > maintenant)];
+  return `<svg class="courbe fm-courbe fm-jour" viewBox="0 0 300 116" role="img" aria-label="${L("Ta batterie aujourd’hui", "Your battery today")}">
+    ${[25, 50, 75].map(v => `<line x1="10" x2="290" y1="${Y(v)}" y2="${Y(v)}"/><text x="0" y="${Y(v) + 3}">${v}</text>`).join("")}
+    ${[de, 12 * 60, 18 * 60, a].filter((t, i, l) => t >= de && t <= a && l.indexOf(t) === i).map(t => `<text x="${X(t) - 8}" y="114">${Math.floor(t / 60)} h</text>`).join("")}
+    <polyline points="${avant.map(pt).join(" ")}"/>${maintenant < a ? `<polyline class="fm-proj" points="${apres.map(pt).join(" ")}"/>` : ""}
+    ${(r.p || []).map(p => `<circle class="fm-pt" cx="${X(p.t)}" cy="${Y(ressentiPoint(p))}" r="4"><title>${heureTxt(p.t)} · ${L("ressenti", "felt")} ${ressentiPoint(p)} %</title></circle>`).join("")}</svg>`;
 }
 const minutesMaintenant = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 const batterieMaintenant = () => batterieA(jourCle(), minutesMaintenant());
@@ -175,22 +229,30 @@ function majForme() {
   const B = batterieMaintenant();
   // le chiffre affiché descend dans la journée ; le conseil d'effort suit la récupération et les séances du jour (B.conseil)
   if (!B) Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:var(--brand)"><span class="sc-ico">🔋</span><span><strong>${L("Ta batterie du jour", "Today’s battery")}</strong><small>${L("30 secondes : sommeil, énergie, courbatures, stress, douleur", "30 seconds: sleep, energy, soreness, stress, pain")}</small></span></button><button class="sc-go" id="fmGo" style="background:var(--brand)" aria-label="${L("Remplir le questionnaire", "Fill in the check-in")}">→</button>`;
-  else { const P = palier(B.conseil); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${B.v !== B.matin ? L(`${B.matin} % au réveil · `, `${B.matin} % on waking · `) : ""}${L(P[4], P[5])}</small></span></button>`; }
+  else { const P = palier(B.conseil), cr = pointAttendu(B.r); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${B.v !== B.matin ? L(`${B.matin} % au réveil · `, `${B.matin} % on waking · `) : ""}${L(P[4], P[5])}</small></span></button>${cr ? `<button class="sc-go" id="fmPt" style="background:${P[6]}" aria-label="${L("Faire le point", "Check in")} · ${L(cr[1], cr[2])}">📍</button>` : ""}`; }
   $("fmOuvrir").onclick = () => B ? detailForme() : questionnaire();
+  if ($("fmPt")) $("fmPt").onclick = () => pointJour();
   if ($("fmGo")) $("fmGo").onclick = () => questionnaire();
 }
 function detailForme() {
   const N = batterieMaintenant(), B = N.B, P = palier(N.conseil), c = conseilsForme(B), auj = jourCle();
-  ouvrirFeuilleInfo(L("Ta batterie du jour", "Today’s battery"), `<div class="batt-grand">${icoBatterie(N.v)}<b>${N.v} %</b></div><p class="sh-aide">${L(`${B.v} % au réveil, maintenant ${N.v} % : elle se vide au fil de la journée (éveil, stress, séances) et une sieste la recharge.`, `${B.v} % on waking, now ${N.v} %: it drains through the day (being awake, stress, workouts) and a nap recharges it.`)} ${L("Le conseil d’effort, lui, suit ta récupération et tes séances du jour, pas la baisse normale due à l’éveil.", "The effort advice follows your recovery and today’s workouts, not the normal drop from being awake.")}</p>
+  ouvrirFeuilleInfo(L("Ta batterie du jour", "Today’s battery"), `<div class="batt-grand">${icoBatterie(N.v)}<b>${N.v} %</b></div>${courbeJour(auj, minutesMaintenant())}
+    <p class="fm-legende"><i class="fm-l-ligne"></i>${L("calcul", "estimate")} <i class="fm-l-pt"></i>${L("tes points", "your check-ins")}</p>
+    <button class="primary" id="fmPoint">📍 ${L("Faire le point maintenant (20 s)", "Check in now (20 s)")}</button><p class="sh-aide">${L(`${B.v} % au réveil, maintenant ${N.v} % : elle se vide au fil de la journée (éveil, stress, séances) et une sieste la recharge.`, `${B.v} % on waking, now ${N.v} %: it drains through the day (being awake, stress, workouts) and a nap recharges it.`)} ${L("Le conseil d’effort, lui, suit ta récupération et tes séances du jour, pas la baisse normale due à l’éveil.", "The effort advice follows your recovery and today’s workouts, not the normal drop from being awake.")}</p>
     <p><b>${P[1]} ${L(P[2], P[3])}</b> · ${L(P[4], P[5])}</p>
     ${c.length ? `<ul class="prog-obj">${c.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}
     ${N.parts.length ? `<h3>${L("Depuis ton réveil", "Since you woke up")}</h3><ul class="carnet ef-liste">${N.parts.map(([n, v]) => `<li><span>${n}</span><b>${v > 0 ? "+" : ""}${Math.round(v)}</b></li>`).join("")}</ul>` : ""}
     <div class="fm-q"><b>😴 ${L("J’ai fait une sieste", "I took a nap")}</b>${choixFm("fmSieste", [[20, "10-20 min", "10-20 min"], [30, "30 min", "30 min"], [60, "1 h", "1 h"], [90, "1 h 30", "1 h 30"]], "")}
       <details><summary>${L("Quelle sieste choisir ?", "Which nap to choose?")}</summary><p>${L("10 à 20 minutes recharge la vigilance sans réveil pâteux : on reste en sommeil léger. Entre 30 et 60 minutes, on entre en sommeil profond et le réveil peut être difficile pendant un moment (inertie du sommeil). 1 h 30 correspond à un cycle complet : on se réveille plus facilement. Évite les siestes après 16 h, elles retardent l’endormissement du soir.", "10 to 20 minutes restores alertness without grogginess: you stay in light sleep. Between 30 and 60 minutes you enter deep sleep and waking can feel heavy for a while (sleep inertia). 1 h 30 is a full cycle: waking is easier. Avoid naps after 4 pm, they delay falling asleep at night.")}</p></details></div>
     <h3>${L("Au réveil : d’où vient ce chiffre", "On waking: where this number comes from")}</h3><ul class="carnet ef-liste">${B.parts.map(([n, v, m]) => `<li><span>${n}</span><b>${m ? Math.round(v) + " / " + m : Math.round(v)}</b></li>`).join("")}</ul>
+    <h3>${L("Ce que l’appli a appris sur toi", "What the app has learned about you")}</h3><ul class="carnet ef-liste">
+      <li><span>${L("Ton besoin de sommeil", "Your sleep need")}</span><b>${heureTxt(B.besoin * 60).replace(" 00", "")}</b></li>
+      <li><span>${L("Ta baisse par heure d’éveil", "Your drop per waking hour")}</span><b>${virgule(N.R.v)} %</b></li>
+      <li><span>${L("Jours dans ta base personnelle", "Days in your personal baseline")}</span><b>${B.n} / 28</b></li></ul>
+    <p class="sh-aide">${L(`Chaque matin est comparé à tes 28 derniers jours : la batterie suit ta normale, pas une moyenne de population, et change avec toi. Le besoin de sommeil vient de tes nuits suivies d’une bonne énergie ; la baisse par heure, de tes points (${N.R.n} pour l’instant, elle devient personnelle à partir de 3).`, `Each morning is compared with your last 28 days: the battery follows your normal, not a population average, and changes with you. Sleep need comes from nights followed by good energy; the hourly drop, from your check-ins (${N.R.n} so far, it becomes personal from 3).`)}</p>
     <p class="sh-aide">${L("Un repère, pas un diagnostic : si tu te sens mal, écoute ton corps avant le chiffre.", "A guide, not a diagnosis: if you feel unwell, listen to your body before the number.")}</p>
     <button class="toggle" id="fmModif">${L("Modifier mes réponses", "Edit my answers")}</button>`);
-  $("fmModif").onclick = () => questionnaire();
+  $("fmModif").onclick = () => questionnaire(); $("fmPoint").onclick = () => pointJour();
   brancherFm("fmSieste", d => { const G = lireForme(); G[auj] = { ...G[auj], si: [...(G[auj].si || []), { t: minutesMaintenant(), d: +d }] }; stockerForme(G); majForme(); detailForme(); bulleMs(L(`Sieste notée : +${RECHARGE_SIESTE(+d)} %`, `Nap logged: +${RECHARGE_SIESTE(+d)} %`)); });
 }
 function questionnaire() {
@@ -209,7 +271,18 @@ function questionnaire() {
   brancherFm("fmDl", v => { r.dl = +v; $("fmZones").hidden = !r.dl; });
   document.querySelectorAll("[data-fmz]").forEach(b => b.onclick = () => { const k = b.dataset.fmz; r.z = r.z.includes(k) ? r.z.filter(x => x !== k) : [...r.z, k]; b.setAttribute("aria-pressed", r.z.includes(k)); });
   if (ch) brancherClub(ch);
-  $("fmOk").onclick = () => { F[auj] = { h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [], rv: (F[auj] || {}).rv || Math.max(300, Math.min(660, minutesMaintenant())), ...((F[auj] || {}).si ? { si: F[auj].si } : {}) }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
+  $("fmOk").onclick = () => { F[auj] = { ...(F[auj] || {}), h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [], rv: (F[auj] || {}).rv || Math.max(300, Math.min(660, minutesMaintenant())) }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
+}
+// créneau ouvert (midi, après-midi, soir) sans point noté depuis son début : on le propose sur la carte
+const pointAttendu = r => { const t = minutesMaintenant(), c = creneauPt(t); return c && t - (r.rv || 420) >= 180 && !(r.p || []).some(p => p.t >= c[0]) ? c : null; };
+function pointJour() {
+  const F = lireForme(), auj = jourCle(); if (!F[auj]) return questionnaire();   // le point complète le matin : sans lui, on commence par le questionnaire
+  const d = (F[auj].p || []).slice(-1)[0] || {}, r = { e: d.e || F[auj].e, st: d.st || F[auj].st, f: d.f || 2 }, cr = creneauPt(minutesMaintenant());
+  ouvrirFeuilleInfo(L("Faire le point", "Check in") + (cr ? " · " + L(cr[1], cr[2]) : ""), `<p class="sh-aide">${L("Trois réponses sur le moment. Plus tu fais le point, plus la courbe colle à toi : l’appli apprend ton rythme de baisse dans la journée.", "Three answers about right now. The more you check in, the closer the curve fits you: the app learns how fast you drop during the day.")}</p>
+    ${QP.map(([k, fr, en, em, [bf, be], [hf, he]]) => `<div class="fm-q"><b>${L(fr, en)}</b><div class="fm-notes" role="radiogroup" aria-label="${L(fr, en)}">${em.map((e, i) => `<button class="toggle" role="radio" data-k="${k}" data-v="${i + 1}" aria-pressed="${r[k] === i + 1}" aria-checked="${r[k] === i + 1}" aria-label="${i + 1} / 5">${e}</button>`).join("")}</div><small><span>${L(bf, be)}</span><span>${L(hf, he)}</span></small></div>`).join("")}
+    <button class="primary" id="fmPtOk">${L("Enregistrer mon point", "Save my check-in")}</button>`);
+  document.querySelectorAll(".fm-notes [data-k]").forEach(b => b.onclick = () => { r[b.dataset.k] = +b.dataset.v; b.parentNode.querySelectorAll("button").forEach(x => { const on = x === b; x.setAttribute("aria-pressed", on); x.setAttribute("aria-checked", on); }); });
+  $("fmPtOk").onclick = () => { const G = lireForme(), t = minutesMaintenant(); G[auj] = { ...G[auj], p: [...(G[auj].p || []).filter(p => Math.abs(p.t - t) >= 30), { t, ...r }] }; stockerForme(G); majForme(); detailForme(); bulleMs(L(`Point noté : ressenti ${ressentiPoint(r)} %`, `Check-in saved: felt ${ressentiPoint(r)} %`)); };
 }
 
 /* --- Statistiques de Mes progrès : chaque carte explique le phénomène qu'elle montre --- */
