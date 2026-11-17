@@ -62,7 +62,7 @@ exosSp([
 ]);
 
 TESTS.push(["ftJongle", "Jonglages", "Juggling", "touches", "touches", "Le plus de touches sans que le ballon tombe, sur 3 essais : garde le meilleur. Pieds et cuisses uniquement, sans contact avec la tête. Échauffe-toi et garde les mêmes conditions de test.", "Most touches before the ball drops, best of 3 tries. Feet and thighs only, without heading. Warm up and keep testing conditions consistent."],
-  ["ftSprint", "Sprint 20 m", "20 m sprint", "s", "s", "Après un échauffement progressif, sur sol régulier et avec 10 mètres de dégagement après l’arrivée : départ arrêté, un partenaire chronomètre du premier mouvement au passage de la ligne des 20 mètres. Meilleur de 3 essais, 2 minutes de récupération entre chaque.", "After a progressive warm-up, on even ground with 10 metres of run-off beyond the finish: standing start, a partner times from your first movement to crossing the 20-metre line. Best of 3 tries, 2 minutes’ recovery between each."]);
+  ["ftSprint", "Sprint 20 m", "20 m sprint", "s", "s", "Après un échauffement progressif, sur sol régulier et avec 10 mètres de dégagement après l’arrivée : départ arrêté, un partenaire chronomètre du premier mouvement au passage de la ligne des 20 mètres. Meilleur de 3 essais, 2 minutes de récupération entre deux essais.", "After a progressive warm-up, on even ground with 10 metres of run-off beyond the finish: standing start, a partner times from your first movement to crossing the 20-metre line. Best of 3 tries, 2 minutes’ recovery between each."]);
 
 const allFt = a => allSp("foot", a);
 const MOB_FT = ["ankles", "hip9090", "wgs", "legfwd", "legside", "cossack", "thread", "lungetwist", "fenteBasse", "bxClam"];

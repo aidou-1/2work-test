@@ -108,7 +108,7 @@ function modeles(cb) {
   return [sp && [`Échauffement d’avant-match · ${nom}`, `Pre-match warm-up · ${nom}`, sp, "À faire juste avant le match ou l’entraînement, en entier.", "Do it right before the match or practice, in full."],
     [`Renfo spécifique${nom ? " · " + nom : ""}`, `Sport strength${nom ? " · " + nom : ""}`, R, "Hors jours de match, 1 à 2 fois par semaine. Qualité avant quantité.", "Away from match days, 1 to 2 times a week. Quality over quantity."],
     ["Récup du lendemain de match", "Day-after-match recovery", "etComplet", "Le lendemain du match : étirements doux, sans forcer.", "The day after the match: gentle stretches, no forcing."],
-    ["Cardio en autonomie", "Cardio on your own", "tabata", "Pendant la trêve ou en plus des entraînements : à fond sur les efforts, récupère bien entre.", "During the break or on top of practice: all out on the efforts, recover well in between."],
+    ["Cardio en autonomie", "Cardio on your own", "tabata", "Pendant la trêve ou en plus des entraînements : à fond sur les efforts, récupère bien entre eux.", "During the break or on top of practice: all out on the efforts, recover well in between."],
     ["Gainage et renfo général", "Core and general strength", "renfoComplet", "Sans matériel, à faire à la maison cette semaine.", "No equipment, to do at home this week."],
     ["Concentration avant match", "Pre-match focus", "coherFocus", "Dans le vestiaire ou la veille au soir : quelques minutes pour calmer le stress.", "In the changing room or the night before: a few minutes to calm the nerves."]].filter(m => m && ROUTINES[m[2]]);
 }

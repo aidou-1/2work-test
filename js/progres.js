@@ -70,8 +70,8 @@ let coachActif = true;
 try { coachActif = localStorage.getItem("coach") !== "0"; } catch (e) {}
 const COACH = {
   fr: { mi: ["Mi-parcours, continue comme ça !", "La moitié est faite, garde le rythme !", "Tu es à mi-chemin, ne lâche rien !", "Super, encore la moitié !"],
-        fin: ["Plus que 10 secondes, tiens bon !", "Dix secondes, tout donner !", "Allez, c'est la fin, encore 10 secondes !", "Dernier effort, 10 secondes !"],
-        calmeMi: ["Respire profondément, relâche les épaules.", "Laisse le muscle s'allonger doucement."], calmeFin: ["Encore quelques secondes, respire calmement."],
+        fin: ["Plus que 10 secondes, tiens bon !", "Dix secondes, tout donner !", "Allez, c’est la fin, encore 10 secondes !", "Dernier effort, 10 secondes !"],
+        calmeMi: ["Respire profondément, relâche les épaules.", "Laisse le muscle s’allonger doucement."], calmeFin: ["Encore quelques secondes, respire calmement."],
         douxMi: ["C’est bien, continue à ton rythme.", "La moitié, le corps se réchauffe."], douxFin: ["Encore 10 secondes, tranquillement.", "Plus que 10 secondes, sans forcer."] },
   en: { mi: ["Halfway there, keep it up!", "Half done, keep the pace!", "You're halfway, don't give up!", "Great, half to go!"],
         fin: ["Ten seconds left, hold on!", "Ten seconds, give it everything!", "Come on, almost done, ten more seconds!", "Last push, ten seconds!"],
@@ -274,7 +274,7 @@ $("favOk").onclick = () => {
 $("favNom").onkeydown = e => { if (e.key === "Enter") $("favOk").click(); };
 function vueFavoris() {
   const c = $("choicesF"), fs = lireFav(); c.innerHTML = "";
-  bouton(c, L("+ Créer une nouvelle séance", "+ Create a new workout"), L("Choisis tes exercices parmi les 160 de l’appli", "Pick your exercises from the 160 in the app"), "#E11D48", () => creerSeance());
+  bouton(c, L("+ Créer une nouvelle séance", "+ Create a new workout"), L("Choisis tes exercices parmi tous ceux de l’appli", "Pick your exercises from all those in the app"), "#E11D48", () => creerSeance());
   if (!fs.length) c.insertAdjacentHTML("beforeend", `<p class="vide">${L("Aucune séance enregistrée pour l’instant. Crée la tienne, ou touche « ☆ Enregistrer » dans l’aperçu de n’importe quelle séance.", "No saved workouts yet. Create your own, or tap “☆ Save” in any workout preview.")}</p>`);
   fs.forEach(f => { const r = ROUTINES["fav_" + f.id]; if (!r) return;
     bouton(c, propre(f.nom), (f.base === "perso" ? L("Séance perso", "Custom workout") : ROUTINES[f.base].titre) + " · " + T("{n} exercices", { n: r.exercices.length }), r.couleur, () => ouvrirRoutine("fav_" + f.id));

@@ -171,7 +171,7 @@ let langueVoix = "en", nomVoix = "";
 try { langueVoix = localStorage.getItem("langueVoix") || LANGUE; nomVoix = localStorage.getItem("nomVoix") || ""; } catch (e) {}
 const PHRASES = {
   en: { pret: "Get ready", repos: "Rest. Next: ", serie: ", set ", recup: "Recovery", tour: "Round ", go: "Let’s go!", test: "Hello, I will guide your workout. Let's go!" },
-  fr: { pret: "Prépare-toi", repos: "Repos. Ensuite : ", serie: ", série ", recup: "Récupération", tour: "Tour ", go: "C’est parti !", test: "Bonjour, je vais te guider pendant ta séance. C'est parti !" }
+  fr: { pret: "Prépare-toi", repos: "Repos. Ensuite : ", serie: ", série ", recup: "Récupération", tour: "Tour ", go: "C’est parti !", test: "Bonjour, je vais te guider pendant ta séance. C’est parti !" }
 };
 const PH = k => PHRASES[langueVoix][k];
 const voixDispo = () => ("speechSynthesis" in window ? speechSynthesis.getVoices() : []).filter(v => v.lang.toLowerCase().startsWith(langueVoix));
@@ -526,7 +526,7 @@ function bouton(parent, titre, detail, couleur, fn) {
   b.onclick = fn;
   parent.appendChild(b); return b;
 }
-bouton($("choicesP"), "Sports", "14 sports : ta semaine, les séances, la technique, le renfo et les tests de chacun", "#7B5EA7", () => vueSCats());
+bouton($("choicesP"), "Sports", "16 sports : ta semaine, les séances, la technique, le renfo et les tests de chacun", "#7B5EA7", () => vueSCats());
 bouton($("choicesP"), "Salle de musculation", "Par objectif : force, prise de muscle, excentrique, isométrie…", "#334E68", () => vueSalle());
 Object.keys(ROUTINES).filter(k => ROUTINES[k].blessure).forEach(k => bouton($("choicesB"), ROUTINES[k].titre, ROUTINES[k].detail + " · " + T("{n} exercices", { n: ROUTINES[k].exercices.length }), ROUTINES[k].couleur, () => ouvrirRoutine(k)));
 bouton($("choicesP"), "Tabata", "7 séances prêtes (cardio, jambes, abdos…) ou minuteur libre", "#D9480F", () => vueTabata());
@@ -547,7 +547,7 @@ function ouvrirApercu(cle) {
   $("cyclesRow").classList.toggle("hidden", !tb && !sa);
   const lc = document.querySelector('label[for="cyclesVal"]');
   lc.firstChild.textContent = T(sa ? "Séries par exercice" : "Nombre de cycles");
-  lc.querySelector("small").textContent = T(sa ? "Chaque exercice est répété, avec un repos entre les séries" : "Enchaînements répétés, avec une récupération entre chaque");
+  lc.querySelector("small").textContent = T(sa ? "Chaque exercice est répété, avec un repos entre les séries" : "Enchaînements répétés, avec une récupération entre chacun");
   $("cyclesVal").textContent = cycles;
   $("pList").classList.toggle("hidden", tb);
   $("ajoutBtn").closest(".reglage").classList.toggle("hidden", tb || so || !!routine.fixe);

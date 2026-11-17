@@ -313,7 +313,7 @@ const rappelActif = () => lire("rappelNotif") === "1" && "Notification" in windo
 const msgRappel = () => { const n = lireProfil().nom, s = series(lireHist()).cur;   // un message différent chaque jour, avec le prénom et la série
   return duJour([L(`${n ? n + ", c" : "C"}’est l’heure de ta séance 💪`, `${n ? n + ", it" : "It"}’s time for your workout 💪`), L(`Ta séance t’attend${n ? ", " + n : ""} 🔥`, `Your workout is waiting${n ? ", " + n : ""} 🔥`),
     s > 1 ? L(`Jour ${s + 1} de ta série : on continue ?`, `Day ${s + 1} of your streak: shall we go on?`) : L("Dix minutes suffisent pour commencer 🙌", "Ten minutes is enough to get started 🙌"), L(`Ton futur toi te dira merci${n ? ", " + n : ""} 🙌`, `Your future self will thank you${n ? ", " + n : ""} 🙌`)]); };
-const msgSoir = (v, s) => [L(`⚡ La vitalité de ton avatar est à ${v} %`, `⚡ Your avatar’s vitality is at ${v}%`), L("Juste 5 minutes suffisent pour la faire remonter" + (s > 0 ? ` et sauver ta série de ${s} jour${s > 1 ? "s" : ""}` : "") + ". On y va ?", "Just 5 minutes is enough to raise it" + (s > 0 ? ` and save your ${s}-day streak` : "") + ". Shall we?")];
+const msgSoir = (v, s) => [L(`⚡ La vitalité de ton avatar est à ${v} %`, `⚡ Your avatar’s vitality is at ${v}%`), L("5 minutes suffisent pour la faire remonter" + (s > 0 ? ` et sauver ta série de ${s} jour${s > 1 ? "s" : ""}` : "") + ". On y va ?", "Just 5 minutes is enough to raise it" + (s > 0 ? ` and save your ${s}-day streak` : "") + ". Shall we?")];
 async function majRappelSW() {   // copie pour le service worker (il n'a pas accès au stockage de la page)
   try { const P = lirePlanning(), c = await caches.open("2work-etat"), s = series(lireHist()).cur;
     await c.put("rappel.json", new Response(JSON.stringify({ actif: rappelActif(), heure: P && P.heure || "18:00", jours: Object.fromEntries(semaine(1).map(x => [x.j, x.s.t])), fait: lireHist().some(h => h.j === jourCle()) ? jourCle() : "",
@@ -415,7 +415,7 @@ function ouvrirAvis(sujet) {   // sujet : sport en refonte dont on demande l’a
     const texte = `${L("Avis 2 WORK", "2 WORK feedback")} ${"★".repeat(note)}${"☆".repeat(5 - note)}\n${r.aime ? "👍 " + r.aime + "\n" : ""}${r.gene ? "👎 " + r.gene + "\n" : ""}${r.message}\n\n— ${r.contexte}`;
     try {
       if (navigator.share) await navigator.share({ title: L("Avis 2 WORK", "2 WORK feedback"), text: texte });
-      else { await navigator.clipboard.writeText(texte); return etat(L("Avis copié : colle-le dans un message à la personne qui t’a partagé l’appli.", "Feedback copied: paste it in a message to the person who shared the app with you.")); }
+      else { await navigator.clipboard.writeText(texte); return etat(L("Avis copié : colle-le dans un message à la personne qui a partagé l’appli avec toi.", "Feedback copied: paste it in a message to the person who shared the app with you.")); }
       etat(L("Merci ! 🙏", "Thank you! 🙏"));
     } catch (e) { if (e.name !== "AbortError") etat(L("Envoi impossible ici : fais une capture d’écran de ton avis.", "Cannot send from here: take a screenshot of your feedback.")); }
   };
