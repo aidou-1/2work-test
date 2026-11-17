@@ -153,6 +153,16 @@ const BX_EX = [
 
 /* --- Réglages et choix du matériel --- */
 const bxPref = () => spPref("boxe"), bxGarder = p => spGarder("boxe", p);
+/* Séances de club : un type prévu par jour de club (P.types), corrigé après coup dans le journal « clubJournal » { "AAAA-MM-JJ": { sp, t, ef } }
+   (t = type ou « non » si la séance n'a pas eu lieu, ef = effort sur 10). Le type pèse sur le placement des séances, la charge et la batterie. */
+const TYPES_CLUB_BX = { tech: ["Technique / pattes", "Technique / pads", 6, 0], spar: ["Sparring", "Sparring", 8, 1], phys: ["Physique / cardio", "Conditioning", 8, 1] };
+const lireClubs = () => lireJSON("clubJournal", {});
+function clubJourBx(j, P = bxPref(), C = lireClubs()) {   // séance de club du jour j : { t, ef, nom, dur, note } ou null
+  const n = C[j] && C[j].sp === "boxe" ? C[j] : null, prevu = P.jours.includes((new Date(j + "T12:00").getDay() + 6) % 7);
+  if (n ? n.t === "non" : !prevu) return null;
+  const t = n ? n.t : (P.types || {})[(new Date(j + "T12:00").getDay() + 6) % 7] || "tech", T = TYPES_CLUB_BX[t] || TYPES_CLUB_BX.tech;
+  return { t, ef: n ? n.ef : T[2], nom: [T[0], T[1]], dur: !!T[3] || (n && n.ef >= 8), note: !!n, min: P.clubMin || 90 };
+}
 const ouvrirBoxe = (o, rv) => ouvrirSport("boxe", o, rv), lancerBx = (c, f) => lancerSp("boxe", c, f), bxSeance = (c, o) => spSeance("boxe", c, o);
 const COMBOS_BX = [["1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3", "1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3"], ["1-2-3-2 · 1-6-3 · 1c-2 · 3c-3 · 2-3-2 · 1-2-5-2", "1-2-3-2 · 1-6-3 · 1b-2 · 3b-3 · 2-3-2 · 1-2-5-2"],
   ["1-2 · esquive · 2 / 1-2 · roulé · 3-2 / bloque · 2-3 / retrait · 2 / 1-1-2-3c-3", "1-2 · slip · 2 / 1-2 · roll · 3-2 / block · 2-3 / pull back · 2 / 1-1-2-3b-3"]];
@@ -235,11 +245,13 @@ function bxSemaine(P = bxPref(), decal = 0) {
     if (!W) { const j = (cbt.getDay() + 6) % 7; f = .55; fixes[j] = "combat"; if (j >= 1) fixes[j - 1] = "repos"; if (j >= 2) fixes[j - 2] = "affutage"; }
     else if (W === 1) f = .8;
   } else { const w = Math.max(0, w0 - (P.niv === "debutant" && !P.cycle ? 6 : 0)); bloc = Math.floor(w / 4) % 3 + 1; sem = w % 4; if (sem === 3) f = .7; info = L(`Semaine ${sem + 1}/4`, `Week ${sem + 1}/4`) + (sem === 3 ? L(" · semaine allégée", " · lighter week") : ""); }
-  const liste = SEM_BX[bloc](sem).slice(0, P.n), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => DUR_BX.includes(c);
+  // un club dur (sparring, physique, ou noté 8/10 et plus) compte plein ; un club technique compte à moitié
+  const C = lireClubs(), clubJ = d => clubJourBx(jourCle(plusJ(L0, d)), P, C), club = d => { const x = clubJ(d); return x ? (x.dur ? 1 : .5) : 0; };
+  const liste = SEM_BX[bloc](sem).slice(0, P.n), jours = Array.from({ length: 7 }, () => []), dur = c => DUR_BX.includes(c);
   Object.entries(fixes).forEach(([j, c]) => jours[j].push(c));
   const nf = Object.keys(fixes).length;
   placerSp(liste.slice(0, nf ? Math.min(2, P.n - 1) : P.n), jours, club, dur, nf ? Math.min(...Object.keys(fixes).map(Number)) : 7);
-  return { L0, bloc, sem, f, info, jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), l })) };
+  return { L0, bloc, sem, f, info, jours: jours.map((l, d) => { const x = clubJ(d); return { d: plusJ(L0, d), club: !!x, clubNom: x && ["Club · " + x.nom[0], "Club · " + x.nom[1]], l }; }) };
 }
 
 /* --- L'écran Boxe : configuration lue par le moteur commun (js/sport.js) --- */
@@ -250,7 +262,10 @@ function bxParcours(h) {
     k => ["avant", "affutage"].includes(k) || S.f >= 1 ? undefined : S.f);
   h.html(`<h2 class="sec">${L("Mon profil de boxeur", "My boxer profile")}</h2><div class="carnet bx-prof">
       <span class="champ-titre">${L("Je suis", "I am")}</span>${chips("bxn", [["debutant", "Débutant complet", "Complete beginner"], ["club", "Pratiquant en club", "Club boxer"], ["compet", "Compétiteur amateur", "Amateur competitor"]], P.niv)}
-      <span class="champ-titre">${L("Mes jours de club (entraînement technique, sparring)", "My club days (technique training, sparring)")}</span>${choixJours("bxj", P.jours)}
+      <span class="champ-titre">${L("Mes jours de club", "My club days")}</span>${choixJours("bxj", P.jours)}
+      ${P.jours.length ? `<span class="champ-titre">${L("Ce que je fais d’habitude au club", "What I usually do at the club")}</span>${[...P.jours].sort().map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${chips("bxt" + d, Object.entries(TYPES_CLUB_BX).map(([k, [f, e]]) => [k, f, e]), (P.types || {})[d] || "tech")}</div>`).join("")}
+      <span class="champ-titre">${L("Durée d’une séance de club", "Club session length")}</span>${chips("bxcm", [[60, "1 h", "1 h"], [90, "1 h 30", "1 h 30"], [120, "2 h", "2 h"]], P.clubMin || 90)}
+      <p class="sh-aide">${L("Si une séance change (sparring à la place de la technique, séance annulée), note-la depuis la carte « Aujourd’hui » de l’accueil ou dans la batterie du lendemain : ta semaine et ta batterie s’adaptent.", "If a session changes (sparring instead of technique, cancelled session), log it from the “Today” card on the home screen or in the next morning’s battery: your week and battery adapt.")}</p>` : ""}
       <span class="champ-titre">${L("Séances de préparation par semaine", "Prep sessions per week")}</span>${chips("bxk", [2, 3, 4, 5].map(n => [n, n, n]), P.n)}
       <span class="champ-titre">${L("Date de combat (facultatif)", "Fight date (optional)")}</span><div class="favForm"><input class="choixVoix" type="date" id="bxDate" aria-label="${L("Date de combat", "Fight date")}" value="${P.date}" min="${jourCle()}"><button class="toggle" id="bxDateX">${L("Effacer", "Clear")}</button></div>
       <p class="sh-aide">${L("Avec une date, les 3 blocs sont placés à rebours pour finir la semaine du combat : semaine allégée, affûtage à J-2, repos à J-1. Sans date, les blocs s’enchaînent avec une semaine plus légère toutes les 4 semaines. Les séances dures évitent tes jours de club et leur veille.", "With a date, the 3 blocks are placed counting back to end on fight week: lighter week, taper 2 days out, rest the day before. Without a date, blocks follow each other with a lighter week every 4 weeks. Hard sessions avoid your club days and the day before.")}</p>
@@ -261,6 +276,8 @@ function bxParcours(h) {
   brancherChips("bxn", v => maj({ ...bxPref(), niv: v, cycle: 0, debut: jourCle() }));
   brancherChips("bxk", v => maj({ ...bxPref(), n: +v }));
   brancherJours(h, "bxj", "jours", maj);
+  P.jours.forEach(d => brancherChips("bxt" + d, v => maj({ ...bxPref(), types: { ...(bxPref().types || {}), [d]: v } })));
+  brancherChips("bxcm", v => maj({ ...bxPref(), clubMin: +v }));
   $("bxDate").onchange = e => maj({ ...bxPref(), date: e.target.value });
   $("bxDateX").onclick = () => maj({ ...bxPref(), date: "" });
   if ($("bxCycle")) $("bxCycle").onclick = () => maj({ ...bxPref(), cycle: 1, debut: jourCle() });

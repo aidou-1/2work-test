@@ -115,14 +115,15 @@ function semaineSp(h, S, lib, cle, fOf = () => S.f < 1 ? S.f : undefined) {
   aFaire.forEach(c => { const k = cle(c); h.carte(k, fOf(k)); h.C().querySelector("#bxAuj").appendChild(h.C().lastChild); });
   h.C().querySelectorAll("[data-bxl]").forEach(x => x.dataset.bxl && (x.onclick = () => lancerSp(h.sp, x.dataset.bxl, fOf(x.dataset.bxl))));
 }
-/* placement des séances d'une semaine : les dures évitent les jours de club, leur veille et deux jours d'affilée ; lim = premier jour interdit */
+/* placement des séances d'une semaine : les dures évitent les jours de club, leur veille, un peu leur lendemain, et deux jours d'affilée ; lim = premier jour interdit.
+   club(d) : vrai/faux, ou un poids (boxe : 1 club dur, 0,5 club technique) */
 function placerSp(liste, jours, club, dur, lim = 7) {
   [...liste.filter(dur), ...liste.filter(c => !dur(c))].forEach(c => {
     let best = -1, sc = 1e9;
     for (let d = 0; d < lim; d++) {
       if (jours[d].length) continue;
       const voisinDur = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].some(dur)), voisin = [d - 1, d + 1].some(v => v >= 0 && v < 7 && jours[v].length);
-      const s = (club(d) ? (dur(c) ? 6 : 2) : 0) + (dur(c) && club(d + 1) ? 4 : 0) + (dur(c) && voisinDur ? 3 : 0) + (voisin ? 1 : 0) + d * .01;
+      const s = (dur(c) ? 8 : 2) * +club(d) + (dur(c) ? 4 * +club(d + 1) + 2 * +club(d - 1) : 0) + (dur(c) && voisinDur ? 3 : 0) + (voisin ? 1 : 0) + d * .01;
       if (s < sc) { sc = s; best = d; }
     }
     if (best >= 0) jours[best].push(c);

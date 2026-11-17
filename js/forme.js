@@ -1,7 +1,8 @@
 /* ============ FORME DU JOUR : questionnaire du matin, batterie, conseil d'effort, statistiques expliquées ============
    Le questionnaire (facultatif) note la nuit et l'état du corps ; on en tire une « batterie » de 0 à 100 % et un conseil d'effort.
    Données de santé : elles restent sur le téléphone (clé « forme »), sont gardées un an, vont dans le fichier de sauvegarde
-   mais jamais dans la sauvegarde en ligne (js/clubs.js). Format : { "AAAA-MM-JJ": { h: heures, q, e, c, st } }, notes de 1 à 5. */
+   mais jamais dans la sauvegarde en ligne (js/clubs.js). Format : { "AAAA-MM-JJ": { h: heures, q, e, c, st, dl, z } }, notes de 1 à 5 ; dl : 0 rien, 1 gêne, 2 douleur ; z : zones concernées.
+   Les séances de club (js/boxe.js, clé « clubJournal ») comptent dans la charge et la fatigue de la veille. */
 const lireForme = () => lireJSON("forme", {});
 function stockerForme(F) {
   const lim = decaler(jourCle(), -365);   // conservation limitée à un an
@@ -14,20 +15,23 @@ const QF = [["q", "Qualité du sommeil", "Sleep quality", ["😫", "😕", "😐
   ["st", "Stress", "Stress", ["😌", "🙂", "😐", "😟", "🤯"], ["Zen", "Calm"], ["Très stressé", "Very stressed"], 1]];
 const borne01 = v => Math.max(0, Math.min(1, v));
 const chargeX = x => Math.round(x.s / 60 * ({ tabata: 3, seance: 2, salle: 2 }[x.m] || 1));   // minutes × intensité, comme la charge de Mes progrès
-const chargeEntre = (h, de, a) => h.filter(x => x.j >= de && x.j <= a).reduce((t, x) => t + chargeX(x), 0);
+// séances de club de boxe entre deux jours (notées, sinon prévues) ; charge = minutes × effort sur 10 / 4, comme une séance de l'appli
+const clubsEntre = (de, a) => { const P = bxPref(), C = lireClubs(), l = []; if (!P.jours.length && !Object.keys(C).length) return l; for (let j = de; j <= a; j = decaler(j, 1)) { const x = clubJourBx(j, P, C); if (x) l.push({ j, ...x }); } return l; };
+const chargeEntre = (h, de, a) => h.filter(x => x.j >= de && x.j <= a).reduce((t, x) => t + chargeX(x), 0) + clubsEntre(de, a).reduce((t, x) => t + Math.round(x.min * x.ef / 4), 0);
 // charge des 7 derniers jours rapportée à la moyenne hebdomadaire des 28 derniers jours (null sans 4 semaines d'historique : sinon la moyenne serait sous-estimée)
 function ratioCharge(j = jourCle(), h = lireHist()) {
   const aigue = chargeEntre(h, decaler(j, -6), j), chro = chargeEntre(h, decaler(j, -27), j) / 4;
   return h.some(x => x.j <= decaler(j, -27)) && chro >= 20 ? aigue / chro : null;
 }
 /* Batterie (0-100) : sommeil 30 %, qualité 15 %, énergie 25 %, courbatures 15 %, stress 15 %, moins la fatigue des séances
-   (semaine bien au-dessus de l'habitude, séance très dure la veille). Renvoie { v, parts } ou null sans réponse ce jour-là. */
+   (semaine bien au-dessus de l'habitude, séance ou club très dur la veille, sparring encore plus) et une douleur signalée. Renvoie { v, parts } ou null sans réponse ce jour-là. */
 function batterie(j = jourCle(), F = lireForme(), h = lireHist()) {
   const r = F[j]; if (!r) return null;
   const note = (k, inv) => (inv ? 5 - r[k] : r[k] - 1) / 4, parts = [[L("Sommeil", "Sleep"), borne01((r.h - 4) / 4) * 30, 30], [L("Qualité", "Quality"), note("q") * 15, 15], [L("Énergie", "Energy"), note("e") * 25, 25], [L("Courbatures", "Soreness"), note("c", 1) * 15, 15], [L("Stress", "Stress"), note("st", 1) * 15, 15]];
-  const ra = ratioCharge(decaler(j, -1), h), veille = h.filter(x => x.j === decaler(j, -1)), dure = veille.some(x => x.ef >= 8 || x.rs === 3 || chargeX(x) >= 80);
-  const malus = (ra && ra > 1.3 ? Math.min(15, (ra - 1.3) * 30) : 0) + (dure ? 5 : 0);
+  const ra = ratioCharge(decaler(j, -1), h), veille = h.filter(x => x.j === decaler(j, -1)), cl = clubJourBx(decaler(j, -1)), dure = veille.some(x => x.ef >= 8 || x.rs === 3 || chargeX(x) >= 80) || (cl && cl.dur);
+  const malus = (ra && ra > 1.3 ? Math.min(15, (ra - 1.3) * 30) : 0) + (cl && cl.t === "spar" ? 8 : dure ? 5 : 0);
   if (malus) parts.push([L("Fatigue des séances", "Training fatigue"), -malus, 0]);
+  if (r.dl) parts.push([L("Douleur ou gêne", "Pain or discomfort"), r.dl === 2 ? -15 : -6, 0]);
   return { v: Math.round(Math.max(0, Math.min(100, parts.reduce((t, p) => t + p[1], 0)))), parts, r };
 }
 // conseil d'effort : [seuil, emoji, titre FR, EN, détail FR, EN, couleur]
@@ -41,16 +45,96 @@ function conseilsForme(B) {
   if (r.h < 6) l.push(L("Nuit courte : pas de record ni de sprint maximal aujourd’hui, le risque de blessure monte.", "Short night: no records or all-out sprints today, injury risk goes up."));
   if (r.c >= 4) l.push(L("Fortes courbatures : travaille d’autres muscles ou bouge en douceur.", "Strong soreness: train other muscles or move gently."));
   if (r.st >= 4) l.push(L("Stress élevé : une séance modérée aide, une séance épuisante en rajoute.", "High stress: a moderate session helps, an exhausting one adds to it."));
-  if (B.parts.some(p => p[1] < 0)) l.push(L("Tes dernières séances pèsent encore : la batterie en tient compte.", "Your recent sessions still weigh on you: the battery accounts for it."));
+  if (r.dl) { const z = (r.z || []).map(k => L(...ZONES_FM[k]).toLowerCase()).join(", ");
+    l.push(r.dl === 2 ? L(`Douleur${z ? " (" + z + ")" : ""} : aucun effort qui la réveille. Si elle est vive, gonfle ou dure plus de quelques jours, montre-la à un médecin.`, `Pain${z ? " (" + z + ")" : ""}: no effort that triggers it. If it is sharp, swollen or lasts more than a few days, see a doctor.`)
+      : L(`Gêne${z ? " (" + z + ")" : ""} : les séances qui la sollicitent sont mises de côté ; arrête si elle devient une douleur.`, `Discomfort${z ? " (" + z + ")" : ""}: sessions that load it are set aside; stop if it turns into pain.`)); }
+  if (B.parts.some(p => p[0] === L("Fatigue des séances", "Training fatigue"))) l.push(L("Tes dernières séances pèsent encore : la batterie en tient compte.", "Your recent sessions still weigh on you: the battery accounts for it."));
   return l;
 }
 const icoBatterie = v => `<span class="batt" style="--v:${v}%;--bc:${palier(v)[6]}" aria-hidden="true"><i></i></span>`;
 
+const ZONES_FM = { epaule: ["Épaule", "Shoulder", "haut"], poignet: ["Coude, poignet, main", "Elbow, wrist, hand", "haut"], dos: ["Cou ou dos", "Neck or back", "tronc"], hanche: ["Hanche ou aine", "Hip or groin", "bas"], genou: ["Genou", "Knee", "bas"], cheville: ["Cheville ou pied", "Ankle or foot", "bas"] };
+// choix unique dans une feuille (les chips d'outils.js ne visent que l'écran d'outil)
+const choixFm = (id, l, v) => `<div class="chips" id="${id}">${l.map(([k, f, e]) => `<button class="toggle" data-v="${k}" aria-pressed="${String(k) === String(v)}">${L(f, e)}</button>`).join("")}</div>`;
+const brancherFm = (id, fn) => $(id).querySelectorAll("[data-v]").forEach(b => b.onclick = () => { $(id).querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-pressed", x === b)); fn(b.dataset.v); });
+
+/* --- Séance de club notée : type réel et effort (ou « pas eu lieu ») --- */
+const EF_CLUB = [[4, "Facile", "Easy"], [6, "Moyenne", "Moderate"], [8, "Dure", "Hard"], [9, "Très dure", "Very hard"]];
+const blocClub = c => `${choixFm("fmClT", [...Object.entries(TYPES_CLUB_BX).map(([k, [f, e]]) => [k, f, e]), ["non", "Pas eu lieu", "Didn’t happen"]], c.t)}
+  <div id="fmClE" ${c.t === "non" ? "hidden" : ""}><small>${L("Intensité", "Intensity")}</small>${choixFm("fmClEf", EF_CLUB, EF_CLUB.reduce((m, x) => Math.abs(x[0] - c.ef) < Math.abs(m - c.ef) ? x[0] : m, 6))}</div>`;
+function brancherClub(c) {
+  brancherFm("fmClT", v => { c.t = v; $("fmClE").hidden = v === "non"; if (v !== "non") { c.ef = TYPES_CLUB_BX[v][2]; $("fmClEf").querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-pressed", +x.dataset.v === c.ef)); } });
+  brancherFm("fmClEf", v => c.ef = +v);
+}
+function noterClub(j, c) {
+  const C = lireClubs(), lim = decaler(jourCle(), -365);   // conservation limitée à un an
+  C[j] = { sp: "boxe", t: c.t, ef: c.t === "non" ? 0 : c.ef };
+  stocker("clubJournal", JSON.stringify(Object.fromEntries(Object.entries(C).filter(([k]) => k >= lim))));
+}
+function feuilleClub(j) {
+  const x = clubJourBx(j), c = x ? { t: x.t, ef: x.ef } : { t: "tech", ef: 6 };
+  ouvrirFeuilleInfo(j === jourCle() ? L("Ma séance de club d’aujourd’hui", "Today’s club session") : L("Ma séance de club d’hier", "Yesterday’s club session"), `<p class="sh-aide">${L("Ce que tu as vraiment fait : ta semaine, ta charge et ta batterie de demain en tiennent compte.", "What you actually did: your week, your load and tomorrow’s battery take it into account.")}</p>
+    <div class="fm-q">${blocClub(c)}</div><button class="primary" id="fmClOk">${L("Enregistrer", "Save")}</button>`);
+  brancherClub(c);
+  $("fmClOk").onclick = () => { noterClub(j, c); fermerFeuille(); majForme(); };
+}
+
+/* --- Carte « Aujourd'hui · Boxe » : 2 ou 3 séances au choix selon la batterie, le club du jour, de la veille et du lendemain, et les efforts durs de la semaine --- */
+// séances mises de côté selon la zone qui fait mal (préfixes des codes de BXS)
+const EVITER_BX = { haut: ["tech_", "puissance", "specifique", "rsa", "forceA", "forceB", "affutage"], bas: ["puissance", "sprints", "rsa", "specifique", "affutage"], tronc: ["puissance", "gainage", "forceA", "forceB"] };
+function propositionsBx() {
+  const P = bxPref(), auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), v = B ? B.v : 60, r = B ? B.r : {};
+  const S = bxSemaine(P), a = jourCle(S.L0), h = lireHist(), club = clubJourBx(auj, P), hier = clubJourBx(decaler(auj, -1), P), dem = clubJourBx(decaler(auj, 1), P);
+  const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_BX[ZONES_FM[z][2]] || []).some(p => c.startsWith(p))), dur = c => DUR_BX.includes(c);
+  const dursApp = h.filter(x => x.j >= a && x.j < auj && /^bx_/.test(x.k || "") && dur(x.k.slice(3))).length, dursClub = clubsEntre(a, decaler(auj, -1)).filter(x => x.dur).length;
+  const fait = h.some(x => x.j === auj && /^bx_/.test(x.k || "")), prevues = S.jours[d].l.filter(c => BXS[c]), tech = "tech_" + Object.keys(THEMES_BX)[d % Object.keys(THEMES_BX).length];
+  const recup = v < 35 || r.dl === 2 || (hier && hier.dur && v < 55) || dursApp + dursClub >= 5, l = [], ajout = (c, f, fr, en) => { if (BXS[c] && !evite(c) && !l.some(o => o.c === c)) l.push({ c, f, p: L(fr, en) }); };
+  let etat;
+  if (club) {
+    etat = L(`Jour de club · ${club.nom[0]}`, `Club day · ${club.nom[1]}`);
+    ajout("mobilite", 1, "10 min avant le club, pour arriver délié.", "10 min before the club, to arrive loose.");
+    if (recup) ajout("recup", 1, "Batterie basse : vas-y doucement au club, ou remplace-le par ceci.", "Low battery: go easy at the club, or swap it for this.");
+    else if (!club.dur && v >= 55) prevues.filter(c => !dur(c)).forEach(c => ajout(c, .7, "Club technique : un complément léger reste possible.", "Technique club: a light extra is fine."));
+  } else if (recup) {
+    etat = L("Jour de récupération", "Recovery day");
+    ajout("recup", 1, v < 35 ? "Batterie basse : on fait circuler le sang, sans fatigue." : "Ta semaine a déjà été dure : le corps reconstruit.", v < 35 ? "Low battery: get the blood flowing, no fatigue." : "Your week has already been hard: your body is rebuilding.");
+    ajout("mobilite", 1, "Hanches, dos et épaules, sans douleur.", "Hips, back and shoulders, pain-free.");
+  } else {
+    etat = prevues.length ? L("Séance prévue dans ton parcours", "Session planned in your plan") : L("Jour libre", "Free day");
+    // séance dure prévue : entière au feu vert loin d'un club dur, allégée à côté d'un seul, remplacée entre deux clubs durs ou batterie sous 55 %
+    const serre = !!(hier && hier.dur) + !!(dem && dem.dur), proche = dem && dem.dur ? dem : hier && hier.dur ? hier : null;
+    prevues.forEach(c => {
+      if (dur(c) && (v < 55 || serre === 2 || (serre && v < 75))) return;
+      const f = !dur(c) || (v >= 75 && !serre) ? 1 : serre ? .6 : .8;
+      ajout(c, f, f === 1 ? "Feu vert : la séance telle que prévue." : proche ? `${proche.nom[0]} ${proche === dem ? "demain" : "hier"} : volume réduit pour garder de la fraîcheur.` : "Batterie moyenne : volume réduit.", f === 1 ? "Green light: the session as planned." : proche ? `${proche.nom[1]} ${proche === dem ? "tomorrow" : "yesterday"}: reduced volume to stay fresh.` : "Average battery: reduced volume.");
+    });
+    if (prevues.some(dur) && !l.some(o => dur(o.c))) etat += " · " + L(serre === 2 ? "séance dure remplacée : entre deux clubs durs" : "séance dure remplacée : batterie trop basse", serre === 2 ? "hard session swapped: between two hard club days" : "hard session swapped: battery too low");
+    if (v >= 55 && !serre) ajout(tech, 1, "Technique au sac ou en shadow, effort modéré.", "Technique on the bag or shadow boxing, moderate effort.");
+    else ajout(tech, .6, "Technique tranquille : la qualité sans la fatigue.", "Easy technique: quality without fatigue.");
+    if (v >= 55) ajout("gainage", 1, "Gainage et rotation : le lien entre jambes et poings.", "Core and rotation: the link between legs and fists.");
+    ajout("mobilite", 1, "Si tu manques de temps ou d’envie : 10 min.", "Short on time or motivation: 10 min.");
+  }
+  if (!l.length) ajout("mobilite", 1, "Sans douleur, en respirant.", "Pain-free, breathing.");
+  return { etat, l: l.slice(0, 3), B, club, hier, fait, durs: dursApp + dursClub };
+}
+function majJour() {
+  const Z = $("jourCarte"); if (!Z) return;
+  if (!bxPref().jours.length) { Z.innerHTML = ""; return; }
+  const O = propositionsBx(), auj = jourCle(), notable = O.club ? auj : O.hier && !O.hier.note ? decaler(auj, -1) : "";
+  Z.innerHTML = `<strong>🥊 ${L("Aujourd’hui · Boxe", "Today · Boxing")}</strong><small>${O.etat}${O.fait ? " · " + L("séance faite ✓", "workout done ✓") : ""} · ${L(`${O.durs} effort${O.durs > 1 ? "s" : ""} dur${O.durs > 1 ? "s" : ""} cette semaine`, `${O.durs} hard effort${O.durs > 1 ? "s" : ""} this week`)}${O.B ? "" : " · " + L("remplis ta batterie pour un conseil précis", "fill in your battery for precise advice")}</small>
+    ${O.l.map(o => { const S = BXS[o.c]; return `<button class="jr-opt" style="--c:${S.c}" data-jc="${o.c}" data-jf="${o.f}"><span><b>${L(...S.t)}</b><small>${o.p} · ${L("effort", "effort")} ${S.rpe}/10${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</small></span><i aria-hidden="true">▶</i></button>`; }).join("")}
+    ${notable ? `<button class="toggle" id="jrClub">📝 ${notable === auj ? L("Noter ma séance de club", "Log my club session") : L("Noter mon club d’hier", "Log yesterday’s club")}</button>` : ""}`;
+  Z.querySelectorAll("[data-jc]").forEach(b => b.onclick = () => lancerBx(b.dataset.jc, +b.dataset.jf < 1 ? +b.dataset.jf : undefined));
+  if ($("jrClub")) $("jrClub").onclick = () => feuilleClub(notable);
+}
+$("formeCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte jour-carte" id="jourCarte"></div>`);
+
 /* --- Carte de l'accueil --- */
 function majForme() {
+  majJour();
   const Z = $("formeCarte"); if (!Z) return;
   const B = batterie();
-  if (!B) Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:var(--brand)"><span class="sc-ico">🔋</span><span><strong>${L("Ta batterie du jour", "Today’s battery")}</strong><small>${L("5 questions, 20 secondes : sommeil, énergie, courbatures, stress", "5 questions, 20 seconds: sleep, energy, soreness, stress")}</small></span></button><button class="sc-go" id="fmGo" style="background:var(--brand)" aria-label="${L("Remplir le questionnaire", "Fill in the check-in")}">→</button>`;
+  if (!B) Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:var(--brand)"><span class="sc-ico">🔋</span><span><strong>${L("Ta batterie du jour", "Today’s battery")}</strong><small>${L("30 secondes : sommeil, énergie, courbatures, stress, douleur", "30 seconds: sleep, energy, soreness, stress, pain")}</small></span></button><button class="sc-go" id="fmGo" style="background:var(--brand)" aria-label="${L("Remplir le questionnaire", "Fill in the check-in")}">→</button>`;
   else { const P = palier(B.v); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${L(P[4], P[5])}</small></span></button>`; }
   $("fmOuvrir").onclick = () => B ? detailForme() : questionnaire();
   if ($("fmGo")) $("fmGo").onclick = () => questionnaire();
@@ -65,15 +149,22 @@ function detailForme() {
   $("fmModif").onclick = () => questionnaire();
 }
 function questionnaire() {
-  const F = lireForme(), auj = jourCle(), r = { h: 7.5, q: 3, e: 3, c: 2, st: 2, ...(F[auj] || F[decaler(auj, -1)] || {}) };   // on part des réponses de la veille : souvent proches
+  const F = lireForme(), auj = jourCle(), r = { h: 7.5, q: 3, e: 3, c: 2, st: 2, dl: 0, z: [], ...(F[auj] || F[decaler(auj, -1)] || {}) };   // on part des réponses de la veille : souvent proches
+  const hier = decaler(auj, -1), cl = clubJourBx(hier), ch = cl && !cl.note ? { t: cl.t, ef: cl.ef } : null;   // club d'hier pas encore noté : on le demande ici
   const ligne = ([k, fr, en, em, [bf, be], [hf, he]]) => `<div class="fm-q"><b>${L(fr, en)}</b><div class="fm-notes" role="radiogroup" aria-label="${L(fr, en)}">${em.map((e, i) => `<button class="toggle" role="radio" data-k="${k}" data-v="${i + 1}" aria-pressed="${r[k] === i + 1}" aria-checked="${r[k] === i + 1}" aria-label="${i + 1} / 5">${e}</button>`).join("")}</div><small><span>${L(bf, be)}</span><span>${L(hf, he)}</span></small></div>`;
   ouvrirFeuilleInfo(L("Comment tu te sens ?", "How do you feel?"), `<p class="sh-aide">${L("Réponds au réveil, c’est le plus fiable. Tes réponses restent sur ce téléphone.", "Answer when you wake up, it’s the most reliable. Your answers stay on this phone.")}</p>
     <div class="fm-q"><b>${L("Heures de sommeil", "Hours of sleep")}</b><div class="stepper"><button id="fmMoins" aria-label="${L("Une demi-heure de moins", "Half an hour less")}">−</button><output id="fmH"></output><button id="fmPlus" aria-label="${L("Une demi-heure de plus", "Half an hour more")}">+</button></div></div>
-    ${QF.map(ligne).join("")}<button class="primary" id="fmOk">${L("Voir ma batterie", "See my battery")}</button>`);
+    ${QF.map(ligne).join("")}
+    <div class="fm-q"><b>${L("Douleur ou gêne", "Pain or discomfort")}</b>${choixFm("fmDl", [[0, "Aucune", "None"], [1, "Gêne", "Discomfort"], [2, "Douleur", "Pain"]], r.dl)}
+      <div id="fmZones" ${r.dl ? "" : "hidden"}><small>${L("Où ? (plusieurs possibles)", "Where? (several allowed)")}</small><div class="chips">${Object.entries(ZONES_FM).map(([k, [f, e]]) => `<button class="toggle" data-fmz="${k}" aria-pressed="${r.z.includes(k)}">${L(f, e)}</button>`).join("")}</div></div></div>
+    ${ch ? `<div class="fm-q"><b>${L("Ta séance de club d’hier", "Yesterday’s club session")}</b>${blocClub(ch)}</div>` : ""}<button class="primary" id="fmOk">${L("Voir ma batterie", "See my battery")}</button>`);
   const majH = () => $("fmH").textContent = Math.floor(r.h) + " h" + (r.h % 1 ? " 30" : "");
   majH(); $("fmMoins").onclick = () => { r.h = Math.max(2, r.h - .5); majH(); }; $("fmPlus").onclick = () => { r.h = Math.min(13, r.h + .5); majH(); };
   document.querySelectorAll(".fm-notes [data-k]").forEach(b => b.onclick = () => { r[b.dataset.k] = +b.dataset.v; b.parentNode.querySelectorAll("button").forEach(x => { const on = x === b; x.setAttribute("aria-pressed", on); x.setAttribute("aria-checked", on); }); });
-  $("fmOk").onclick = () => { F[auj] = { h: r.h, q: r.q, e: r.e, c: r.c, st: r.st }; stockerForme(F); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
+  brancherFm("fmDl", v => { r.dl = +v; $("fmZones").hidden = !r.dl; });
+  document.querySelectorAll("[data-fmz]").forEach(b => b.onclick = () => { const k = b.dataset.fmz; r.z = r.z.includes(k) ? r.z.filter(x => x !== k) : [...r.z, k]; b.setAttribute("aria-pressed", r.z.includes(k)); });
+  if (ch) brancherClub(ch);
+  $("fmOk").onclick = () => { F[auj] = { h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [] }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
 }
 
 /* --- Statistiques de Mes progrès : chaque carte explique le phénomène qu'elle montre --- */

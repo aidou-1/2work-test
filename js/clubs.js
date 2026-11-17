@@ -87,7 +87,7 @@ function rendu() {
    chaque séance et au plus une fois par jour à l'ouverture. Consentement explicite, car le suivi peut contenir des informations
    de santé (poids, programmes de reprise après blessure). Désactivable à tout moment : la copie en ligne est alors effacée. --- */
 const svActive = () => lire("sauvegardeEnLigne") === "1";
-const fichierSuivi = () => { const d = donneesAppli(); delete d.forme; return JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: d }); };   // les réponses du questionnaire de forme (santé) restent sur le téléphone
+const fichierSuivi = () => { const d = donneesAppli(); delete d.forme; delete d.clubJournal; return JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: d }); };   // les réponses du questionnaire de forme (santé) restent sur le téléphone
 let svDernier = 0;
 async function sauvegardeAuto(force, encore = 1) {
   if (!svActive() || !SV || !CL.u || (!force && Date.now() - svDernier < 6e5)) return;
