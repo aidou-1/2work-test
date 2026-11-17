@@ -1,7 +1,8 @@
 /* ============ FORME DU JOUR : questionnaire du matin, batterie, conseil d'effort, statistiques expliquées ============
    Le questionnaire (facultatif) note la nuit et l'état du corps ; on en tire une « batterie » de 0 à 100 % et un conseil d'effort.
    Données de santé : elles restent sur le téléphone (clé « forme »), sont gardées un an, vont dans le fichier de sauvegarde
-   mais jamais dans la sauvegarde en ligne (js/clubs.js). Format : { "AAAA-MM-JJ": { h: heures, q, e, c, st, dl, z } }, notes de 1 à 5 ; dl : 0 rien, 1 gêne, 2 douleur ; z : zones concernées.
+   mais jamais dans la sauvegarde en ligne (js/clubs.js). Format : { "AAAA-MM-JJ": { h: heures, q, e, c, st, dl, z, rv, si } }, notes de 1 à 5 ; dl : 0 rien, 1 gêne, 2 douleur ; z : zones concernées ;
+   rv : heure du réveil approchée (minutes, heure de la 1re réponse du jour, bornée 5 h-11 h) ; si : siestes [{ t: minutes, d: durée en min }].
    Les séances de club, tous sports (js/sport.js, clé « clubJournal ») comptent dans la charge et la fatigue de la veille. */
 const lireForme = () => lireJSON("forme", {});
 function stockerForme(F) {
@@ -42,6 +43,23 @@ function batterie(j = jourCle(), F = lireForme(), h = lireHist()) {
   if (r.dl) parts.push([L("Douleur ou gêne", "Pain or discomfort"), r.dl === 2 ? -15 : -6, 0]);
   return { v: Math.round(Math.max(0, Math.min(100, parts.reduce((t, p) => t + p[1], 0)))), parts, r };
 }
+/* Batterie au fil de la journée : pleine au réveil (questionnaire), elle se vide avec les heures d'éveil (≈ 2,5 points par heure, plus avec un stress
+   ou une énergie basse), les séances faites (charge / 5) et les clubs déjà passés (notés, ou après 21 h) ; une sieste la recharge (10-20 min : +8,
+   30 min : +10, 1 h : +12, 1 h 30 : +15). Modèle simplifié, transparent, sans capteur. t : minutes depuis minuit.
+   conseil : valeur qui guide l'effort conseillé = réveil + séances, clubs et siestes du jour, sans la baisse normale due à l'éveil. */
+const RECHARGE_SIESTE = d => d <= 20 ? 8 : d <= 30 ? 10 : d <= 60 ? 12 : 15;
+function batterieA(j, t, F = lireForme(), h = lireHist()) {
+  const B = batterie(j, F, h); if (!B) return null;
+  const r = B.r, rv = r.rv || 420, eveil = Math.max(0, t - rv) / 60, rythme = 2.5 * (r.st >= 4 ? 1.25 : 1) * (r.e <= 2 ? 1.15 : 1), parts = [];
+  const seances = h.filter(x => x.j === j && (x.hr === undefined || x.hr * 60 <= t)).reduce((s, x) => s + chargeX(x) / 6, 0);
+  const clubs = clubsDu(j).filter(c => c.note || t >= 21 * 60).reduce((s, c) => s + c.min * c.ef / 25, 0), sieste = (r.si || []).filter(n => n.t <= t).reduce((s, n) => s + RECHARGE_SIESTE(n.d), 0);
+  if (eveil) parts.push([L("Heures d’éveil", "Hours awake"), -eveil * rythme]); if (seances) parts.push([L("Séances du jour", "Today’s workouts"), -seances]);
+  if (clubs) parts.push([L("Club du jour", "Today’s club"), -clubs]); if (sieste) parts.push([L("Sieste", "Nap"), sieste]);
+  const borne = x => Math.round(Math.max(5, Math.min(100, x)));
+  return { v: borne(B.v + parts.reduce((s, p) => s + p[1], 0)), conseil: borne(B.v - seances - clubs + sieste), matin: B.v, parts, r, B };
+}
+const minutesMaintenant = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+const batterieMaintenant = () => batterieA(jourCle(), minutesMaintenant());
 // conseil d'effort : [seuil, emoji, titre FR, EN, détail FR, EN, couleur]
 const PALIERS = [[75, "🟢", "Feu vert", "Green light", "Séance intense possible : effort 7 à 9 sur 10.", "Hard session on: effort 7 to 9 out of 10.", "#16A34A"],
   [55, "🟡", "Séance normale", "Normal session", "Effort modéré à soutenu : 5 à 7 sur 10.", "Moderate to steady effort: 5 to 7 out of 10.", "#CA8A04"],
@@ -93,7 +111,7 @@ function feuilleClub(j, sp = "boxe", apres = majForme) {
 const EVITER_SP = { haut: /^tech|puiss|specif|rsa|force|affut|frappe|lancer|service|tir/, bas: /puiss|sprint|rsa|specif|affut|vitesse|plio|saut|explo|deten/, tronc: /puiss|gainage|force/ };
 const ICO_SP = { boxe: "🥊", foot: "⚽", basket: "🏀", handball: "🤾", volley: "🏐", tennis: "🎾", padel: "🎾", course: "🏃", cyclisme: "🚴", natation: "🏊", escalade: "🧗", ski: "⛷️", surf: "🏄", pilates: "🧘", athle: "🏅", trail: "⛰️" };
 function propositionsSp(sp) {
-  const G = SP[sp], auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), v = B ? B.v : 60, r = B ? B.r : {}, S = spSemaine(sp), a = jourCle(lundi()), h = lireHist();
+  const G = SP[sp], auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), BN = batterieMaintenant(), v = BN ? BN.conseil : 60, r = B ? B.r : {}, S = spSemaine(sp), a = jourCle(lundi()), h = lireHist();
   const plusDur = l => l.find(x => x.dur) || l[0] || null, club = plusDur(clubsDu(auj)), hier = plusDur(clubsDu(decaler(auj, -1))), dem = plusDur(clubsDu(decaler(auj, 1)));
   const zones = r.dl ? r.z || [] : [], evite = c => zones.some(z => (EVITER_SP[(ZONES_FM[z] || [])[2]] || /$^/).test(c)), dur = c => durSp(sp, c), code = re => Object.keys(G.S).filter(c => re.test(c));
   const dursApp = h.filter(x => x.j >= a && x.j < auj && (x.k || "").startsWith(G.pre) && G.S[x.k.slice(G.pre.length)] && dur(x.k.slice(G.pre.length))).length, dursClub = clubsEntre(a, decaler(auj, -1)).filter(x => x.dur).length;
@@ -154,20 +172,26 @@ $("formeCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte jour-c
 function majForme() {
   majJour();
   const Z = $("formeCarte"); if (!Z) return;
-  const B = batterie();
+  const B = batterieMaintenant();
+  // le chiffre affiché descend dans la journée ; le conseil d'effort suit la récupération et les séances du jour (B.conseil)
   if (!B) Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:var(--brand)"><span class="sc-ico">🔋</span><span><strong>${L("Ta batterie du jour", "Today’s battery")}</strong><small>${L("30 secondes : sommeil, énergie, courbatures, stress, douleur", "30 seconds: sleep, energy, soreness, stress, pain")}</small></span></button><button class="sc-go" id="fmGo" style="background:var(--brand)" aria-label="${L("Remplir le questionnaire", "Fill in the check-in")}">→</button>`;
-  else { const P = palier(B.v); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${L(P[4], P[5])}</small></span></button>`; }
+  else { const P = palier(B.conseil); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${B.v !== B.matin ? L(`${B.matin} % au réveil · `, `${B.matin} % on waking · `) : ""}${L(P[4], P[5])}</small></span></button>`; }
   $("fmOuvrir").onclick = () => B ? detailForme() : questionnaire();
   if ($("fmGo")) $("fmGo").onclick = () => questionnaire();
 }
 function detailForme() {
-  const B = batterie(), P = palier(B.v), c = conseilsForme(B);
-  ouvrirFeuilleInfo(L("Ta batterie du jour", "Today’s battery"), `<div class="batt-grand">${icoBatterie(B.v)}<b>${B.v} %</b></div><p><b>${P[1]} ${L(P[2], P[3])}</b> · ${L(P[4], P[5])}</p>
+  const N = batterieMaintenant(), B = N.B, P = palier(N.conseil), c = conseilsForme(B), auj = jourCle();
+  ouvrirFeuilleInfo(L("Ta batterie du jour", "Today’s battery"), `<div class="batt-grand">${icoBatterie(N.v)}<b>${N.v} %</b></div><p class="sh-aide">${L(`${B.v} % au réveil, maintenant ${N.v} % : elle se vide au fil de la journée (éveil, stress, séances) et une sieste la recharge.`, `${B.v} % on waking, now ${N.v} %: it drains through the day (being awake, stress, workouts) and a nap recharges it.`)} ${L("Le conseil d’effort, lui, suit ta récupération et tes séances du jour, pas la baisse normale due à l’éveil.", "The effort advice follows your recovery and today’s workouts, not the normal drop from being awake.")}</p>
+    <p><b>${P[1]} ${L(P[2], P[3])}</b> · ${L(P[4], P[5])}</p>
     ${c.length ? `<ul class="prog-obj">${c.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}
-    <h3>${L("D’où vient ce chiffre", "Where this number comes from")}</h3><ul class="carnet ef-liste">${B.parts.map(([n, v, m]) => `<li><span>${n}</span><b>${m ? Math.round(v) + " / " + m : Math.round(v)}</b></li>`).join("")}</ul>
+    ${N.parts.length ? `<h3>${L("Depuis ton réveil", "Since you woke up")}</h3><ul class="carnet ef-liste">${N.parts.map(([n, v]) => `<li><span>${n}</span><b>${v > 0 ? "+" : ""}${Math.round(v)}</b></li>`).join("")}</ul>` : ""}
+    <div class="fm-q"><b>😴 ${L("J’ai fait une sieste", "I took a nap")}</b>${choixFm("fmSieste", [[20, "10-20 min", "10-20 min"], [30, "30 min", "30 min"], [60, "1 h", "1 h"], [90, "1 h 30", "1 h 30"]], "")}
+      <details><summary>${L("Quelle sieste choisir ?", "Which nap to choose?")}</summary><p>${L("10 à 20 minutes recharge la vigilance sans réveil pâteux : on reste en sommeil léger. Entre 30 et 60 minutes, on entre en sommeil profond et le réveil peut être difficile pendant un moment (inertie du sommeil). 1 h 30 correspond à un cycle complet : on se réveille plus facilement. Évite les siestes après 16 h, elles retardent l’endormissement du soir.", "10 to 20 minutes restores alertness without grogginess: you stay in light sleep. Between 30 and 60 minutes you enter deep sleep and waking can feel heavy for a while (sleep inertia). 1 h 30 is a full cycle: waking is easier. Avoid naps after 4 pm, they delay falling asleep at night.")}</p></details></div>
+    <h3>${L("Au réveil : d’où vient ce chiffre", "On waking: where this number comes from")}</h3><ul class="carnet ef-liste">${B.parts.map(([n, v, m]) => `<li><span>${n}</span><b>${m ? Math.round(v) + " / " + m : Math.round(v)}</b></li>`).join("")}</ul>
     <p class="sh-aide">${L("Un repère, pas un diagnostic : si tu te sens mal, écoute ton corps avant le chiffre.", "A guide, not a diagnosis: if you feel unwell, listen to your body before the number.")}</p>
     <button class="toggle" id="fmModif">${L("Modifier mes réponses", "Edit my answers")}</button>`);
   $("fmModif").onclick = () => questionnaire();
+  brancherFm("fmSieste", d => { const G = lireForme(); G[auj] = { ...G[auj], si: [...(G[auj].si || []), { t: minutesMaintenant(), d: +d }] }; stockerForme(G); majForme(); detailForme(); bulleMs(L(`Sieste notée : +${RECHARGE_SIESTE(+d)} %`, `Nap logged: +${RECHARGE_SIESTE(+d)} %`)); });
 }
 function questionnaire() {
   const F = lireForme(), auj = jourCle(), r = { h: 7.5, q: 3, e: 3, c: 2, st: 2, dl: 0, z: [], ...(F[auj] || F[decaler(auj, -1)] || {}) };   // on part des réponses de la veille : souvent proches
@@ -185,7 +209,7 @@ function questionnaire() {
   brancherFm("fmDl", v => { r.dl = +v; $("fmZones").hidden = !r.dl; });
   document.querySelectorAll("[data-fmz]").forEach(b => b.onclick = () => { const k = b.dataset.fmz; r.z = r.z.includes(k) ? r.z.filter(x => x !== k) : [...r.z, k]; b.setAttribute("aria-pressed", r.z.includes(k)); });
   if (ch) brancherClub(ch);
-  $("fmOk").onclick = () => { F[auj] = { h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [] }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
+  $("fmOk").onclick = () => { F[auj] = { h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [], rv: (F[auj] || {}).rv || Math.max(300, Math.min(660, minutesMaintenant())), ...((F[auj] || {}).si ? { si: F[auj].si } : {}) }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
 }
 
 /* --- Statistiques de Mes progrès : chaque carte explique le phénomène qu'elle montre --- */

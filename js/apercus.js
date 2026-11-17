@@ -76,8 +76,9 @@ const cibleEffort = (r = routine, m = mode) => { const n = String(r && r.rpe || 
 const etiqJour = j => new Date(j + "T12:00").toLocaleDateString(L("fr-FR", "en-GB"), { weekday: "long", day: "numeric", month: "short" });
 
 // état d'un jour : facteurs qui rendent l'effort plus dur (ou plus facile), avec la batterie de ce jour-là
-function etatDu(j, h = lireHist()) {
-  const F = lireForme(), B = F[j] ? batterie(j, F, h) : null, r = B && B.r, veille = decaler(j, -1), l = [];
+function etatDu(j, h = lireHist(), hr) {
+  // batterie au moment de la séance si l'heure est connue (elle se vide dans la journée), sinon celle du réveil
+  const F = lireForme(), B = F[j] ? (hr !== undefined ? batterieA(j, hr * 60 + 30, F, h) : batterie(j, F, h)) : null, r = B && B.r, veille = decaler(j, -1), l = [];
   if (r) { if (r.h < 7) l.push("sommeil"); if (r.q <= 2) l.push("qualite"); if (r.e <= 2) l.push("energie"); if (r.st >= 4) l.push("stress"); if (r.c >= 4) l.push("courbatures"); if (r.dl) l.push("douleur"); }
   const ra = ratioCharge(veille, h); if (ra && ra > 1.3) l.push("charge");
   if (h.some(x => x.j === veille && (x.ef >= 8 || x.rs === 3 || chargeX(x) >= 80)) || clubsDu(veille).some(c => c.dur)) l.push("veille");
@@ -88,7 +89,7 @@ function etatDu(j, h = lireHist()) {
 // aperçu d'une séance de l'historique (x) : { sens, phrase, facteurs, conseils }
 function apercuSeance(x, h = lireHist()) {
   if (x.ef === undefined) return null;
-  const i = h.indexOf(x), ec = x.ec || 6, ecart = x.ef - ec, avant = i < 0 ? h.filter(y => y.j < x.j) : h.slice(0, i), E = etatDu(x.j, h), f = [...E.l];
+  const i = h.indexOf(x), ec = x.ec || 6, ecart = x.ef - ec, avant = i < 0 ? h.filter(y => y.j < x.j) : h.slice(0, i), E = etatDu(x.j, h.filter(y => y !== x), x.hr), f = [...E.l];
   if (x.hr !== undefined && x.hr < 8) f.push("matin"); else if (x.hr >= 21) f.push("soir");
   const der = avant.filter(y => y.j < x.j).map(y => y.j).sort().pop(); if (der && (new Date(x.j) - new Date(der)) / 864e5 >= 10) f.push("reprise");
   if (x.k && !avant.some(y => y.k === x.k && y.t === x.t)) f.push("decouverte");
@@ -101,7 +102,7 @@ function apercuSeance(x, h = lireHist()) {
   } else if (sens === "facile") {
     facteurs = [...(E.B && E.B.v >= 75 ? ["forme"] : []), "adaptation"];
     phrase = `${intro} : ${L("tu avais de la marge.", "you had room to spare.")}${bat} ` + (E.B && E.B.v >= 75 ? L("Ta bonne forme du jour y est pour beaucoup, et ton corps s’est sans doute adapté.", "Your good shape today played a big part, and your body has probably adapted.") : L("Ton corps s’est sans doute adapté à cette séance.", "Your body has probably adapted to this session."));
-  } else phrase = `${intro} : ${L("séance bien dosée, ressenti conforme.", "well-judged session, effort as expected.")}${bat}` + (f.length ? " " + L("Malgré ", "Despite ") + f.slice(0, 2).map(ceQuiF).join(L(" et ", " and ")) + L(" : bien géré.", ": well handled.") : "");
+  } else phrase = `${intro} : ${L("séance bien dosée, ressenti conforme.", "well-judged session, effort as expected.")}${bat}` + (f.length ? " " + L("Même si ", "Even though ") + f.slice(0, 2).map(ceQuiF).join(L(" et ", " and ")) + L(" : bien géré.", ": well handled.") : "");
   return { x, sens, phrase, facteurs, conseils: facteurs.slice(0, 3).map(conseilF), ecart };
 }
 // aperçus des performances mesurées (tests, charges en salle) des 30 derniers jours : baisse de plus de 5 % ou record, expliqués par l'état du jour
