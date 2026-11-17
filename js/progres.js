@@ -215,11 +215,12 @@ function ouvrirProgres() {
       <div class="legende-ch">${L("Moins", "Less")} <i style="background:var(--soft)"></i><i style="background:#C7D2FE"></i><i style="background:#818CF8"></i><i style="background:#4F46E5"></i><i style="background:#312E81"></i> ${L("Plus", "More")}</div></div>
     ${blocsJeu()}
     ${blocsForme()}
+    ${typeof blocApercus === "function" ? blocApercus() : ""}
     ${sectionCharges()}
     <h2 class="sec">${L("Trophées", "Trophies")} · ${nbT}/${TROPHEES.length}</h2>
     <div class="carte"><div class="trophees">${TROPHEES.map((t, k) => `<div class="trophee${deja[t[0]] ? "" : " verrou"}" style="--k:${k}">${medaille(t, "p")}<b>${L(t[1], t[2])}</b>${L(t[3], t[4])}</div>`).join("")}</div></div>
     ${dernieres ? `<h2 class="sec">${L("Dernières séances", "Recent workouts")}</h2><ul class="list historique">${dernieres}</ul>` : `<p class="vide">${L("Termine ta première séance pour allumer la flamme !", "Finish your first workout to light the flame!")}</p>`}`;
-  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme();
+  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
   document.documentElement.style.setProperty("--accent", "#F97316");
   ecran("progres");
   setTimeout(() => $("prCorps").querySelectorAll("[data-v]").forEach(b => compteur(b, +b.dataset.v)), 350);

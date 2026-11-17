@@ -79,11 +79,11 @@ function seanceCardio(grp, cle, niv = lireNiv(), moins = 0) {
 }
 
 /* Effort ressenti (0 à 10) noté en fin de séance cardio, gardé avec la séance dans l'historique (« ef ») et comparé à l'effort visé. */
-const blocEffort = () => `<div class="carnet ressenti"><h3>💬 ${L("Ton effort ressenti sur 10", "Your perceived effort out of 10")}</h3><p class="sh-aide">${L("0 aucun effort · 5 modéré · 8 très dur · 10 maximum. Effort visé : ", "0 no effort · 5 moderate · 8 very hard · 10 maximum. Target effort: ")}${routine.rpe}</p>
+const blocEffort = () => `<div class="carnet ressenti"><h3>💬 ${L("Ton effort ressenti sur 10", "Your perceived effort out of 10")}</h3><p class="sh-aide">${L("0 aucun effort · 5 modéré · 8 très dur · 10 maximum. Effort visé : ", "0 no effort · 5 moderate · 8 very hard · 10 maximum. Target effort: ")}${routine.rpe || cibleEffort()}</p>
   <div class="ef-choix">${Array.from({ length: 11 }, (_, v) => `<button class="toggle" data-ef="${v}">${v}</button>`).join("")}</div><div id="efRes"></div></div>`;
 function brancherEffort() {
   document.querySelectorAll("[data-ef]").forEach(b => b.onclick = () => {
-    const v = +b.dataset.ef, h = lireHist(), x = h[h.length - 1], cible = parseInt(routine.rpe); if (!x) return;
+    const v = +b.dataset.ef, h = lireHist(), x = h[h.length - 1], cible = cibleEffort(); if (!x) return;
     x.ef = v; x.ec = cible; stocker("historique", JSON.stringify(h));
     const ordre = NIV_RENFO.map(n => n[0]), i = ordre.indexOf(x.nv), trois = h.filter(y => y.ef !== undefined && y.ec >= 8 && y.nv === x.nv).slice(-3), vers = trois.length < 3 || i < 0 ? "" : trois.every(y => y.ef <= y.ec - 2) ? ordre[i + 1] : trois.every(y => y.ef > y.ec || y.ef === 10 && y.ec < 9) ? ordre[i - 1] : "";   // 3 séances dures de suite trop faciles ou trop dures → changer de niveau
     document.querySelectorAll("[data-ef]").forEach(y => y.setAttribute("aria-pressed", y === b));
@@ -91,6 +91,8 @@ function brancherEffort() {
       : v < cible - 1 ? L("Tu avais de la marge : pars plus fort sur chaque effort, ou passe au niveau supérieur.", "You had more in the tank: go harder on each effort, or move up a level.")
       : v > cible + (cible < 9) ? L("Très dur aujourd’hui : garde ce niveau, et soigne ton sommeil avant la prochaine séance dure.", "Very hard today: stay at this level, and look after your sleep before the next hard session.")
       : L("Pile dans la cible. Laisse 48 h avant ta prochaine séance dure.", "Right on target. Leave 48 h before your next hard session.")}</p>` + (vers ? `<p class="sh-aide">${L("Trois séances dures de suite ", "Three hard sessions in a row ")}${ordre.indexOf(vers) > i ? L("en dessous de l’effort visé : le niveau est devenu trop facile.", "below the target effort: this level has become too easy.") : L("au-dessus de l’effort visé : le niveau est trop dur pour l’instant.", "above the target effort: this level is too hard for now.")}</p><button class="toggle" id="efNiv">${L("Passer au niveau", "Switch to level")} ${L(...NIV_RENFO.find(n => n[0] === vers).slice(1, 3))}</button>` : "");
+    // aperçu : pourquoi ce ressenti, selon l'état du jour (js/apercus.js) ; hors cardio, il remplace le conseil de niveau
+    const A = apercuSeance(x, h); if (!routine.cardioS) $("efRes").innerHTML = ""; $("efRes").insertAdjacentHTML("beforeend", apercuHtml(A)); brancherApercu($("efRes"));
     if ($("efNiv")) $("efNiv").onclick = () => { stocker("niveauRenfo", vers); $("efNiv").outerHTML = `<p class="sh-ok">✓ ${L("C’est noté pour tes prochaines séances.", "Noted for your next sessions.")}</p>`; };
   });
 }

@@ -230,8 +230,10 @@ function majSemaine() {   // carte « Aujourd'hui » du menu et salutation
    2 séances « trop dures » de suite → proposer le niveau inférieur. */
 function blocRessenti() {
   if (routine.cardioS) return blocEffort();
-  if (!["seance", "salle", "tabata", "echauffement"].includes(mode) || routine.prog || routine.reprise) return "";
-  return `<div class="carnet ressenti"><h3>💬 ${L("Comment c’était ?", "How was it?")}</h3><div class="stepper rs-choix">${[[1, "😌", "Facile", "Easy"], [2, "💪", "Juste bien", "Just right"], [3, "🥵", "Trop dur", "Too hard"]]
+  // effort sur 10 après chaque séance (sauf respiration) : c'est lui que les aperçus comparent à l'effort visé
+  const ef = mode === "souffle" ? "" : blocEffort();
+  if (!["seance", "salle", "tabata", "echauffement"].includes(mode) || routine.prog || routine.reprise) return ef;
+  return ef + `<div class="carnet ressenti"><h3>💬 ${L("Comment c’était ?", "How was it?")}</h3><div class="stepper rs-choix">${[[1, "😌", "Facile", "Easy"], [2, "💪", "Juste bien", "Just right"], [3, "🥵", "Trop dur", "Too hard"]]
     .map(([v, e, f, en]) => `<button class="toggle" data-rs="${v}">${e} ${L(f, en)}</button>`).join("")}</div><div id="rsRes"></div></div>`;
 }
 function brancherRessenti() {
