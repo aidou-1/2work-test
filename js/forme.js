@@ -162,7 +162,7 @@ function feuilleClub(j, sp = "boxe", apres = majForme) {
 /* --- Carte « Aujourd'hui · <sport> » : 2 ou 3 séances au choix selon la batterie, la douleur, les clubs du jour, de la veille et du lendemain,
    et les efforts durs de la semaine. Pour le sport de club du jour (sinon celui de la veille, du lendemain, ou le premier réglé). --- */
 // séances mises de côté selon la zone qui fait mal (motifs des codes de séance des sports)
-const EVITER_SP = { haut: /^tech|puiss|specif|rsa|force|affut|frappe|lancer|service|tir/, bas: /puiss|sprint|rsa|specif|affut|vitesse|plio|saut|explo|deten/, tronc: /puiss|gainage|force/ };
+const EVITER_SP = { haut: /^tech|^t(bf|kx)_|puiss|specif|rsa|force|affut|frappe|lancer|service|tir/, bas: /^t(bf|kx)_|puiss|sprint|rsa|specif|affut|vitesse|plio|saut|explo|deten/, tronc: /puiss|gainage|force/ };
 const ICO_SP = { boxe: "🥊", foot: "⚽", basket: "🏀", handball: "🤾", volley: "🏐", tennis: "🎾", padel: "🎾", course: "🏃", cyclisme: "🚴", natation: "🏊", escalade: "🧗", ski: "⛷️", surf: "🏄", pilates: "🧘", athle: "🏅", trail: "⛰️" };
 function propositionsSp(sp) {
   const G = SP[sp], auj = jourCle(), d = (new Date().getDay() + 6) % 7, B = batterie(), BN = batterieMaintenant(), v = BN ? BN.conseil : 60, r = B ? B.r : {}, S = spSemaine(sp), a = jourCle(lundi()), h = lireHist();

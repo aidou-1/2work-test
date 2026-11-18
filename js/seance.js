@@ -533,11 +533,58 @@ bouton($("choicesP"), "Tabata", "7 séances prêtes (cardio, jambes, abdos…) o
 const SEANCE = k => Object.keys(ROUTINES).find(c => ROUTINES[c].grp === k && !ROUTINES[c].mat);
 [["haut", "Haut du corps"], ["bas", "Bas du corps"], ["complet", "Haut et bas du corps"]].forEach(([k, t]) => bouton($("choicesZ"), t, ROUTINES[SEANCE(k)].detail, ROUTINES[SEANCE(k)].couleur, () => vueMode(k)));
 
+/* --- Séance à ta forme : dans une séance toute prête (routine.plan), chaque bloc répété (intervalles, tours, séries, rounds) se règle en + / −.
+   Un bloc (même nom, numéros « 2/6 » ignorés) est découpé en unités identiques (exercice, durée, repos, consigne). On retire des unités ou on recopie
+   l'avant-dernière (ses repos sont ceux d'entre deux unités) ; la dernière unité garde le repos de fin prévu. Les numéros « 3/6 » sont recalculés.
+   Choix gardé par séance dans « ajustSeances » ({ "clé|titre": { bloc: nombre } }) ; la séance d'origine (routine.plan) n'est jamais modifiée. */
+const cleBloc = bn => String(bn || "").replace(/\s*\d+\s*\/\s*\d+\s*/g, " ").replace(/\s+/g, " ").trim();
+function blocsRepetes(plan) {
+  const G = [];
+  plan.forEach(q => { const k = cleBloc(q.bn), g = G[G.length - 1]; g && g.k === k ? g.l.push(q) : G.push({ k, l: [q] }); });
+  G.forEach(g => { const l = g.l, n = l.length, pareil = (a, b, fin) => a.id === b.id && a.d === b.d && (fin || a.r === b.r) && (a.presc || "") === (b.presc || "");
+    g.p = n; for (let p = 1; p < n; p++) if (n % p === 0 && l.every((q, i) => i < p || pareil(q, l[i % p], i === n - 1))) { g.p = p; break; }
+    g.n = n / g.p; });
+  return G;
+}
+const ajustCle = () => routineCle + "|" + (routine.titreFr || routine.titre || "");
+const ajustDe = () => lireJSON("ajustSeances", {})[ajustCle()] || {};
+function planAjuste(plan, choix) {
+  if (!Object.keys(choix).length) return plan;
+  const rx = (a, b) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)`);
+  return blocsRepetes(plan).flatMap(g => {
+    const N = choix[g.k], { l, p, n } = g; if (!N || N === n || n < 2) return l;
+    const tot = l.length, nu = N * p, out = [];
+    for (let u = 0; u < N; u++) { const u0 = u < N - 1 ? Math.min(u, n - 2) : n - 1;
+      for (let j = 0; j < p; j++) { const q = l[u0 * p + j], g0 = u0 * p + j, gi = u * p + j;
+        // numéro global (« 8/18 ») d'abord, sinon numéro d'unité (« tour 2/3 », « Série 2/3 »)
+        const num = t => t == null ? t : rx(g0 + 1, tot).test(t) ? t.replace(rx(g0 + 1, tot), `$1${gi + 1}/${nu}`) : t.replace(rx(u0 + 1, n), `$1${u + 1}/${N}`);
+        out.push({ ...q, bn: num(q.bn), lab: num(q.lab), ...(q.tt === n && { t: u + 1, tt: N, ft: j === p - 1 && u < N - 1 }), ...(q.series === n && { serie: u + 1, series: N }) }); } }
+    return out;
+  });
+}
+let ajustOuvert = false;
+function majAjust(blocs, choix) {
+  const R = $("ajustRow"), P = $("ajustPanel"), l = blocs.filter(g => g.n >= 2), modif = l.filter(g => choix[g.k] && choix[g.k] !== g.n);
+  R.classList.toggle("hidden", !l.length); P.classList.toggle("hidden", !l.length || !ajustOuvert); $("ajustBtn").setAttribute("aria-expanded", ajustOuvert);
+  if (!l.length) return;
+  $("ajustInfo").textContent = modif.length ? L("Modifiée : ", "Edited: ") + modif.map(g => `${g.k} × ${choix[g.k]}`).join(" · ") : L("Plus ou moins de répétitions, de séries ou de tours selon ta forme du jour", "More or fewer reps, sets or rounds depending on how you feel today");
+  P.innerHTML = l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4));
+    return `<div class="aj-ligne"><div><b>${g.k}</b><small>${g.p === 1 ? (typeof duTxt === "function" ? duTxt(e.d) : e.d + " s") + (e.r ? " · " + L("repos ", "rest ") + (typeof duTxt === "function" ? duTxt(e.r) : e.r + " s") : "") : L(`${g.p} étapes par tour`, `${g.p} steps per round`)} · ${L("proposé", "suggested")} : ${g.n}</small></div>
+      <div class="stepper"><button data-aj="${i}" data-d="-1" ${v <= 1 ? "disabled" : ""} aria-label="${L("Un de moins", "One fewer")} · ${g.k}">−</button><output>${v}</output><button data-aj="${i}" data-d="1" ${v >= max ? "disabled" : ""} aria-label="${L("Un de plus", "One more")} · ${g.k}">+</button></div></div>`; }).join("")
+    + (modif.length ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. More volume isn’t always better: keep every effort high quality.")}</p>`;
+  const garder = c => { const t = lireJSON("ajustSeances", {}); Object.keys(c).length ? t[ajustCle()] = c : delete t[ajustCle()]; stocker("ajustSeances", JSON.stringify(t)); ouvrirApercu(routineCle); };
+  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = { ...choix }, v = (c[g.k] || g.n) + +b.dataset.d; v === g.n ? delete c[g.k] : c[g.k] = v; garder(c); });
+  if ($("ajustDef")) $("ajustDef").onclick = () => garder({});
+}
+$("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepetes(routine.plan), ajustDe()); };
+
 function ouvrirApercu(cle) {
+  if (routineCle !== cle) ajustOuvert = false;
   routine = ROUTINES[cle]; routineCle = cle;
   const tb = mode === "tabata", so = mode === "souffle", sa = mode === "salle";
   // en salle, chaque exercice est joué en plusieurs séries (repos entre chaque)
-  liste = (routine.plan ? routine.plan.map(q => ({ ...EXERCICES[q.id], id: q.id, duree: q.d, r: q.r, bn: q.bn, t: q.t, tt: q.tt, ft: q.ft, lab: q.lab, presc: q.presc, serie: q.serie, series: q.series })) : ids.flatMap(id => Array.from({ length: sa ? cycles : 1 }, (_, k) => ({ ...EXERCICES[id], id, duree: dureeGlobale, ...(sa && { serie: k + 1, series: cycles }) }))))
+  const choixAj = routine.plan ? ajustDe() : {};
+  liste = (routine.plan ? planAjuste(routine.plan, choixAj).map(q => ({ ...EXERCICES[q.id], id: q.id, duree: q.d, r: q.r, bn: q.bn, t: q.t, tt: q.tt, ft: q.ft, lab: q.lab, presc: q.presc, serie: q.serie, series: q.series })) : ids.flatMap(id => Array.from({ length: sa ? cycles : 1 }, (_, k) => ({ ...EXERCICES[id], id, duree: dureeGlobale, ...(sa && { serie: k + 1, series: cycles }) }))))
     .flatMap(e => { const a = PASSAGES[e.id] && " · " + L(...PASSAGES[e.id]); return a ? [{ ...e, r: 0 }, { ...e, autreCote: 1, nom: e.nom + a, lab: e.lab && e.lab + a }] : [e]; });
   $("dureeVal").textContent = dureeGlobale + (so ? " min" : " s");
   const rr = routine.reglerRepos, rProp = rr ? routine.reposProp : !routine.fixe && (sa || mode === "seance") ? reposPropose(mode, cle) : null;
@@ -575,7 +622,8 @@ function ouvrirApercu(cle) {
   $("pInfo").textContent = (tb ? nb(cycles, "{n} cycle", "{n} cycles") : so ? nb(routine.blocs.length, "{n} exercice", "{n} exercices") : sa ? T(cycles > 1 ? "{n} exercices × {s} séries" : "{n} exercices × {s} série", { n: ids.length, s: cycles }) : T("{n} exercices", { n: liste.length })) + " · " + T("environ {m} min", { m: min });
   $("dureeVal").closest(".reglage").classList.toggle("hidden", !!routine.plan); if (routine.plan && !rr) $("reposRow").classList.add("hidden");
   if (routine.plan) $("pInfo").textContent = L("environ {m} min · effort visé {r}/10", "about {m} min · target effort {r}/10").replace("{m}", Math.round(total / 60)).replace("{r}", routine.rpe);
-  $("pList").innerHTML = routine.listeHtml ? routine.listeHtml : routine.blocsProg ? `<li class="etude prog-carte-jour"><div><small><b>${L("Semaine", "Week")} ${routine.semaine + 1} · ${L(SEMAINES[routine.semaine][0], SEMAINES[routine.semaine][1])}</b></small><small>🎯 ${routine.objectif}</small><small>💡 ${routine.conseil}</small></div></li>`
+  const resumeAj = () => (routine.listeHtml.match(/^[\s\S]*?<\/li>/) || [""])[0] + blocsRepetes(planAjuste(routine.plan, choixAj)).map(g => blocHtml([g.k, g.l.slice(0, g.p).map(q => [q.id, (g.n > 1 ? g.n + " × " : "") + duTxt(q.d)]), ""])).join("");
+  $("pList").innerHTML = routine.listeHtml ? (routine.plan && Object.keys(choixAj).length ? resumeAj() : routine.listeHtml) : routine.blocsProg ? `<li class="etude prog-carte-jour"><div><small><b>${L("Semaine", "Week")} ${routine.semaine + 1} · ${L(SEMAINES[routine.semaine][0], SEMAINES[routine.semaine][1])}</b></small><small>🎯 ${routine.objectif}</small><small>💡 ${routine.conseil}</small></div></li>`
       + routine.blocsProg.map(b => `<li class="bloc-titre"><div><b>${b.n}</b><small>${b.t > 1 ? L("{t} tours", "{t} rounds").replace("{t}", b.t) + " · " : ""}${b.ex.length} ${L("exercices", "exercises")} · ${b.ex[0][1]} s${b.r ? " / " + b.r + " s " + L("de repos", "rest") : ""}${b.t > 1 ? " · " + b.rt + " s " + L("entre les tours", "between rounds") : ""}</small></div></li>`
         + b.ex.map(([id, d]) => `<li class="bloc-ex">${vignette(id)}<div><b>${EXERCICES[id].nom}</b><small>${EXERCICES[id].muscles}</small></div><span class="duree">${d} s</span></li>`).join("")).join("")
     : so
@@ -586,6 +634,7 @@ function ouvrirApercu(cle) {
       + (routine.defi ? `<li class="etude defi"><div><small><b>${T("Le défi change chaque jour à minuit. Termine-le pour allonger ta série !")}</b></small></div></li>` : "")
       + (routine.blessure ? `<li class="etude"><div><small>${routine.etude}</small><small><b>${T("Pas un avis médical : reprends seulement après accord de ton médecin ou kiné. Aucun exercice ne doit faire mal : en cas de douleur, arrête.")}</b></small></div></li>` : "")
     : `<li><small>${T("Aucun exercice. Ajoutes-en au moins un pour commencer.")}</small></li>`;
+  if (routine.plan) majAjust(blocsRepetes(routine.plan), choixAj); else $("ajustRow").classList.add("hidden"), $("ajustPanel").classList.add("hidden");
   $("start").disabled = !tb && !so && ids.length === 0;
   if (!tb && !so) majAjout();
   ecran("preview");

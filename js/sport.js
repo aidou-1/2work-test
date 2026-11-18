@@ -101,7 +101,7 @@ function ouvrirSport(sp, onglet, rv) {
       if (fiche !== undefined) h.fiche(fiche); brancherChips("bxs", s => { stocker("cardioSupport", JSON.stringify({ ...cardioPref(), s })); rendu(); }); },
     savoir: () => h.html(G.savoir.map((_, i) => ficheSp(sp, i)).join("")) };
   const rendu = () => { C().innerHTML = sp === "boxe" || G.fini ? "" : `<div class="etude ech-fiche sp-refonte" style="--accent:#F59E0B"><b>🛠️ ${L("Sport en cours de refonte", "Sport being reworked")}</b><p>${L("Cet écran sera bientôt refait pour être plus complet et plus réaliste, sur le modèle de la boxe. En attendant, tes idées d’amélioration sont les bienvenues : elles nous aident à faire mieux.", "This screen will soon be rebuilt to be more complete and realistic, like boxing. Meanwhile, your improvement ideas are very welcome: they help us do better.")}</p><button class="toggle" id="spAvis" style="background:#B45309">💬 ${L("Donner mon avis sur ce sport", "Give feedback on this sport")}</button></div>`;
-    if ($("spAvis")) $("spAvis").onclick = () => ouvrirAvis(L(...G.nom)); h.P = spPref(sp); O[3](h); };
+    if ($("spAvis")) $("spAvis").onclick = () => ouvrirAvis(L(...G.nom)); h.P = spPref(sp); G.entete?.(h); O[3](h); };
   rendu();
 }
 
