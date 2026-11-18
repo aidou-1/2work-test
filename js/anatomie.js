@@ -173,7 +173,7 @@ function brancherCharges() {
     document.querySelectorAll(".carnet-ligne").forEach(l => { const id = l.dataset.id, kg = parseFloat(l.querySelector(".ck").value), r = parseInt(l.querySelector(".cr").value, 10);
       if (!(kg > 0 && r > 0)) return;
       const avant = Math.max(0, ...h.filter(x => x.id === id).map(x => rm1(x.kg, x.r))), now = rm1(kg, r);
-      h.push({ j: jourCle(), id, kg, r, s: (routine.plan || []).filter(q => q.id === id && q.serie).length || cycles, m: routine.gym ? methodeCourante : "libre" });
+      h.push({ j: jourCle(), id, kg, r, s: ((routine.plan ? liste : []).filter(q => q.id === id && q.serie && !q.autreCote).length) || cycles, m: routine.gym ? methodeCourante : "libre" });
       const rc = repsCible((routine.plan || []).find(q => q.id === id && q.serie)), plus = kg < 20 ? 1 : 2.5;
       const sug = rc ? r >= rc[1] ? ` <span class="sug">📈 ${L("Prochaine fois", "Next time")} : ${kg + plus} kg</span>` : r < rc[0] ? ` <span class="sug">${L(`Garde ${kg} kg jusqu’à ${rc[0]} reps`, `Keep ${kg} kg until ${rc[0]} reps`)}</span>` : "" : "";
       res.push(`<li><b>${EXERCICES[id].nom}</b> : ${kg} kg × ${r} · ${L("force max estimée", "estimated max")} ${now} kg${avant && now > avant ? ` <em>🏆 ${L("record", "record")} (+${now - avant} kg)</em>` : ""}${sug}</li>`); });

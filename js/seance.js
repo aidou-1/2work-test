@@ -536,11 +536,12 @@ const SEANCE = k => Object.keys(ROUTINES).find(c => ROUTINES[c].grp === k && !RO
 /* --- Séance à ta forme : dans une séance toute prête (routine.plan), chaque bloc répété (intervalles, tours, séries, rounds) se règle en + / −.
    Un bloc (même nom, numéros « 2/6 » ignorés) est découpé en unités identiques (exercice, durée, repos, consigne). On retire des unités ou on recopie
    l'avant-dernière (ses repos sont ceux d'entre deux unités) ; la dernière unité garde le repos de fin prévu. Les numéros « 3/6 » sont recalculés.
+   En salle (entrées « serie »), chaque exercice forme son propre bloc : on règle ses séries.
    Choix gardé par séance dans « ajustSeances » ({ "clé|titre": { bloc: nombre } }) ; la séance d'origine (routine.plan) n'est jamais modifiée. */
 const cleBloc = bn => String(bn || "").replace(/\s*\d+\s*\/\s*\d+\s*/g, " ").replace(/\s+/g, " ").trim();
 function blocsRepetes(plan) {
   const G = [];
-  plan.forEach(q => { const k = cleBloc(q.bn), g = G[G.length - 1]; g && g.k === k ? g.l.push(q) : G.push({ k, l: [q] }); });
+  plan.forEach(q => { const k = cleBloc(q.bn) + (q.series ? " · " + (EXERCICES[q.id] || {}).nom : ""), g = G[G.length - 1]; g && g.k === k ? g.l.push(q) : G.push({ k, l: [q] }); });
   G.forEach(g => { const l = g.l, n = l.length, pareil = (a, b, fin) => a.id === b.id && a.d === b.d && (fin || a.r === b.r) && (a.presc || "") === (b.presc || "");
     g.p = n; for (let p = 1; p < n; p++) if (n % p === 0 && l.every((q, i) => i < p || pareil(q, l[i % p], i === n - 1))) { g.p = p; break; }
     g.n = n / g.p; });
