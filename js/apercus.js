@@ -111,13 +111,15 @@ function apercusPerf(h = lireHist()) {
   const lire = (l, cle, val, nom, unite) => [...l].reverse().forEach(e => {
     if (e.j < lim || vus.has(cle(e))) return; vus.add(cle(e));
     const avant = l.filter(y => cle(y) === cle(e) && y.j < e.j).map(val); if (!avant.length) return;
-    const best = Math.max(...avant), v = val(e), d = best ? (v / best - 1) * 100 : 0; if (d > -5 && v <= best) return;
-    const E = etatDu(e.j, h), rec = v > best, fac = rec ? (E.B && E.B.v >= 75 ? ["forme"] : []) : E.l.slice(0, 3);
+    // chrono : un temps plus court est un progrès, l'écart est donc inversé
+    const k = TEST_COURT.includes(cle(e)) ? -1 : 1, best = k > 0 ? Math.max(...avant) : Math.min(...avant), v = val(e), d = best ? k * (v / best - 1) * 100 : 0; if (d > -5 && k * v <= k * best) return;
+    const E = etatDu(e.j, h), rec = k * v > k * best, fac = rec ? (E.B && E.B.v >= 75 ? ["forme"] : []) : E.l.slice(0, 3);
     out.push({ j: e.j, perf: 1, titre: `${nom(e)} · ${v} ${unite(e)}${rec ? " 🏆" : ""}`, sens: rec ? "facile" : "dur", facteurs: fac, conseils: fac.map(conseilF).slice(0, 2),
       phrase: rec ? L(`🏆 Record : ${nom(e)} ${v} ${unite(e)} (avant ${best}).`, `🏆 Record: ${nom(e)} ${v} ${unite(e)} (before ${best}).`) + (E.B ? " " + L(`Batterie ${E.B.v} % ce jour-là`, `Battery ${E.B.v} % that day`) + (E.B.v >= 75 ? L(" : le repos paie.", ": rest pays off.") : ".") : "")
         : L(`${nom(e)} : ${v} ${unite(e)}, sous ton meilleur résultat (${best}, ${Math.round(d)} %).`, `${nom(e)}: ${v} ${unite(e)}, below your best (${best}, ${Math.round(d)} %).`) + (fac.length ? " " + L("Ce jour-là, ", "That day, ") + fac.map(ceQuiF).join(", ") + L(" : la fatigue masque ta vraie capacité, ce n’est pas une perte de niveau.", ": fatigue hides your real ability, it is not a loss of level.") : "") });
   });
-  lire(lireTests(), e => e.id, e => +e.v, e => { const T = TESTS.find(t => t[0] === e.id); return T ? L(T[1], T[2]) : e.id; }, e => { const T = TESTS.find(t => t[0] === e.id); return T ? L(T[3], T[4]) : ""; });
+  const testDe = id => [...TESTS, ...(typeof TESTS_AT !== "undefined" ? TESTS_AT : [])].find(t => t[0] === id);
+  lire(lireTests(), e => e.id, e => +e.v, e => testDe(e.id) ? L(testDe(e.id)[1], testDe(e.id)[2]) : e.id, e => testDe(e.id) ? L(testDe(e.id)[3], testDe(e.id)[4]) : "");
   lire(lireCharges(), e => e.id, e => rm1(e.kg, e.r), e => (EXERCICES[e.id] || {}).nom || e.id, () => L("kg (force max estimée)", "kg (estimated max)"));
   return out;
 }
@@ -142,7 +144,7 @@ function blocApercus() {
   rec.forEach(A => A.sens === "dur" && A.facteurs.forEach(k => freq[k] = (freq[k] || 0) + 1));
   const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
   return `<h2 class="sec">🔍 ${L("Aperçus", "Insights")}</h2><div class="carte apercus">
-    ${rec.length ? `<p class="ap-tend">${L("14 derniers jours", "Last 14 days")} : ${L(`<b>${nD}</b> séance(s) plus dure(s) que prévu, <b>${nF}</b> plus facile(s), <b>${rec.length - nD - nF}</b> conforme(s).`, `<b>${nD}</b> harder than planned, <b>${nF}</b> easier, <b>${rec.length - nD - nF}</b> as planned.`)}${nF >= 2 && nF > nD ? " " + L("Souvent trop facile : pense à monter d’un niveau.", "Often too easy: think about moving up a level.") : ""}${top ? " " + L(`Cause la plus fréquente : <b>${nomF(top[0]).toLowerCase()}</b> (${top[1]} fois). ${conseilF(top[0])}`, `Most frequent cause: <b>${nomF(top[0]).toLowerCase()}</b> (${top[1]} times). ${conseilF(top[0])}`) : ""}</p>` : ""}
+    ${rec.length ? `<p class="ap-tend">${L("14 derniers jours", "Last 14 days")} : ${L(`<b>${nD}</b> séance(s) plus dure(s) que prévu, <b>${nF}</b> plus facile(s), <b>${rec.length - nD - nF}</b> conforme(s).`, `<b>${nD}</b> harder than planned, <b>${nF}</b> easier, <b>${rec.length - nD - nF}</b> as planned.`)}${nF >= 2 && nF > nD ? " " + L("Souvent trop facile : pense à monter d’un niveau.", "Often too easy: think about moving up a level.") : ""}${top ? " " + L(`Cause la plus fréquente : <b>${nomF(top[0]).toLowerCase()}</b> (${top[1]} fois). ${conseilF(top[0])}`, `Most frequent cause: <b>${nomF(top[0]).toLowerCase()}</b> (${top[1]} ${top[1] > 1 ? "times" : "time"}). ${conseilF(top[0])}`) : ""}</p>` : ""}
     <ul class="ap-liste">${items.map((A, i) => `<li><button class="ap-ligne ap-${A.sens}" data-ap="${i}"><small>${etiqJour(A.j || A.x.j)}${A.x ? " · " + echap(A.x.t || "") : ""}</small><span>${A.x ? `${A.x.ef}/10 · ${L("visé", "target")} ${A.x.ec || 6}/10` : A.titre}</span><i aria-hidden="true">›</i></button></li>`).join("")}</ul>
     <button class="lien" data-comprendre>📚 ${L("Comprendre ton corps : toutes les explications", "Understand your body: all explanations")}</button></div>`;
 }

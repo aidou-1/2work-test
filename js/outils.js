@@ -211,6 +211,8 @@ const dateCourte = j => { const [a, m, d] = j.split("-"); return new Date(a, m -
 
 /* --- Tests de forme : à refaire environ une fois par mois, dans les mêmes conditions --- */
 // [id, nom FR, EN, unité FR, EN, protocole FR, EN]
+// tests chronométrés : le temps le plus court est le meilleur
+const TEST_COURT = ["rn5chrono", "rn10chrono", "ftSprint", "ftCod", "na200", "na400", "cyCote", "rqEtoile", "at30", "at800", "at1000"];
 const TESTS = [["pompes", "Pompes max", "Max push-ups", "rép.", "reps", "Un maximum de pompes sans pause, poitrine près du sol à chaque fois. Sur les genoux si besoin, mais toujours pareil d’un test à l’autre.", "As many push-ups as you can without pausing, chest close to the floor each time. On your knees if needed, but always the same way from one test to the next."],
   ["squats", "Squats en 1 minute", "Squats in 1 minute", "rép.", "reps", "Le plus de squats complets en 60 secondes, cuisses parallèles au sol. Lance le compte à rebours 1 min dans Minuteurs.", "As many full squats as you can in 60 seconds, thighs parallel to the floor. Use the 1-minute countdown in Timers."],
   ["planche", "Gainage planche", "Plank hold", "s", "s", "Planche sur les avant-bras, corps aligné : arrête le chrono dès que le bassin descend ou monte.", "Forearm plank, body in a straight line: stop the stopwatch as soon as your hips drop or rise."],
@@ -223,7 +225,7 @@ function ouvrirTests(rv) {
   if (rv !== undefined && rv !== 0) retourTests = rv || null;
   const R = lireTests();
   outil(L("Tests de forme", "Fitness tests"), L("Refais chaque test environ une fois par mois, échauffé et dans les mêmes conditions : c’est la courbe qui compte, pas le chiffre du jour.", "Repeat each test about once a month, warmed up and in the same conditions: the trend matters, not today’s number."),
-    TESTS.map(([id, f, e, uf, ue, pf, pe]) => { const l = R.filter(x => x.id === id), d = l[l.length - 1], best = l.length ? (id === "rn5chrono" || id === "rn10chrono" ? Math.min : Math.max)(...l.map(x => x.v)) : null, age = d ? joursDepuis(d.j) : null;
+    TESTS.map(([id, f, e, uf, ue, pf, pe]) => { const l = R.filter(x => x.id === id), d = l[l.length - 1], best = l.length ? (TEST_COURT.includes(id) ? Math.min : Math.max)(...l.map(x => x.v)) : null, age = d ? joursDepuis(d.j) : null;
       return `<div class="carnet"><h3>${L(f, e)}</h3><p>${L(pf, pe)}</p>${courbe(l.map(x => x.v), "#16A34A")}
         <p class="sh-ok">${d ? L(`Dernier : ${d.v} ${uf} (${dateCourte(d.j)}) · record : ${best} ${uf}`, `Last: ${d.v} ${ue} (${dateCourte(d.j)}) · best: ${best} ${ue}`) + (l.length > 1 ? " · " + (d.v - l[0].v >= 0 ? "+" : "") + (d.v - l[0].v) + " " + L("depuis le début", "since the start") : "") : L("Pas encore de mesure.", "No result yet.")}${age !== null && age >= 28 ? " · " + L("à refaire !", "time to retest!") : ""}</p>
         ${id === "navette" ? `<button class="primary" id="navGo">${L("Lancer le test guidé", "Start the guided test")}</button>` : ""}

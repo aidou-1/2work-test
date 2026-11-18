@@ -86,7 +86,7 @@ function parcoursAt(h) {
 function testsAt(h) {
   h.html(`<p>${L("Un test maximal par jour, reposé et échauffé ; mineurs avec coach. Compte les sauts dans le plafond quotidien. Garde la même surface, le même ballon et la même méthode de mesure.", "One maximal test per day, rested and warmed up; minors with a coach. Include jumps in the daily cap. Keep the same surface, ball and measurement method.")}</p>`);
   [...TESTS_AT, ...TESTS.filter(t => ["bxSaut", "rn6"].includes(t[0]))].forEach(([id, fr, en, uf, ue, pf, pe]) => {
-    const l = lireTests().filter(t => t.id === id), chrono = ["at30", "at800", "at1000"].includes(id), best = l.length ? (chrono ? Math.min : Math.max)(...l.map(t => t.v)) : null;
+    const l = lireTests().filter(t => t.id === id), chrono = TEST_COURT.includes(id), best = l.length ? (chrono ? Math.min : Math.max)(...l.map(t => t.v)) : null;
     h.html(`<div class="carnet"><h3>${L(fr, en)}</h3><p>${L(pf, pe)}</p><p>${L("Dernier résultat", "Last result")} : ${l.length ? l.at(-1).v : "—"} ${L(uf, ue)} · ${L("Record", "Best")} : ${best ?? "—"} ${L(uf, ue)}${chrono ? L(" (temps le plus court)", " (shortest time)") : ""}</p><div class="favForm"><input class="choixVoix" id="at-test-${id}" aria-label="${L(fr, en)} · ${L(uf, ue)}" type="number" inputmode="decimal" min="0.01" step="any"><button class="toggle" data-attest="${id}">${L("Noter", "Save")}</button></div><p class="sh-aide" id="at-erreur-${id}" role="status"></p></div>`);
   });
   h.C().querySelectorAll("[data-attest]").forEach(b => b.onclick = () => {
