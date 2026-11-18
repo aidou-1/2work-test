@@ -46,7 +46,7 @@ function ouvrirMinuteurSport(cle, grp, retourVers = () => vueMode(grp)) {
     const h = lireHist(); h.push({ j: jourCle(), hr: new Date().getHours(), k: "sport:" + cle, t: L(...M.nom) + " · " + n + " " + L(...M.unite), m: "seance", s: fait, n, c: grp, b: 0, p: 0, g: 0, tb: 0, nv: "", e: [] });
     stocker("historique", JSON.stringify(h.slice(-3000))); const neufs = verifierTrophees();
     $("msRes").innerHTML = `<div class="carnet"><h3>${complet ? "🏁 " + L("Séance terminée !", "Session complete!") : L("Séance notée", "Session saved")}</h3><p>${n} ${L(...M.unite)} · ${Math.round(fait / 60)} min</p></div>` + blocGain()
-      + neufs.map(t => `<div class="nouveau-trophee">${medaille(t, "n")}<div><small>${L("Nouveau trophée", "New trophy")}</small><b>${L(t[1], t[2])}</b></div></div>`).join("");
+      + neufs.map(t => `<div class="nouveau-trophee">${medaille(t, "n")}<div><small>${L("Nouveau badge", "New badge")}</small><b>${L(t[1], t[2])}</b></div></div>`).join("");
     if (complet) { confettis(); dire(["Séance terminée. Bravo !", "Session over. Well done!"], 0.95); }
   };
   const tic = () => {

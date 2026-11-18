@@ -24,14 +24,21 @@ const ARTICLES = [
 ARTICLES.push(["t11", "tee", "Maillot braise", "Ember jersey", "x", "#9F1239", 0, 2], ["t12", "tee", "Veste de coach", "Coach jacket", "x", "#0F766E", 2, 1], ["a10", "acc", "Cape de champion", "Champion cape", "x", "cape", "#B91C1C"], ["a11", "acc", "Médaille d’or", "Gold medal", "x", "medaille", "#F5B301"]);
 // Articles d'exploit (prix « x ») : ni achetables ni liés au niveau, ils se gagnent par un exploit précis — [condition FR, EN, test sur l'historique]
 const EXPLOITS = { t11: ["14 jours d’affilée", "14-day streak", h => series(h).best >= 14], t12: ["28 séances de programme", "28 programme sessions", h => h.filter(x => x.k === "prog").length >= 28],
-  a10: ["10 séances en mode combat", "10 fight-mode sessions", h => h.filter(x => x.k === "combat").length >= 10], a11: ["100 séances terminées", "100 workouts done", h => h.length >= 100] };
+  a10: ["10 séances en mode combat", "10 fight-mode sessions", h => h.filter(x => x.k === "combat").length >= 10], a11: ["100 séances terminées", "100 workouts done", h => h.length >= 100],
+  n2: ["Une séance avant 8 h", "A workout before 8 am", h => h.some(x => x.hr < 8)], n3: ["Une séance après 22 h", "A workout after 10 pm", h => h.some(x => x.hr >= 22)], n4: ["10 séances de souffle ou de retour au calme", "10 breathing or cool-down sessions", h => h.filter(x => ["calme", "souffle"].includes(x.m)).length >= 10],
+  n5: ["30 jours d’affilée", "30-day streak", h => series(h).best >= 30], n6: ["100 séances terminées", "100 workouts done", h => h.length >= 100] };
+// Auras (lueur autour du personnage) et titres (sous ton nom) : [id, famille, FR, EN, prix, couleur] ; rangés dans « boutique » (aura, titre) comme le mur et le sol
+ARTICLES.push(["u0", "aura", "Sans aura", "No aura", 0, "#475569"], ["u1", "aura", "Braise", "Ember", 60, "#F97316"], ["u2", "aura", "Givre", "Frost", 150, "#38BDF8"], ["u3", "aura", "Éclair violet", "Violet spark", 300, "#A855F7"], ["u4", "aura", "Or", "Gold", -24, "#FACC15"], ["u5", "aura", "Prisme", "Prism", -27, "#F472B6"],
+  ["n0", "titre", "Sans titre", "No title", 0, "#475569"], ["n1", "titre", "Sportif", "Athlete", 50, "#EA580C"], ["n2", "titre", "Lève-tôt", "Early bird", "x", "#F59E0B"], ["n3", "titre", "Oiseau de nuit", "Night owl", "x", "#6366F1"], ["n4", "titre", "Maître zen", "Zen master", "x", "#10B981"], ["n5", "titre", "Inarrêtable", "Unstoppable", "x", "#BE123C"], ["n6", "titre", "Centurion", "Centurion", "x", "#CA8A04"]);
+// Rareté affichée sur chaque article : déduite du prix (exploit et palier élevé = les plus rares)
+const RARETE = ({ 4: p }) => p === "x" || p < 0 ? (p <= -15 ? ["mythique", "Mythique", "Mythic"] : ["legende", "Légendaire", "Legendary"]) : p >= 300 ? ["epique", "Épique", "Epic"] : p >= 100 ? ["rare", "Rare", "Rare"] : ["commun", "Commun", "Common"];
 // Bonus d'XP des objets installés dans le home gym : [% en plus, séances concernées, libellé FR, EN] ; cumulables jusqu'à 25 %, figés dans la séance au moment où elle se termine (« bx »)
 const renfoX = x => ["seance", "salle"].includes(x.m), recupX = x => ["calme", "souffle", "echauffement"].includes(x.m);
 const BONUS = { o1: [10, recupX, "mobilité et récupération", "mobility and recovery"], o2: [5, recupX, "mobilité et récupération", "mobility and recovery"], o5: [5, renfoX, "renfo et salle", "strength and gym"], o6: [5, renfoX, "renfo et salle", "strength and gym"], o10: [5, x => x.m === "salle", "salle", "gym"],
   o13: [10, x => x.m === "salle", "salle", "gym"], o11: [10, x => x.c === "boxe" || x.k === "combat", "boxe", "boxing"], o7: [5, () => true, "toutes les séances", "every workout"], o15: [5, () => true, "toutes les séances", "every workout"] };
 const bonusGym = (x, B = lireBoutique()) => Math.round((xpSeance({ ...x, bx: 0 })) * Math.min(25, B.obj.reduce((t, id) => t + (BONUS[id] && BONUS[id][1](x) ? BONUS[id][0] : 0), 0)) / 100);
 const article = id => ARTICLES.find(a => a[0] === id);
-const lireBoutique = () => ({ a: [], mur: "m0", sol: "s0", obj: [], pos: {}, ...lireJSON("boutique", {}) });
+const lireBoutique = () => ({ a: [], mur: "m0", sol: "s0", aura: "u0", titre: "n0", obj: [], pos: {}, ...lireJSON("boutique", {}) });
 const possede = (id, B = lireBoutique()) => { const p = article(id)[4]; return p === "x" ? EXPLOITS[id][2](lireHist()) : p < 0 ? niveauXp().n >= -p : !p || B.a.includes(id); };
 const solde = (B = lireBoutique()) => xpTotal() - B.a.reduce((t, id) => t + (article(id) ? Math.max(0, +article(id)[4] || 0) : 0), 0);
 const COUPES = [["Classique", "Classic"], ["Rasé", "Buzz cut"], ["Crête", "Spiky"], ["Chignon", "Bun"], ["Afro", "Afro"]];
@@ -86,7 +93,7 @@ const OBJETS = {   // repère de la pièce (360 × 300, sol à partir de y = 205
   o13: `<path d="M120 62v178M240 62v178M112 240h18M232 240h18" stroke="#475569" stroke-width="7" stroke-linecap="round"/><path d="M110 112h22M228 112h22" stroke="#CBD5E1" stroke-width="5"/><rect x="103" y="97" width="8" height="30" rx="3" fill="#DC2626"/><rect x="249" y="97" width="8" height="30" rx="3" fill="#DC2626"/>`,
   o14: `<text x="60" y="27" text-anchor="middle" font-size="24" font-weight="800" font-family="Barlow Condensed, Arial Narrow, sans-serif" fill="#FDBA74" stroke="#F97316" stroke-width="1.200" style="filter:drop-shadow(0 0 6px #F97316)">2WORK</text>`,
   o15: `<path transform="translate(78 52) scale(.8)" d="M22 236h36v14q0 20-18 20t-18-20zM14 240h8v10q-8 0-8-10zM58 240h8q0 10-8 10zM35 270h10l2 12H33zM26 282h28v8H26z" fill="#F5B301" stroke="#92400E" stroke-width="1.500" stroke-linejoin="round"/>` };
-function sceneSvg(a = lireAvatar(), B = lireBoutique()) {
+function sceneSvg(a = lireAvatar(), B = lireBoutique(), part = "") {   // part : "" = tout (image à partager), "fond" = pièce sans le personnage ni le premier plan, "devant" = premier plan seul
   const M = article(B.mur) || article("m0"), S = article(B.sol) || article("s0"), o = B.obj.map(article).filter(Boolean), des = d => o.filter(x => x[5] === d).map(x => `<g data-obj="${x[0]}" transform="translate(${(B.pos[x[0]] || [0, 0]).join(" ")})">${OBJETS[x[0]]}</g>`).join("");
   const mur = M[5] === "brique" ? `<pattern id="pMur" width="36" height="20" patternUnits="userSpaceOnUse"><rect width="36" height="20" fill="${M[6]}"/><path d="M0 10h36M0 0h36M18 0v10M0 10v10M36 10v10" stroke="${M[7]}" stroke-width="2"/></pattern>`
     : M[5] === "beton" ? `<pattern id="pMur" width="90" height="70" patternUnits="userSpaceOnUse"><rect width="90" height="70" fill="${M[6]}"/><path d="M0 69h90M89 0v70" stroke="${M[7]}" stroke-width="1.500"/><circle cx="12" cy="12" r="2" fill="${M[7]}"/><circle cx="76" cy="12" r="2" fill="${M[7]}"/></pattern>`
@@ -94,37 +101,63 @@ function sceneSvg(a = lireAvatar(), B = lireBoutique()) {
     : `<linearGradient id="pMur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${M[6]}"/><stop offset="1" stop-color="${M[7]}"/></linearGradient>`;
   const sol = S[5] === "dalles" ? `<pattern id="pSol" width="60" height="48" patternUnits="userSpaceOnUse"><rect width="60" height="48" fill="${S[6]}"/><rect x="30" width="30" height="24" fill="${S[7]}"/><rect y="24" width="30" height="24" fill="${S[7]}"/></pattern>`
     : `<pattern id="pSol" width="80" height="24" patternUnits="userSpaceOnUse"><rect width="80" height="24" fill="${S[6]}"/><path d="M0 23h80M30 0v12M62 12v12" stroke="${S[7]}" stroke-width="2"/></pattern>`;
+  if (part === "devant") return `<svg class="scene scene-devant" viewBox="0 0 360 300" aria-hidden="true"><g class="detoure">${des(1)}</g></svg>`;
   return `<svg class="scene" viewBox="0 0 360 300" role="img" aria-label="${L("Ton personnage dans son home gym", "Your character in their home gym")}"><defs>${mur}${sol}</defs>
     <rect width="360" height="205" fill="url(#pMur)"/><rect y="205" width="360" height="95" fill="url(#pSol)"/><rect y="200" width="360" height="7" fill="#0F172A" opacity=".35"/>
-    <g class="detoure">${des(0)}</g><ellipse cx="180" cy="270" rx="40" ry="7" fill="#000" opacity=".25"/><g class="detoure"><g transform="translate(114 18) scale(1.1)"><g class="perso">${persoSvg(a)}</g></g></g><g class="detoure">${des(1)}</g></svg>`;
+    <g class="detoure">${des(0)}</g><ellipse cx="180" cy="270" rx="40" ry="7" fill="#000" opacity=".25"/>${part ? "" : `<g class="detoure"><g transform="translate(114 18) scale(1.1)"><g class="perso">${persoSvg(a)}</g></g></g><g class="detoure">${des(1)}</g>`}</svg>`;
 }
 
 /* --- Écran « Moi » : la scène, le solde, puis trois rayons (Apparence, Tenue, Home gym). Un appui essaie l'article, un second l'achète. --- */
 let moiVue = "tenue", essai = "";
-const FAMILLES = { tenue: [["tee", "Hauts", "Tops"], ["bas", "Bas", "Bottoms"], ["chaus", "Chaussures", "Shoes"], ["acc", "Accessoires", "Accessories"]], decor: [["mur", "Murs", "Walls"], ["sol", "Sols", "Floors"], ["obj", "Équipement et déco", "Equipment and decoration"]] };
-const porte = (id, a = lireAvatar(), B = lireBoutique()) => { const f = article(id)[1]; return f === "acc" ? (a.acc || []).includes(id) : f === "obj" ? B.obj.includes(id) : f === "mur" || f === "sol" ? B[f] === id : (a[f] || { tee: "t0", bas: "b0", chaus: "c0" }[f]) === id; };
+const PIECE = /^(mur|sol|aura|titre)$/;   // familles rangées dans « boutique » (une seule à la fois)
+const FAMILLES = { tenue: [["tee", "Hauts", "Tops"], ["bas", "Bas", "Bottoms"], ["chaus", "Chaussures", "Shoes"], ["acc", "Accessoires", "Accessories"]], style: [["aura", "Auras", "Auras"], ["titre", "Titres", "Titles"]], decor: [["mur", "Murs", "Walls"], ["sol", "Sols", "Floors"], ["obj", "Équipement et déco", "Equipment and decoration"]] };
+const porte = (id, a = lireAvatar(), B = lireBoutique()) => { const f = article(id)[1]; return f === "acc" ? (a.acc || []).includes(id) : f === "obj" ? B.obj.includes(id) : PIECE.test(f) ? B[f] === id : (a[f] || { tee: "t0", bas: "b0", chaus: "c0" }[f]) === id; };
 function mettre(id, a, B, forcer) {   // porte ou pose l'article (les accessoires et les objets se cumulent, un second appui les retire)
   const f = article(id)[1];
   if (f === "acc") a.acc = (a.acc || []).includes(id) ? (forcer ? a.acc : a.acc.filter(x => x !== id)) : [...(a.acc || []), id];
   else if (f === "obj") B.obj = B.obj.includes(id) ? (forcer ? B.obj : B.obj.filter(x => x !== id)) : [...B.obj, id];
-  else if (f === "mur" || f === "sol") B[f] = id; else a[f] = id;
+  else if (PIECE.test(f)) B[f] = id; else a[f] = id;
 }
 function ouvrirMoi() {
   const a = lireAvatar(), B = lireBoutique(), N = niveauXp(), pts = solde(B), aE = { ...a, acc: [...(a.acc || [])] }, bE = { ...B, obj: [...B.obj] }, p = lireProfil();
   if (essai) mettre(essai, aE, bE, true);
-  const carte = x => { const [id, , fr, en, prix] = x, ok = possede(id, B), mis = porte(id, a, B), couleur = typeof x[5] === "string" && x[5][0] === "#" ? x[5] : x[6] && x[6][0] === "#" ? x[6] : "#EA580C";
-    return `<button class="article${mis ? " mis" : ""}${essai === id ? " essai" : ""}" data-art="${id}"><i style="--c:${couleur}"></i><b>${L(fr, en)}</b><small>${mis ? "✓ " + L(/obj|mur|sol/.test(x[1]) ? "Installé" : "Porté", /obj|mur|sol/.test(x[1]) ? "Installed" : "Worn") : ok ? L("À toi", "Owned") : prix === "x" ? "🏆 " + L(...EXPLOITS[id]) : prix < 0 ? "🔒 " + L("Niveau", "Level") + " " + -prix : essai === id ? (pts >= prix ? L("Acheter", "Buy") + " · " + prix + " XP" : L("Il te manque", "You need") + " " + (prix - pts) + " XP") : "◆ " + prix + " XP"}</small>${BONUS[id] ? `<em>+${BONUS[id][0]} % XP · ${L(BONUS[id][2], BONUS[id][3])}</em>` : ""}</button>`; };
+  const carte = x => { const [id, , fr, en, prix] = x, ok = possede(id, B), mis = porte(id, a, B), R = RARETE(x), couleur = typeof x[5] === "string" && x[5][0] === "#" ? x[5] : x[6] && x[6][0] === "#" ? x[6] : "#EA580C";
+    return `<button class="article r-${R[0]}${mis ? " mis" : ""}${essai === id ? " essai" : ""}" data-art="${id}"><i style="--c:${couleur}"></i><span class="rar">${L(R[1], R[2])}</span><b>${L(fr, en)}</b><small>${mis ? "✓ " + L(/obj|mur|sol/.test(x[1]) ? "Installé" : "Porté", /obj|mur|sol/.test(x[1]) ? "Installed" : "Worn") : ok ? L("À toi", "Owned") : prix === "x" ? "🏆 " + L(...EXPLOITS[id]) : prix < 0 ? "🔒 " + L("Niveau", "Level") + " " + -prix : essai === id ? (pts >= prix ? L("Acheter", "Buy") + " · " + prix + " XP" : L("Il te manque", "You need") + " " + (prix - pts) + " XP") : "◆ " + prix + " XP"}</small>${BONUS[id] ? `<em>+${BONUS[id][0]} % XP · ${L(BONUS[id][2], BONUS[id][3])}</em>` : ""}</button>`; };
   const rond = (attr, l, sel) => l.map((c, i) => `<button class="pastille" data-${attr}="${i}" aria-pressed="${i === sel}" style="--c:${c}" aria-label="${attr} ${i + 1}"></button>`).join(""), choix = (attr, l, sel) => `<div class="stepper niv-choix moi-choix">${l.map(([f, e], i) => `<button class="toggle" data-${attr}="${i}" aria-pressed="${sel === i}">${L(f, e)}</button>`).join("")}</div>`;
-  $("moiCorps").innerHTML = `<div class="moi-haut"><div class="moi-scene">${sceneSvg(aE, bE)}${essai ? `<span class="moi-essai">${L("Essayage", "Trying on")}</span>` : ""}</div>
-      <div class="moi-infos"><div><b class="xp-rond">${N.n}</b><span><strong>${p.nom ? propre(p.nom) + " · " : ""}${N.nom}</strong>${barreXp(N)}<small>${N.dans} / ${N.pour} XP</small></span></div><p class="moi-solde">◆ <b>${pts}</b> XP ${L("à dépenser", "to spend")}</p></div>
-      ${moiVue === "decor" && B.obj.length ? `<p class="sh-aide moi-glisse">✋ ${L("Fais glisser les objets pour les placer où tu veux.", "Drag the items to place them wherever you like.")} <button class="lien" data-raz="1">${L("Tout remettre en place", "Reset positions")}</button></p>` : ""}</div>
-    <div class="chips moi-onglets">${[["apparence", "Apparence", "Looks"], ["tenue", "Tenue", "Outfit"], ["decor", "Home gym", "Home gym"]].map(([k, f, e]) => `<button class="toggle" data-vue="${k}" aria-pressed="${moiVue === k}">${L(f, e)}</button>`).join("")}</div>
+  const U = article(bE.aura) || article("u0"), T = article(bE.titre), q = Math.round(N.dans / N.pour * 100), vues = [["apparence", "Apparence", "Looks"], ["tenue", "Tenue", "Outfit"], ["style", "Auras et titres", "Auras & titles"], ["decor", "Home gym", "Home gym"]];
+  const pins = lireJSON("epingles", []).map(id => TROPHEES.find(t => t[0] === id)).filter(Boolean), svg = persoSvg(aE), vague = (y, o) => `<path class="vague" d="M0 ${y} q15 -5 30 0 t30 0 t30 0 t30 0 V70 H0z" opacity="${o}"/>`;
+  // figurine : le dessin du personnage répété en tranches assombries derrière lui, pour qu'il ait de l'épaisseur quand il s'incline
+  $("moiCorps").innerHTML = `<div class="moi-haut${moiVue === "decor" ? " moi-decor" : ""}"><div class="moi-scene${U[0] === "u0" ? "" : " a-aura"}" style="--aura:${U[5]}">${sceneSvg(aE, bE, "fond")}
+      <div class="moi-fig" id="moiFig" role="img" aria-label="${L("Ton personnage : glisse pour l’incliner", "Your character: drag to tilt it")}">${[-6, -4.5, -3, -1.5].map((z, k) => `<svg class="couche" style="--z:${z}px;--l:${.3 + k * .06}" viewBox="0 0 120 232" aria-hidden="true">${svg}</svg>`).join("")}<svg class="recto detoure" viewBox="0 0 120 232" aria-hidden="true">${svg}</svg></div>${sceneSvg(aE, bE, "devant")}
+      ${essai ? `<span class="moi-essai">${L("Essayage", "Trying on")}</span>` : ""}${pins.length ? `<div class="moi-pins" role="img" aria-label="${L("Badges épinglés", "Pinned badges")} : ${pins.map(t => L(t[1], t[2])).join(", ")}">${pins.map(t => medaille(t, "m")).join("")}</div>` : ""}</div>
+    <div class="moi-fiche"><div class="moi-orbe" role="img" aria-label="${L("Niveau", "Level")} ${N.n} · ${q} %"><svg viewBox="0 0 66 66" aria-hidden="true"><defs><clipPath id="moiOc"><circle cx="33" cy="33" r="29"/></clipPath></defs><circle cx="33" cy="33" r="29" class="o-fond"/><g clip-path="url(#moiOc)"><g style="transform:translateY(${Math.round((1 - q / 100) * 56) + 5}px)">${vague(0, 1)}${vague(3, .45)}</g></g><circle cx="33" cy="33" r="29" class="o-bord"/><ellipse cx="24" cy="18" rx="10" ry="5" transform="rotate(-30 24 18)" class="o-reflet"/></svg><b>${N.n}</b></div>
+      <div class="moi-nom"><strong>${p.nom ? propre(p.nom) + " · " : ""}${N.nom}</strong>${T && T[0] !== "n0" ? `<span class="moi-titre" style="--c:${T[5]}">${L(T[2], T[3])}</span>` : ""}<small>${N.dans} / ${N.pour} XP</small></div>
+      <p class="moi-solde">${L("à dépenser", "to spend")}<b>◆ ${pts}</b></p></div>
+    ${moiVue === "decor" && B.obj.length ? `<p class="sh-aide moi-glisse">✋ ${L("Fais glisser les objets pour les placer où tu veux.", "Drag the items to place them wherever you like.")} <button class="lien" data-raz="1">${L("Tout remettre en place", "Reset positions")}</button></p>` : ""}</div>
+    <div class="moi-onglets" role="group" aria-label="${L("Rayons", "Sections")}" style="--i:${vues.findIndex(v => v[0] === moiVue)}"><span class="goutte" aria-hidden="true"></span>${vues.map(([k, f, e]) => `<button data-vue="${k}" aria-pressed="${moiVue === k}">${L(f, e)}</button>`).join("")}</div>
     ${moiVue === "apparence" ? `<div class="carnet avatar-choix">${choix("ag", [["Garçon", "Boy"], ["Fille", "Girl"]], a.g === "f" ? 1 : 0)}<span class="champ-titre">${L("Peau", "Skin")}</span><div class="pastilles-choix">${rond("ap", PEAUX, a.peau)}</div><span class="champ-titre">${L("Couleur des cheveux", "Hair colour")}</span><div class="pastilles-choix">${rond("ac", CHEVEUX, a.chev)}</div>
         <span class="champ-titre">${L("Longueur", "Length")}</span>${choix("al", [["Courts", "Short"], ["Mi-longs", "Medium"], ["Longs", "Long"]], +a.lon || 0)}<span class="champ-titre">${L("Coiffure", "Hairstyle")}</span>${choix("ak", COUPES, +a.coupe || 0)}<span class="champ-titre">${L("Pose", "Pose")}</span>${choix("ao", NOMS_POSES.map(n => n.slice(1)), Math.max(0, NOMS_POSES.findIndex(n => n[0] === (a.pose || "auto"))))}<p class="sh-aide">${L("L’apparence est gratuite. L’expression du visage suit ta vitalité : entraîne-toi pour garder le sourire.", "Looks are free. The facial expression follows your vitality: train to keep the smile.")}</p></div>`
       : FAMILLES[moiVue].map(([f, fr, en]) => `<h2 class="sec">${L(fr, en)}</h2><div class="articles">${ARTICLES.filter(x => x[1] === f).map(carte).join("")}</div>`).join("") + `<p class="sh-aide">${L("Un appui pour essayer, un second pour acheter. Tes XP dépensés ne font jamais baisser ton niveau. 🔒 = récompense de niveau, 🏆 = exploit à réussir.", "Tap once to try, again to buy. Spending XP never lowers your level. 🔒 = level reward, 🏆 = feat to achieve.")}</p>`}
     <button class="toggle contour moi-partage" data-partage="1">📸 ${L("Partager mon personnage", "Share my character")}</button><div id="shAide"></div>`;
   if (ecranCourant !== "moi") ecran("moi");
+  if (!FIG.raf) FIG.raf = requestAnimationFrame(figBoucle);
 }
+/* Figurine : s'incline au doigt jusqu'à ±35°, revient en douceur, suit un peu l'inclinaison du téléphone et se balance au repos (sauf si le téléphone demande moins d'animations) */
+const FIG = { a: 0, b: 0, pris: null, raf: 0, loin: 0 }, figCalme = matchMedia("(prefers-reduced-motion: reduce)");
+function figBoucle(t) {
+  // la boucle s'arrête quand on quitte l'onglet (avec un délai, le temps de la transition d'écran)
+  const el = $("moiFig"); FIG.loin = el && !$("moi").classList.contains("hidden") ? 0 : (FIG.loin || 0) + 1; if (!el || FIG.loin > 90) return FIG.raf = FIG.loin = 0;
+  if (!FIG.pris) { const M = window.MVT || { x: 0, y: 0 }, ca = (figCalme.matches ? 0 : Math.sin(t / 1600) * 10) + M.x * 14, cb = M.y * -8;
+    // au repos sans balancement ni téléphone incliné : plus rien ne bouge, la boucle s'arrête (elle repart au toucher ou à la réouverture)
+    if (figCalme.matches && !M.x && !M.y && Math.abs(ca - FIG.a) + Math.abs(cb - FIG.b) < .01) { el.style.transform = ""; FIG.a = FIG.b = 0; return FIG.raf = 0; }
+    FIG.a += (ca - FIG.a) * .08; FIG.b += (cb - FIG.b) * .1; }
+  el.style.transform = `rotateX(${FIG.b.toFixed(2)}deg) rotateY(${FIG.a.toFixed(2)}deg)`;
+  FIG.raf = requestAnimationFrame(figBoucle);
+}
+$("moiCorps").addEventListener("pointerdown", e => { const f = e.target.closest("#moiFig"); if (!f) return; FIG.pris = [e.clientX, e.clientY]; if (!FIG.raf) FIG.raf = requestAnimationFrame(figBoucle); try { f.setPointerCapture(e.pointerId); } catch (_) {} });
+$("moiCorps").addEventListener("pointermove", e => { if (!FIG.pris) return; const lim = (v, m) => Math.max(-m, Math.min(m, v));
+  FIG.a = lim(FIG.a + (e.clientX - FIG.pris[0]) * .5, 35); FIG.b = lim(FIG.b - (e.clientY - FIG.pris[1]) * .25, 15); FIG.pris = [e.clientX, e.clientY]; });
+["pointerup", "pointercancel"].forEach(n => $("moiCorps").addEventListener(n, () => FIG.pris = null));
 $("moiCorps").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return; const d = b.dataset, a = lireAvatar(), B = lireBoutique(), y = scrollY, fin = () => { ouvrirMoi(); scrollTo(0, y); majVitalite(); };
   if (d.vue) { moiVue = d.vue; essai = ""; ouvrirMoi(); return; }

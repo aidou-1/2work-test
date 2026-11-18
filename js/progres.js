@@ -51,12 +51,26 @@ const TROPHEES = [
   ["prog", "En route", "On the way", "Termine 7 séances d’un programme", "Finish 7 programme sessions", 1, "7", S => S.progSeances >= 7],
   ["progFini", "Programme accompli", "Programme complete", "Termine un programme de 4 semaines", "Finish a 4-week programme", 3, "4s", S => S.progFini]
 ];
-const NIVEAUX = [, ["#F2B48A", "#C26A35", "#8A4A22"], ["#F1F5F9", "#A7B3C2", "#6B7A8F"], ["#FFE58A", "#F5B301", "#B45309"]];
-function medaille(t, k = 0) {
-  const [c1, c2, c3] = NIVEAUX[t[5]], g = "md" + t[0] + k;
-  return `<div class="medal"><svg viewBox="0 0 66 74"><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient></defs>
-    <path d="M20 50l-6 22 9-5 6 7 4-20zM46 50l6 22-9-5-6 7-4-20z" fill="#E11D48"/><path d="M20 50l-6 22 9-5 6 7 4-20z" fill="#BE123C" opacity=".5"/>
-    <circle cx="33" cy="32" r="28" fill="${c3}"/><circle cx="33" cy="30" r="28" fill="url(#${g})"/><circle cx="33" cy="30" r="21" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-dasharray="3 3"/></svg><span class="lbl">${t[6]}</span></div>`;
+// Badges en volume (Abysse néon) : cristal hexagonal fait de tranches empilées, face gravée et reflet qui passe ; un badge à gagner est une coque de verre givré avec l'anneau de son avancement.
+// k : "p" grille, "n" nouveau (entrée en tournant), "g" grand (fiche), "m" mini (épinglé) ; p : avancement de 0 à 1
+const TIERS = [, "bronze", "argent", "or"];
+const AVANCE = { s10: S => S.n / 10, s50: S => S.n / 50, s100: S => S.n / 100, j3: S => S.best / 3, j7: S => S.best / 7, j30: S => S.best / 30, h1: S => S.min / 60, h10: S => S.min / 600, d10: S => S.defis / 10, d30: S => S.defis / 30,
+  sports: S => S.sports / 5, souple: S => S.compte("calme") / 5, muscles: S => S.muscles / 10, prog: S => S.progSeances / 7 };
+function medaille(t, k = "p", ok = true, p = 0) {
+  if (!ok) { const v = Math.round(Math.min(.99, p) * 100); return `<div class="bd3 bk-${k} verrou"><svg viewBox="0 0 62 62" aria-hidden="true"><circle cx="31" cy="31" r="27" pathLength="100"/>${v ? `<circle cx="31" cy="31" r="27" pathLength="100" style="stroke-dasharray:${v} 100"/>` : ""}</svg><span>${t[6]}</span></div>`; }
+  return `<div class="bd3 bk-${k} t-${TIERS[t[5]]}"><div class="bd3-p">${"<i></i>".repeat(5)}<b class="bd3-f"><span>${t[6]}</span></b><b class="bd3-f bd3-d"><span>${t[6]}</span></b></div></div>`;
+}
+// fiche d'un badge : grand cristal qu'on fait tourner au doigt, condition, date, et « épingler » (3 au plus, affichés sur la scène de l'onglet Moi)
+function ouvrirBadge(id) {
+  const t = TROPHEES.find(x => x[0] === id), S = statsGlobales(), d = lireJSON("trophees", {})[id], pins = lireJSON("epingles", []), p = AVANCE[id] ? Math.min(1, AVANCE[id](S)) : 0;
+  ouvrirFeuilleInfo(L(t[1], t[2]), `<div class="bd3-scene" id="bdScene">${medaille(t, "g", !!d, p)}</div><p class="bd3-cond">${L(t[3], t[4])}</p>
+    <p class="sh-aide">${d ? L("Obtenu le ", "Earned on ") + new Date(d + "T12:00").toLocaleDateString(L("fr-FR", "en-GB"), { day: "numeric", month: "long", year: "numeric" }) : AVANCE[id] ? L("Avancement : ", "Progress: ") + Math.round(p * 100) + " %" : L("À débloquer", "To unlock")}</p>
+    ${d ? `<button class="toggle${pins.includes(id) ? "" : " contour"}" id="bdPin" aria-pressed="${pins.includes(id)}">📌 ${pins.includes(id) ? L("Épinglé sur ton personnage", "Pinned on your character") : L("Épingler sur ton personnage", "Pin on your character")}</button>` : ""}`);
+  const b = $("bdPin"); if (b) b.onclick = () => { const l = lireJSON("epingles", []).filter(x => x !== id); if (!pins.includes(id)) l.unshift(id); stocker("epingles", JSON.stringify(l.slice(0, 3))); ouvrirBadge(id); };
+  // le grand cristal suit le doigt, puis reprend sa rotation
+  const sc = $("bdScene"), c = sc.querySelector(".bd3-p"); if (!c) return;
+  sc.onpointermove = e => { const r = sc.getBoundingClientRect(); c.style.animation = "none"; c.style.transform = `rotateX(${((.5 - (e.clientY - r.top) / r.height) * 40).toFixed(1)}deg) rotateY(${(((e.clientX - r.left) / r.width - .5) * 80).toFixed(1)}deg)`; };
+  sc.onpointerleave = () => { c.style.animation = ""; c.style.transform = ""; };
 }
 function verifierTrophees() {   // renvoie les trophées débloqués à l'instant
   const S = statsGlobales(), deja = lireJSON("trophees", {}), neufs = TROPHEES.filter(t => !deja[t[0]] && t[7](S));
@@ -173,7 +187,7 @@ function celebrer() {   // renvoie false si la séance est écourtée (moins de 
   $("fBilan").innerHTML = [[mn, L("minutes", "minutes")], [n, L(n > 1 ? "exercices" : "exercice", n > 1 ? "exercises" : "exercise")], [S.serie, L(S.serie > 1 ? "jours d’affilée" : "jour d’affilée", S.serie > 1 ? "days in a row" : "day in a row")]]
     .map(([v, t], k) => `<div style="--k:${k}"><b data-v="${v}">0</b><span>${t}</span></div>`).join("");
   setTimeout(() => $("fBilan").querySelectorAll("b").forEach(b => compteur(b, +b.dataset.v)), 800);
-  $("fTrophees").innerHTML = blocGain() + neufs.map((t, k) => `<div class="nouveau-trophee" style="--k:${k}">${medaille(t, "n")}<div><small>${L("Nouveau trophée", "New trophy")}</small><b>${L(t[1], t[2])}</b><span>${L(t[3], t[4])}</span></div></div>`).join("");
+  $("fTrophees").innerHTML = blocGain() + neufs.map((t, k) => `<div class="nouveau-trophee" style="--k:${k}">${medaille(t, "n")}<div><small>${L("Nouveau badge", "New badge")}</small><b>${L(t[1], t[2])}</b><span>${L(t[3], t[4])}</span></div></div>`).join("");
   if (fc.n) $("fSub").textContent += " ❤️ " + L(`${Math.round(fc.somme / fc.n)} bpm en moyenne, ${fc.max} au maximum.`, `${Math.round(fc.somme / fc.n)} bpm on average, ${fc.max} max.`);
   $("fRessenti").innerHTML = blocRessenti(); brancherRessenti(); brancherEffort();
   $("fCharges").innerHTML = formCharges(); brancherCharges();
@@ -208,7 +222,7 @@ function ouvrirProgres() {
     <button class="recap-banniere" data-m="${mc}"><span class="play">▶</span><span><strong>${L("Ton mois en sport", "Your month in sport")}</strong><span>${nomMois(mc)} · ${L("ton récap en images", "your recap in pictures")}</span></span></button>
     ${moisDispo.filter(m => m !== mc).length ? `<div class="recap-mois-prec">${moisDispo.filter(m => m !== mc).slice(0, 6).map(m => `<button class="toggle contour" data-m="${m}">${nomMois(m)}</button>`).join("")}</div>` : ""}
     <div class="hero-serie"><span class="flamme">${$("tProgres").querySelector(".flamme").innerHTML.replace(/flG/g, "flG2")}</span><b data-v="${S.serie}">0</b><span>${L(S.serie > 1 ? "jours d’affilée" : "jour d’affilée", S.serie > 1 ? "days in a row" : "day in a row")}</span><small>${L("Meilleure série", "Best streak")} : ${S.best}</small></div>
-    <div class="kpis">${[[S.n, L("séances", "workouts"), "#2F5BFF"], [S.min, L("minutes", "minutes"), "#10B981"], [S.defis, L("défis réussis", "challenges"), "#F59E0B"], [nbT + "/" + TROPHEES.length, L("trophées", "trophies"), "#E11D48"]]
+    <div class="kpis">${[[S.n, L("séances", "workouts"), "#2F5BFF"], [S.min, L("minutes", "minutes"), "#10B981"], [S.defis, L("défis réussis", "challenges"), "#F59E0B"], [nbT + "/" + TROPHEES.length, L("badges", "badges"), "#E11D48"]]
       .map(([v, t, c]) => `<div class="kpi" style="--c:${c}"><b${typeof v === "number" ? ` data-v="${v}"` : ""}>${typeof v === "number" ? 0 : v}</b><span>${t}</span></div>`).join("")}</div>
     <div class="carte"><h2>${L("Cette semaine", "This week")}</h2><div class="barres">${sem.map((m, k) => `<div class="${k === (auj.getDay() + 6) % 7 ? "auj" : ""}"><b>${m || ""}</b><i style="--h:${m / mx * 100}%;--k:${k}"></i>${JOURS()[k]}</div>`).join("")}</div></div>
     <div class="carte"><h2>${L("4 derniers mois", "Last 4 months")}</h2><div class="chaleur">${cases}</div>
@@ -217,10 +231,10 @@ function ouvrirProgres() {
     ${blocsForme()}
     ${typeof blocApercus === "function" ? blocApercus() : ""}
     ${sectionCharges()}
-    <h2 class="sec">${L("Trophées", "Trophies")} · ${nbT}/${TROPHEES.length}</h2>
-    <div class="carte"><div class="trophees">${TROPHEES.map((t, k) => `<div class="trophee${deja[t[0]] ? "" : " verrou"}" style="--k:${k}">${medaille(t, "p")}<b>${L(t[1], t[2])}</b>${L(t[3], t[4])}</div>`).join("")}</div></div>
+    <h2 class="sec">${L("Badges", "Badges")} · ${nbT}/${TROPHEES.length}</h2>
+    <div class="badges">${TROPHEES.map(t => [t, !!deja[t[0]], AVANCE[t[0]] ? Math.min(1, AVANCE[t[0]](S)) : 0]).sort((x, y) => y[1] - x[1] || y[2] - x[2]).map(([t, ok, p], k) => `<button class="badge${ok ? "" : " verrou"}" data-tr="${t[0]}" style="--k:${k}">${medaille(t, "p", ok, p)}<b>${L(t[1], t[2])}</b><small>${ok ? L("Récupéré", "Earned") : p ? Math.round(p * 100) + " %" : L("À débloquer", "To unlock")}</small></button>`).join("")}</div>
     ${dernieres ? `<h2 class="sec">${L("Dernières séances", "Recent workouts")}</h2><ul class="list historique">${dernieres}</ul>` : `<p class="vide">${L("Termine ta première séance pour allumer la flamme !", "Finish your first workout to light the flame!")}</p>`}`;
-  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
+  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("prCorps").querySelectorAll("[data-tr]").forEach(b => b.onclick = () => ouvrirBadge(b.dataset.tr)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
   document.documentElement.style.setProperty("--accent", "#F97316");
   ecran("progres");
   setTimeout(() => $("prCorps").querySelectorAll("[data-v]").forEach(b => compteur(b, +b.dataset.v)), 350);
@@ -692,7 +706,7 @@ function ouvrirRecap(m) {
     if (S.exos.length) sl.push(`<p class="rc-sur">${L("Tes exercices stars", "Your star exercises")}</p><div class="rc-emoji">🏅</div><div class="rc-liste">${S.exos.map(([id, n], k) => `<div style="--k:${k}"><b>${k + 1}</b><span>${EXERCICES[id] ? EXERCICES[id].nom : id}</span><small>${n}×</small></div>`).join("")}</div>`);
     if (S.moment) { const M = { matin: ["☀️", "Plutôt du matin", "A morning person", "Tu t’entraînes surtout avant midi. Les lève-tôt ont toujours une longueur d’avance !", "You mostly train before noon. Early birds are always one step ahead!"], aprem: ["🌤️", "L’après-midi, c’est ton moment", "Afternoon is your time", "La plupart de tes séances ont lieu entre midi et 18 h.", "Most of your workouts happen between noon and 6 pm."], soir: ["🌙", "Un sportif du soir", "An evening athlete", "Tu préfères t’entraîner après 18 h, pour décompresser.", "You prefer training after 6 pm to unwind."] }[S.moment];
       sl.push(`<p class="rc-sur">${L("Ton moment", "Your moment")}</p><div class="rc-emoji">${M[0]}</div><div class="rc-titre" style="margin-top:14px">${L(M[1], M[2])}</div><p class="rc-txt" style="margin-top:12px">${L(M[3], M[4])}</p>`); }
-    if (S.tr.length || S.defis) sl.push(`<p class="rc-sur">${L("Récompenses", "Rewards")}</p><div class="rc-gros" data-v="${S.tr.length}">0</div><p class="rc-txt">${L(S.tr.length > 1 ? "trophées gagnés" : "trophée gagné", S.tr.length > 1 ? "trophies earned" : "trophy earned")}${S.defis ? ` · ${S.defis} ${L(S.defis > 1 ? "défis réussis" : "défi réussi", S.defis > 1 ? "challenges completed" : "challenge completed")} ⭐` : ""}</p><div class="rc-liste">${S.tr.slice(0, 3).map((t, k) => `<div style="--k:${k}"><b>${t[6]}</b><span>${L(t[1], t[2])}</span></div>`).join("")}</div>`);
+    if (S.tr.length || S.defis) sl.push(`<p class="rc-sur">${L("Récompenses", "Rewards")}</p><div class="rc-gros" data-v="${S.tr.length}">0</div><p class="rc-txt">${L(S.tr.length > 1 ? "badges gagnés" : "badge gagné", S.tr.length > 1 ? "badges earned" : "badge earned")}${S.defis ? ` · ${S.defis} ${L(S.defis > 1 ? "défis réussis" : "défi réussi", S.defis > 1 ? "challenges completed" : "challenge completed")} ⭐` : ""}</p><div class="rc-liste">${S.tr.slice(0, 3).map((t, k) => `<div style="--k:${k}"><b>${t[6]}</b><span>${L(t[1], t[2])}</span></div>`).join("")}</div>`);
     sl.push(`<p class="rc-sur">${mois} ${S.a}</p><div class="rc-carte"><div class="rc-titre" style="font-size:2.2rem">${L("Ton mois en bref", "Your month in brief")}</div><div class="grille"><div><b>${S.min}</b><span>${L("minutes", "minutes")}</span></div><div><b>${S.n}</b><span>${L("séances", "workouts")}</span></div><div><b>${S.jours.size}</b><span>${L("jours actifs", "active days")}</span></div><div><b>${S.best}</b><span>${L("meilleure série", "best streak")}</span></div></div></div><button class="rc-partager" id="rcPartager">${L("Partager mon récap", "Share my recap")}</button>`);
   }
   rc = { i: 0, slides: sl, t: null, m, S };

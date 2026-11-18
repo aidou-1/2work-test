@@ -62,7 +62,7 @@ function majJeu() {
 }
 /* Écran du niveau : avancement, ce que rapporte chaque type de séance, défis en cours, et récompenses offertes tous les 3 niveaux (js/moi.js) */
 function ouvrirNiveau() {
-  const N = niveauXp(), D = defisSemaine(), R = ARTICLES.filter(x => x[4] < 0).sort((a, b) => b[4] - a[4]), FAM = { tee: ["Tenue", "Outfit"], acc: ["Accessoire", "Accessory"], mur: ["Mur du home gym", "Home gym wall"], sol: ["Sol du home gym", "Home gym floor"], obj: ["Objet du home gym", "Home gym item"] };
+  const N = niveauXp(), D = defisSemaine(), R = ARTICLES.filter(x => x[4] < 0).sort((a, b) => b[4] - a[4]), FAM = { tee: ["Tenue", "Outfit"], aura: ["Aura", "Aura"], titre: ["Titre", "Title"], acc: ["Accessoire", "Accessory"], mur: ["Mur du home gym", "Home gym wall"], sol: ["Sol du home gym", "Home gym floor"], obj: ["Objet du home gym", "Home gym item"] };
   const gain = (min, f) => 10 + min * f, ligne = (t, x) => `<li><span>${t}</span><b>+${x} XP</b></li>`;
   outil(L("Niveau", "Level") + " " + N.n + " · " + N.nom, L("Chaque séance te fait gagner des points d’expérience (XP). Ils font monter ton niveau et servent à acheter tenues et décors dans l’onglet Moi.", "Every workout earns experience points (XP). They raise your level and buy outfits and decor in the Me tab."),
     `<div class="carte niv-carte"><div class="niv-tete"><b class="xp-rond">${N.n}</b><span><strong>${N.dans} / ${N.pour} XP</strong>${barreXp(N)}<small>${L("Encore", "Another")} ${N.pour - N.dans} XP ${L("pour le niveau", "to reach level")} ${N.n + 1}${N.n < RANGS.length ? " · " + L(...RANGS[N.n]) : ""}</small></span><b class="xp-rond suivant">${N.n + 1}</b></div>
@@ -72,7 +72,7 @@ function ouvrirNiveau() {
        <p class="sh-aide">${L("Règle : 10 XP par séance, plus ses minutes × 1 (échauffement, récupération), × 2 (renfo, salle, cardio) ou × 3 (Tabata).", "Rule: 10 XP per workout, plus its minutes × 1 (warm-up, recovery), × 2 (strength, gym, cardio) or × 3 (Tabata).")}</p></div>
      ${carteDefis(D)}
      <h2 class="sec">${L("Récompenses de palier", "Milestone rewards")}</h2><div class="carte"><ul class="paliers">${R.map(x => { const n = -x[4], ok = N.n >= n, c = typeof x[5] === "string" && x[5][0] === "#" ? x[5] : x[6] && x[6][0] === "#" ? x[6] : "#F5B301";
-       return `<li class="${ok ? "ok" : ""}"><b class="xp-rond${ok ? "" : " verrou"}">${n}</b><i style="--c:${c}"></i><span><strong>${L(x[2], x[3])}</strong><small>${L(...FAM[x[1]])} · ${ok ? L("débloqué, à retrouver dans Moi", "unlocked, find it in Me") : L("dans", "in") + " " + (n - N.n) + " " + L(n - N.n > 1 ? "niveaux" : "niveau", n - N.n > 1 ? "levels" : "level")}</small></span></li>`; }).join("")}</ul>
+       return `<li class="${ok ? "ok" : ""}"><b class="xp-rond${ok ? "" : " verrou"}">${n}</b><i style="--c:${c}"></i><span><strong>${L(x[2], x[3])}</strong><small>${L(...(FAM[x[1]] || ["Récompense", "Reward"]))} · ${ok ? L("débloqué, à retrouver dans Moi", "unlocked, find it in Me") : L("dans", "in") + " " + (n - N.n) + " " + L(n - N.n > 1 ? "niveaux" : "niveau", n - N.n > 1 ? "levels" : "level")}</small></span></li>`; }).join("")}</ul>
        <button class="toggle contour" id="nivMoi">${L("Ouvrir ma boutique", "Open my shop")}</button></div>`, () => ecran("menu"));
   $("nivMoi").onclick = () => { essai = ""; ouvrirMoi(); };
 }
