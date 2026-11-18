@@ -666,10 +666,14 @@ window.MVT = { x: 0, y: 0 };
     g0 = g0 == null ? e.gamma : g0 + (e.gamma - g0) * .02; b0 = b0 == null ? e.beta : b0 + (e.beta - b0) * .02;
     MVT.x += (borne((e.gamma - g0) / 22) - MVT.x) * .25; MVT.y += (borne((e.beta - b0) / 22) - MVT.y) * .25; f ||= requestAnimationFrame(poser); };
   const brancher = () => addEventListener("deviceorientation", lu, { passive: true });
-  // iPhone : la question n'est posée qu'une fois ; un refus est retenu (le réglage « Mouvement du téléphone » la repose), un accord se renouvelle sans fenêtre
-  const demander = force => { const D = window.DeviceOrientationEvent; if (!actif || !D || typeof D.requestPermission !== "function" || (!force && lire("mvtAcces") === "non")) return;
+  // iPhone : la question n'est posée qu'une seule fois, au premier toucher, jamais à chaque lancement. La réponse est retenue :
+  // après un accord, on écoute directement (si l'iPhone n'envoie rien, l'effet reste simplement immobile) ; pour reposer la question,
+  // on recoupe puis on réactive « Mouvement du téléphone » dans les Réglages.
+  const demander = force => { const D = window.DeviceOrientationEvent; if (!actif || !D || typeof D.requestPermission !== "function" || (!force && lire("mvtAcces"))) return;
     D.requestPermission().then(r => { stocker("mvtAcces", r === "granted" ? "oui" : "non"); if (r === "granted") brancher(); }, () => stocker("mvtAcces", "non")); };
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") brancher(); else document.addEventListener("click", () => demander(), { once: true });
+  let deja = null; try { deja = localStorage.getItem("mvtAcces"); } catch (e) {}   // lire() n'existe pas encore à ce moment du chargement
+  if (window.DeviceOrientationEvent && (typeof DeviceOrientationEvent.requestPermission !== "function" || deja === "oui")) brancher();
+  else document.addEventListener("click", () => demander(), { once: true });
   const maj = () => { $("mvtBtn").textContent = T(actif ? "Activé" : "Coupé"); $("mvtBtn").setAttribute("aria-pressed", actif); if (!actif) { MVT.x = MVT.y = 0; px = py = 1; poser(); } };
   $("mvtBtn").onclick = () => { actif = !actif; stocker("mouvement", actif ? "1" : "0"); maj(); if (actif) { demander(true); g0 = b0 = null; } };
   maj(); }
