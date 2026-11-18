@@ -625,7 +625,7 @@ let theme = "clair";   // par défaut : clair (Fonderie clair)
 try { theme = localStorage.getItem("theme") || "clair"; } catch (e) {}
 const sombreSys = matchMedia("(prefers-color-scheme: dark)");
 function appliquerTheme() {
-  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches);
+  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || document.documentElement.dataset.style === "liquide";   // Verre liquide : toujours sombre (OLED)
   document.documentElement.dataset.theme = d ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || (d ? "#0C0A09" : "#FBF6F1");   // barre du téléphone à la couleur du fond du style
   [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).setAttribute("aria-pressed", theme === t));
@@ -638,7 +638,7 @@ appliquerTheme();
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
   $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
-choixRg("rgStyle", "style", "style", "socle", "st");
+choixRg("rgStyle", "style", "style", "liquide", "st");
 // effet verre : activé par défaut, appliqué aussi avant l'affichage (index.html)
 const majVerre = () => { const v = "verre" in document.documentElement.dataset; $("verreBtn").textContent = T(v ? "Activé" : "Coupé"); $("verreBtn").setAttribute("aria-pressed", v); };
 $("verreBtn").onclick = () => { const v = !("verre" in document.documentElement.dataset); v ? document.documentElement.dataset.verre = "" : delete document.documentElement.dataset.verre; stocker("verre", v ? "1" : "0"); majVerre(); };
