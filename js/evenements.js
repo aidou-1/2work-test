@@ -8,7 +8,7 @@ function lancer() { clearInterval(tPret); fc.somme = fc.n = fc.max = 0; prefixeV
 function preparer(s) {   // s : séance à reprendre (sinon départ normal ; un clic passe son événement, ignoré)
   aReprendre = s && s.cle ? s : null;
   let n = PREP;
-  amorcerVoix();
+  amorcerVoix(); prechargerVoix();
   $("pretTime").textContent = n;
   ecran("pret");
   parler(PH("pret"));
@@ -18,7 +18,19 @@ function preparer(s) {   // s : séance à reprendre (sinon départ normal ; un 
     if (n <= 3) sons.alerte(); else sons.tic();
   }, 1000);
 }
-$("start").onclick = preparer;
+/* Séance de cardio (course, fractionné, Tabata…) : au départ, choix entre écran éteint (voix et bips enregistrés dans une piste qui continue
+   téléphone verrouillé, mais la musique d'une autre appli s'arrête : limite des téléphones) et musique (écran allumé, tout se mélange). */
+const cardioAuDepart = () => mode === "tabata" || !!routine && !!(routine.cardioS || ["course", "trail", "cyclisme"].includes(routine.cat) || ((SP[routine.cat] || {}).S || {})[routine.sp]?.cardio);
+function choisirSon() {
+  const dernier = (() => { try { const v = localStorage.getItem("musiqueCardio"); return v === null ? avecMusique : v === "1"; } catch (e) { return avecMusique; } })();
+  const opt = (id, ico, t, d, on) => `<button class="choix-son${on ? " on" : ""}" id="${id}"><b>${ico} ${t}</b><small>${d}</small></button>`;
+  ouvrirFeuilleInfo(L("Comment veux-tu ta séance ?", "How do you want your workout?"),
+    opt("sonEteint", "🔒", L("Écran éteint, téléphone en poche", "Screen off, phone in your pocket"), L("La voix et les bips continuent écran verrouillé. Ta musique s’arrête pendant la séance (limite des téléphones).", "The voice and beeps keep going with the screen locked. Your music stops during the workout (a phone limitation)."), !dernier)
+    + opt("sonMusique", "🎵", L("Avec ma musique, écran allumé", "With my music, screen on"), L("La voix et les bips se mélangent à ta musique sans la couper. Garde l’écran allumé.", "The voice and beeps mix with your music without stopping it. Keep the screen on."), dernier));
+  const go = m => { if (musiqueReglage === null) musiqueReglage = avecMusique; avecMusique = m; stocker("musiqueCardio", m ? "1" : "0"); majSession(); fermerFeuille(); preparer(); };   // le réglage général est remis à la fin
+  $("sonEteint").onclick = () => go(false); $("sonMusique").onclick = () => go(true);
+}
+$("start").onclick = () => cardioAuDepart() ? choisirSon() : preparer();
 $("pretGo").onclick = lancer;
 $("next").onclick = () => moteur(1)(false);
 $("prev").onclick = () => moteur(2)();
@@ -233,7 +245,7 @@ majVoixBtn();
 /* ============ RÉGLAGES ============ */
 function remplirVoix() {
   const sel = $("voixChoix"), liste = voixDispo();
-  sel.innerHTML = `<option value="">${T("Automatique (recommandée)")}</option>` + liste.map(v => `<option value="${v.name}">${v.name} · ${v.lang}</option>`).join("");
+  sel.innerHTML = `<option value="">${voixSet[langueVoix] && voixSet[langueVoix].size ? L("Voix 2 WORK (recommandée, ne coupe pas ta musique)", "2 WORK voice (recommended, keeps your music playing)") : T("Automatique (recommandée)")}</option>` + liste.map(v => `<option value="${v.name}">${v.name} · ${v.lang}</option>`).join("");
   sel.value = liste.some(v => v.name === nomVoix) ? nomVoix : "";
   $("voixAide").textContent = liste.length ? T(langueVoix === "fr" ? "{n} voix françaises sur ce téléphone" : "{n} voix anglaises sur ce téléphone", { n: liste.length }) : T("Aucune voix de cette langue trouvée sur ce téléphone");
   ["langFr", "langEn"].forEach(id => $(id).setAttribute("aria-pressed", (id === "langFr") === (langueVoix === "fr")));
@@ -243,7 +255,6 @@ $("langFr").onclick = () => { langueVoix = "fr"; nomVoix = ""; sauverVoix(); rem
 $("langEn").onclick = () => { langueVoix = "en"; nomVoix = ""; sauverVoix(); remplirVoix(); };
 $("voixChoix").onchange = ev => { nomVoix = ev.target.value; sauverVoix(); };
 $("voixTest").onclick = () => {
-  if (!("speechSynthesis" in window)) return;
   const avant = voixActive; voixActive = true; parler(PH("test"), 0); voixActive = avant;
 };
 if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", remplirVoix);

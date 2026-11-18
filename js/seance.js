@@ -187,11 +187,59 @@ function choisirVoix() {
    un second essai part avec la voix par défaut du téléphone, puis l'annonce s'affiche en bandeau à l'écran. */
 let tSecours = null, tBandeau = null, prefixeVoix = "";   // prefixeVoix : dit juste avant la prochaine annonce (« C'est parti ! » au lancement)
 function bandeauVoix(texte) { const b = $("voixSecours"); b.textContent = "🔊 " + texte; b.classList.remove("hidden"); clearTimeout(tBandeau); tBandeau = setTimeout(() => b.classList.add("hidden"), 4500); }
-const amorcerVoix = () => { try { if ("speechSynthesis" in window) { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } } catch (e) {} };   // à appeler dans l'appui : sur téléphone, la voix ne peut parler plus tard que si elle a démarré pendant un geste
+const amorcerVoix = () => { try { if ("speechSynthesis" in window && (!voixEnregistree() || !avecMusique)) { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } } catch (e) {} };   // à appeler dans l'appui : sur téléphone, la voix ne peut parler plus tard que si elle a démarré pendant un geste
+/* Voix enregistrée : une phrase est découpée en morceaux (aux points, virgules, deux-points…) ; chaque morceau a son fichier
+   voix/<langue>/<nom>.mp3, généré à l'avance (outils/voix/generer.py) et listé dans voix/<langue>.json. Même découpage à la génération. */
+const cleVoix = s => s.toLowerCase().replace(/[’`]/g, "'").replace(/[.!?;:…,"«»()–—]+/g, " ").replace(/\s+/g, " ").trim();
+const morceauxVoix = t => (String(t).match(/[^.!?;:…,]+[.!?;:…,]*/g) || []).map(m => m.trim()).filter(m => cleVoix(m));
+const nomVoixFichier = k => { let h = 5381; for (const c of k) h = ((h * 33) ^ c.codePointAt(0)) >>> 0; return h.toString(36) + k.length.toString(36); };
+const voixSet = {};   // langue → fichiers disponibles (voix/<langue>.json)
+const dispoVoix = l => voixSet[l] ? Promise.resolve(voixSet[l]) : fetch(`voix/${l}.json`).then(r => r.ok ? r.json() : null).catch(() => null).then(a => a ? voixSet[l] = new Set(a) : new Set());   // échec : on réessaiera
+["fr", "en"].forEach(dispoVoix);
+// voix enregistrée choisie (« Voix 2 WORK », par défaut) et disponible ; sinon synthèse vocale du téléphone
+const voixEnregistree = () => !nomVoix && !!(voixSet[langueVoix] && voixSet[langueVoix].size);
+// fichiers des morceaux d'une phrase : null s'il en manque un, sauf « partiel » (morceaux présents seulement, ex. consigne non enregistrée)
+const urlsVoix = (t, partiel, l = langueVoix) => { const s = voixSet[l], m = morceauxVoix(t).map(x => nomVoixFichier(cleVoix(x))), ok = s ? m.filter(f => s.has(f)) : [];
+  return ok.length && (partiel || ok.length === m.length) ? ok.map(f => `voix/${l}/${f}.mp3`) : null; };
+const TAMPONS = new Map();   // derniers morceaux décodés (au plus 120), par fichier et fréquence
+function tamponVoix(url, ctx) {
+  const k = url + "|" + ctx.sampleRate; let p = TAMPONS.get(k);
+  if (p) TAMPONS.delete(k);
+  else { p = fetch(url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((ok, ko) => ctx.decodeAudioData(b, ok, ko))); p.catch(() => TAMPONS.delete(k)); }
+  TAMPONS.set(k, p); if (TAMPONS.size > 120) TAMPONS.delete(TAMPONS.keys().next().value);
+  return p;
+}
+// au départ : les annonces des premiers exercices sont téléchargées d'avance (mises en cache par le service worker)
+function prechargerVoix() { if (!voixActive || !voixEnregistree()) return; dispoVoix(langueVoix);
+  const v = new Set([...Object.values(PHRASES[langueVoix]), ...Object.values(COACH[langueVoix]).flat(), "1", "2", "3"]);
+  liste.slice(0, 40).forEach((e, i) => { try { v.add(annonce(e, liste[i - 1])); v.add(PH("repos") + annonce(e, liste[i - 1], true)); } catch (x) {} });
+  v.forEach(t => (urlsVoix(t) || []).forEach(u => fetch(u).catch(() => {}))); }
+let voixEnCours = [], jetonVoix = 0;
+function couperVoix() { voixEnCours.forEach(x => { try { x.stop(); } catch (e) {} }); voixEnCours = []; }
+async function jouerVoix(urls, j) {   // morceaux enchaînés par l'audio de l'appli : ils se mélangent à la musique au lieu de la couper
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)(); if (audio.state !== "running") audio.resume();
+  const b = await Promise.all(urls.map(u => tamponVoix(u, audio)));
+  if (j !== jetonVoix) return;
+  couperVoix(); let t = audio.currentTime + .03;
+  b.forEach(x => { const n = audio.createBufferSource(), g = audio.createGain(); n.buffer = x; g.gain.value = 1.2; n.connect(g); g.connect(sortie()); n.start(t); t += x.duration + .07; voixEnCours.push(n); });
+}
 function parler(texte, delai = 700, vitesse = 0.95) {
   if (!voixActive || !texte) return;
+  if (guideJoue() && dansGuide(texte)) { prefixeVoix = ""; return; }   // écran éteint : déjà enregistrée dans la piste guide
   texte = prefixeVoix + texte; prefixeVoix = "";
-  clearTimeout(tVoix); clearTimeout(tSecours);
+  clearTimeout(tVoix); clearTimeout(tSecours); const j = ++jetonVoix;
+  if (voixEnregistree()) {
+    const urls = urlsVoix(texte, avecMusique);   // avec la musique, les morceaux enregistrés sont dits et le reste s'affiche
+    if (urls) { if ("speechSynthesis" in window) speechSynthesis.cancel();
+      if (!urlsVoix(texte)) bandeauVoix(texte);
+      tVoix = setTimeout(() => jouerVoix(urls, j).catch(() => avecMusique ? bandeauVoix(texte) : synthese(texte, vitesse, j)), delai); return; }   // hors ligne : la synthèse prend le relais
+    if (avecMusique) return bandeauVoix(texte);   // phrase non enregistrée : affichée seulement, pour ne pas couper la musique
+  }
+  tVoix = setTimeout(() => synthese(texte, vitesse, j), delai);
+}
+function synthese(texte, vitesse, j) {   // synthèse vocale du téléphone (voix choisie dans Réglages, ou repli)
+  if (j !== jetonVoix) return;
+  couperVoix();
   if (!("speechSynthesis" in window)) return bandeauVoix(texte);
   speechSynthesis.cancel();
   const essai = secours => {
@@ -204,7 +252,7 @@ function parler(texte, delai = 700, vitesse = 0.95) {
     speechSynthesis.resume(); speechSynthesis.speak(u);   // resume : Android reste parfois bloqué en pause
     tSecours = setTimeout(rate, 2500);   // ni début ni erreur après 2,5 s : la voix est restée muette
   };
-  tVoix = setTimeout(() => essai(false), delai);
+  essai(false);
 }
 try { const d = parseInt(localStorage.getItem("dureeGlobale"), 10); if (d >= 5 && d <= 120) dureeGlobale = d; } catch (e) {}
 
@@ -264,6 +312,7 @@ function afficherEcran(nom) {
   if (nom === "menu") { majReprise(); majVitalite(); majJeu(); majQuick();  if (typeof guideAuto === "function") guideAuto(); if (typeof majCarteClubs === "function") majCarteClubs(); if (typeof majS1 === "function") majS1(); }
   if (["pret", "session"].includes(nom)) try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); getSelection().removeAllRanges(); } catch (e) {}   // iPhone : rien de sélectionné ni de saisi en cours, sinon secouer le téléphone en courant propose « Annuler »
   if (!["pret", "session"].includes(nom)) { clearTimeout(tSecours); $("voixSecours").classList.add("hidden"); }   // pas d'annonce de secours hors séance
+  if (musiqueReglage !== null && !["pret", "session"].includes(nom)) { avecMusique = musiqueReglage; musiqueReglage = null; majSession(); }   // choix « écran éteint / musique » : pour cette séance seulement
   majVerrou();
   if (typeof volEcran === "function") volEcran(nom);   // style « Socle » : objet en volume de l'écran (js/progres.js)
 }
@@ -306,7 +355,7 @@ function bip(freq = 880, ms = 150, vol = 0.15, forme = "sine", decalage = 0, att
 /* Session audio (iPhone, Safari 16.4+) : « ambient » = les sons se mélangent à la musique d'une autre appli sans la couper,
    mais le bouton silencieux les coupe ; « playback » = sons garantis même en silencieux, mais la musique s'arrête. Réglage « musique ».
    Le son est (ré)activé à chaque toucher, car iOS ne le démarre qu'après un geste. */
-let avecMusique = true;
+let avecMusique = true, musiqueReglage = null;   // musiqueReglage : réglage à remettre après une séance où le choix a été fait au départ
 try { avecMusique = localStorage.getItem("musique") !== "0"; } catch (e) {}
 const majSession = () => { try { if (navigator.audioSession) navigator.audioSession.type = avecMusique ? "ambient" : "playback"; } catch (e) {} };
 majSession();
@@ -318,63 +367,86 @@ document.addEventListener("pointerdown", () => { try {
    Media Session : pause, suivant et précédent depuis l'écran verrouillé, la montre ou les écouteurs. Les téléphones n'affichent ces
    commandes que si l'appli joue un son en continu : une piste silencieuse tourne donc pendant la séance, ce qui prend la place de la
    musique d'une autre appli. Actif seulement quand le réglage « Écouter ma musique en même temps » est coupé. */
-let silence = null;
+let lecteur = null, urlSilence = null;   // un seul lecteur audio : lancé pendant le geste qui démarre la séance, il peut ensuite changer de piste
 function pisteSilence() {
-  if (silence) return silence;
+  if (urlSilence) return urlSilence;
   const n = 8000 * 10, o = new Uint8Array(44 + n), d = new DataView(o.buffer);   // WAV muet de 10 s (Android ignore les sons de moins de 5 s)
   [[0, 0x52494646], [8, 0x57415645], [12, 0x666d7420], [36, 0x64617461]].forEach(([p, v]) => d.setUint32(p, v));
   [[4, 36 + n], [16, 16], [24, 8000], [28, 8000], [40, n]].forEach(([p, v]) => d.setUint32(p, v, true));
   [[20, 1], [22, 1], [32, 1], [34, 8]].forEach(([p, v]) => d.setUint16(p, v, true));
   o.fill(128, 44);
-  silence = new Audio(URL.createObjectURL(new Blob([o], { type: "audio/wav" }))); silence.loop = true;
-  return silence;
+  return urlSilence = URL.createObjectURL(new Blob([o], { type: "audio/wav" }));
+}
+function lireAudio(src, boucle, decale = 0) {
+  const a = lecteur || (lecteur = new Audio());
+  if (a.src !== src) { a.src = src; if (decale) a.addEventListener("loadedmetadata", () => { try { a.currentTime = decale(); } catch (e) {} }, { once: true }); }
+  a.loop = boucle; return a.play().catch(() => {});
 }
 /* Piste guide, écran éteint : quand le téléphone se verrouille, il gèle la page (minuteur, voix, bips) mais laisse jouer un fichier audio.
-   On enregistre donc à l'avance, dans un fichier, les bips de toute la suite de la séance (3 bips avant chaque changement, puis
-   2 notes montantes pour l'effort, une note grave pour le repos, 3 notes à la fin) : le fractionné s'entend même écran éteint.
-   Refaite à chaque départ, pause, reprise, passage ou retour ; à défaut (séries aux répétitions), la piste muette. */
-let guide = null;
-function etapesRestantes() {
-  const l = [];
+   On enregistre donc à l'avance, dans un fichier, toute la suite de la séance : les annonces de la voix 2 WORK (exercice, repos, tour,
+   10 dernières secondes) et les bips (3 bips avant chaque changement, 2 notes montantes pour l'effort, une note grave pour le repos,
+   3 notes à la fin). Refaite à chaque départ, pause, reprise, passage ou retour ; à défaut (séries aux répétitions), la piste muette. */
+let guide = null, jetonGuide = 0, prepGuide = -1;
+function etapesRestantes() {   // [durée, "ex" | "rep", annonce au début, annonce 10 s avant la fin]
+  const l = [], tons = e => { if (!coachActif || !e || e.duree < 25) return ""; const P = COACH[langueVoix], t = tonPhase(e); return auHasard(P[t === "fort" ? "fin" : t + "Fin"]); };
   if (mode === "tabata") {
-    const t = { ...tab };
+    const t = { ...tab }, D = { ex: dureeGlobale, rep: repos, rec: recup };
     for (let k = 0; k < 600; k++) {
-      l.push([k ? { ex: dureeGlobale, rep: repos, rec: recup }[t.ph] : reste, t.ph === "ex" ? "ex" : "rep"]);
+      const neuf = k || reste >= D[t.ph] - 1;
+      l.push([k ? D[t.ph] : reste, t.ph === "ex" ? "ex" : "rep", !neuf ? "" : t.ph === "rec" ? PH("recup") : t.ph === "ex" && t.r === 0 ? PH("tour") + (t.c + 1) : ""]);
       if (t.ph === "ex") { if (t.r < reps - 1) { if (repos > 0) t.ph = "rep"; else t.r++; } else if (t.c < cycles - 1) { if (recup > 0) t.ph = "rec"; else { t.c++; t.r = 0; } } else break; }
       else if (t.ph === "rep") { t.r++; t.ph = "ex"; } else { t.c++; t.r = 0; t.ph = "ex"; }
     }
   } else if (liste.length && mode !== "souffle") {
     const ok = i => liste[i] && Number.isFinite(liste[i].duree) && liste[i].duree > 0;   // séries aux répétitions : la piste s'arrête là
-    l.push([reste, enRepos ? "rep" : "ex"]);
+    const rp = i => ["seance", "salle"].includes(mode) ? (liste[i].r ?? repos) : 0, ex = i => annonce(liste[i], liste[i - 1]), re = i => PH("repos") + annonce(liste[i + 1], liste[i], true);
+    l.push(enRepos ? [reste, "rep", reste >= rp(index) - 1 ? re(index) : ""] : [reste, "ex", reste >= liste[index].duree - 1 ? ex(index) : "", tons(liste[index])]);
     let i = enRepos ? index + 1 : index;
-    if (enRepos) { if (!ok(i)) return l; l.push([liste[i].duree, "ex"]); }
-    for (; i < liste.length - 1; i++) { const r = ["seance", "salle"].includes(mode) ? (liste[i].r ?? repos) : 0; if (r > 0) l.push([r, "rep"]); if (!ok(i + 1)) break; l.push([liste[i + 1].duree, "ex"]); }
+    if (enRepos) { if (!ok(i)) return l; l.push([liste[i].duree, "ex", ex(i), tons(liste[i])]); }
+    for (; i < liste.length - 1; i++) { const r = rp(i); if (r > 0) l.push([r, "rep", re(i)]); if (!ok(i + 1)) break; l.push([liste[i + 1].duree, "ex", ex(i + 1), tons(liste[i + 1])]); }
   }
   return l.filter(([d]) => d > 0);
 }
-function pisteGuide() {
-  const et = etapesRestantes(); if (!et.length || !volSons) return null;
-  const SR = 8000, tot = Math.min(3600, et.reduce((s, [d]) => s + d, 0) + 3), n = Math.round(SR * tot), o = new Uint8Array(44 + n).fill(128, 44), d = new DataView(o.buffer);   // 8 Ko par seconde
-  [[0, 0x52494646], [8, 0x57415645], [12, 0x666d7420], [36, 0x64617461]].forEach(([p, v]) => d.setUint32(p, v));
-  [[4, 36 + n], [16, 16], [24, SR], [28, SR], [40, n]].forEach(([p, v]) => d.setUint32(p, v, true));
-  [[20, 1], [22, 1], [32, 1], [34, 8]].forEach(([p, v]) => d.setUint16(p, v, true));
-  const note = (t, f, dur, v = .5) => { const a = Math.round(t * SR), b = Math.min(n, a + Math.round(dur * SR)); v *= Math.min(1, volSons) * 127;
-    for (let i = Math.max(0, a); i < b; i++) { const x = (i - a) / SR; o[44 + i] = Math.max(1, Math.min(255, o[44 + i] + Math.round(v * Math.sin(2 * Math.PI * f * x) * Math.min(1, x / .01, (dur - x) / .04)))); } };
+let textesGuide = new Set();   // annonces enregistrées dans la piste en cours : la page ne les redit pas (les autres restent dites en direct)
+const dansGuide = t => textesGuide.has(t) || textesGuide.has("#fin") && ["fin", "calmeFin", "douxFin"].some(k => COACH[langueVoix][k].includes(t));   // « 10 secondes » : la piste a tiré la sienne au hasard
+async function pisteGuide(j) {   // j : jeton de la préparation ; une préparation dépassée s'arrête aussitôt
+  const et = etapesRestantes(); if (!et.length || (!volSons && !voixActive)) return null;
+  const SR = 10000, tot = Math.min(3600, et.reduce((s, [d]) => s + d, 0) + 3), n = Math.round(SR * tot), dits = [], voix = [], textes = new Set();   // 20 Ko par seconde
   let t = 0;
+  et.forEach(([dur, , a, b]) => { if (a) dits.push([t + .7, a]); if (b && dur >= 25) dits.push([t + dur - 10, b]); t += dur; });
+  if (voixActive && voixEnregistree()) {   // morceaux décodés d'abord, la piste n'est allouée qu'ensuite
+    const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, SR);
+    for (const [t0, tx] of dits) { const u = t0 < tot && urlsVoix(tx); if (!u) continue;
+      try { const b = await Promise.all(u.map(x => tamponVoix(x, ctx))); if (j !== jetonGuide) return null; voix.push([t0, b.map(x => x.getChannelData(0))]); textes.add(tx); if (et.some(e => e[3] === tx)) textes.add("#fin"); } catch (e) { if (j !== jetonGuide) return null; } }
+  }
+  const buf = new ArrayBuffer(44 + n * 2), o = new DataView(buf), x = new Int16Array(buf, 44, n);   // WAV 16 bits mono, mixé directement
+  const ajout = (i, v) => { if (i >= 0 && i < n) x[i] = Math.max(-32767, Math.min(32767, x[i] + v * 32767)); };
+  voix.forEach(([t0, l]) => { let p = Math.round(t0 * SR); l.forEach(c => { for (let i = 0; i < c.length; i++) ajout(p + i, c[i] * 1.2); p += c.length + Math.round(.07 * SR); }); });
+  const note = (t, f, dur, v = .5) => { const a = Math.round(t * SR), m = Math.round(dur * SR); v *= Math.min(1, volSons) * .8;
+    for (let i = 0; i < m; i++) { const s = i / SR; ajout(a + i, v * Math.sin(2 * Math.PI * f * s) * Math.min(1, s / .01, (dur - s) / .04)); } };
+  t = 0;
   et.forEach(([dur], k) => { t += dur; if (t > tot - 3) return; if (dur > 4) [3, 2, 1].forEach(s => note(t - s, 1320, .18, .45));
-    const suite = et[k + 1]; if (!suite) [660, 880, 1320].forEach((f, j) => note(t + j * .22, f, .2)); else if (suite[1] === "ex") { note(t, 880, .22); note(t + .24, 1320, .4); } else note(t, 440, .7, .6); });
-  return new Audio(URL.createObjectURL(new Blob([o], { type: "audio/wav" })));
+    const suite = et[k + 1]; if (!suite) [660, 880, 1320].forEach((f, i) => note(t + i * .22, f, .2)); else if (suite[1] === "ex") { note(t, 880, .22); note(t + .24, 1320, .4); } else note(t, 440, .7, .6); });
+  [[0, 0x52494646], [8, 0x57415645], [12, 0x666d7420], [36, 0x64617461]].forEach(([p, v]) => o.setUint32(p, v));
+  [[4, 36 + n * 2], [16, 16], [24, SR], [28, SR * 2], [40, n * 2]].forEach(([p, v]) => o.setUint32(p, v, true));
+  [[20, 1], [22, 1], [32, 2], [34, 16]].forEach(([p, v]) => o.setUint16(p, v, true));
+  return j === jetonGuide ? { url: URL.createObjectURL(new Blob([buf], { type: "audio/wav" })), textes } : null;
 }
-const guideJoue = () => guide && !guide.paused;
-function arreterGuide() { if (guide) { guide.pause(); URL.revokeObjectURL(guide.src); guide = null; } }
+const guideJoue = () => !!guide && !!lecteur && lecteur.src === guide && !lecteur.paused;
+function arreterGuide() { jetonGuide++; textesGuide = new Set(); if (guide) { const g = guide; guide = null; if (lecteur && lecteur.src === g) lecteur.pause(); URL.revokeObjectURL(g); } }
 function majGuide() { if (["pret", "session"].includes(ecranCourant) && !avecMusique) { arreterGuide(); majVerrou(); } }   // départ, pause, reprise, passage, retour
 function majVerrou() {
-  const actif = ["pret", "session"].includes(ecranCourant) && !avecMusique;
+  const actif = ["pret", "session"].includes(ecranCourant) && !avecMusique, joue = actif && !enPause;
   try {
-    if (!actif || enPause || ecranCourant === "pret") arreterGuide();
-    else if (!guide) { const g = guide = pisteGuide();   // une piste qui échoue ou se termine (séries aux répétitions, plafond d'une heure) laisse place à la suivante ou à la piste muette
-      if (g) { const fin = () => { if (guide === g) { arreterGuide(); majVerrou(); } }; g.onended = fin; g.play().catch(() => { if (guide === g) { URL.revokeObjectURL(g.src); guide = null; pisteSilence().play().catch(() => {}); } }); } }
-    if (actif && !enPause && !guide) pisteSilence().play().catch(() => {}); else if (silence) silence.pause();
+    if (!joue || ecranCourant === "pret") arreterGuide();
+    else if (!guide && prepGuide !== jetonGuide) {   // préparée en arrière-plan ; la piste muette garde la main en attendant
+      const j = prepGuide = jetonGuide, t0 = performance.now();
+      pisteGuide(j).then(r => { if (!r) return; const u = r.url; if (j !== jetonGuide) return URL.revokeObjectURL(u);
+        guide = u; textesGuide = r.textes; lireAudio(u, false, () => (performance.now() - t0) / 1000);   // la séance a avancé pendant la préparation
+        lecteur.onended = () => { if (guide === u) { arreterGuide(); majVerrou(); } };   // fin de piste (séries aux répétitions, plafond d'une heure) : la suivante prend le relais
+      }).catch(() => {});
+    }
+    if (joue && !guide) lireAudio(pisteSilence(), true); else if (!joue && lecteur) lecteur.pause();
     if (!("mediaSession" in navigator)) return;
     navigator.mediaSession.metadata = actif ? new MediaMetadata({ title: $(ecranCourant === "pret" ? "pretNom" : "name").textContent, artist: "2 WORK" + (routine ? " · " + routine.titre : ""), artwork: [{ src: "icons/icon-512.png", sizes: "512x512", type: "image/png" }] }) : null;
     navigator.mediaSession.playbackState = !actif ? "none" : enPause ? "paused" : "playing";
@@ -533,12 +605,15 @@ bouton($("choicesP"), "Tabata", "7 séances prêtes (cardio, jambes, abdos…) o
 const SEANCE = k => Object.keys(ROUTINES).find(c => ROUTINES[c].grp === k && !ROUTINES[c].mat);
 [["haut", "Haut du corps"], ["bas", "Bas du corps"], ["complet", "Haut et bas du corps"]].forEach(([k, t]) => bouton($("choicesZ"), t, ROUTINES[SEANCE(k)].detail, ROUTINES[SEANCE(k)].couleur, () => vueMode(k)));
 
-/* --- Séance à ta forme : dans une séance toute prête (routine.plan), chaque bloc répété (intervalles, tours, séries, rounds) se règle en + / −.
-   Un bloc (même nom, numéros « 2/6 » ignorés) est découpé en unités identiques (exercice, durée, repos, consigne). On retire des unités ou on recopie
-   l'avant-dernière (ses repos sont ceux d'entre deux unités) ; la dernière unité garde le repos de fin prévu. Les numéros « 3/6 » sont recalculés.
+/* --- Modifier la séance : dans une séance toute prête (routine.plan), chaque bloc (même nom, numéros « 2/6 » ignorés) peut être
+   retiré en entier (ex. échauffement déjà fait avant), on peut en retirer des exercices, et chaque bloc répété (intervalles, tours, séries,
+   rounds) se règle en + / −. Un bloc répété est découpé en unités identiques (exercice, durée, repos, consigne) ; on retire des unités ou on
+   recopie l'avant-dernière (ses repos sont ceux d'entre deux unités) ; la dernière unité garde le repos de fin prévu. Les numéros sont recalculés.
    En salle (entrées « serie »), chaque exercice forme son propre bloc : on règle ses séries.
-   Choix gardé par séance dans « ajustSeances » ({ "clé|titre": { bloc: nombre } }) ; la séance d'origine (routine.plan) n'est jamais modifiée. */
+   Choix gardé par séance dans « ajustSeances » ({ "clé|titre": { bloc: nombre, _sans: [blocs retirés], _ex: { bloc: [ids retirés] } } }) ;
+   la séance d'origine (routine.plan) n'est jamais modifiée. */
 const cleBloc = bn => String(bn || "").replace(/\s*\d+\s*\/\s*\d+\s*/g, " ").replace(/\s+/g, " ").trim();
+const ECHAUF = /chauff|warm|réveil|activation|approche|mobilit|monter en temp|préparation progressive|raise|ramp/i;   // blocs de mise en route, retirables d'un appui si on enchaîne deux séances
 function blocsRepetes(plan) {
   const G = [];
   plan.forEach(q => { const k = cleBloc(q.bn) + (q.series ? " · " + (EXERCICES[q.id] || {}).nom : ""), g = G[G.length - 1]; g && g.k === k ? g.l.push(q) : G.push({ k, l: [q] }); });
@@ -549,38 +624,73 @@ function blocsRepetes(plan) {
 }
 const ajustCle = () => routineCle + "|" + (routine.titreFr || routine.titre || "");
 const ajustDe = () => lireJSON("ajustSeances", {})[ajustCle()] || {};
+const nbModifs = c => Object.keys(c).filter(k => k[0] !== "_").length + (c._sans || []).length + Object.values(c._ex || {}).reduce((t, l) => t + l.length, 0);
+// Retraits : blocs entiers puis exercices d'un bloc (dans chaque tour). Le repos d'un exercice retiré passe au précédent du même bloc ;
+// les numéros « 3/8 » des étiquettes sont recalculés sur ce qui reste.
+function planRetraits(plan, choix) {
+  const sans = new Set(choix._sans || []), ex = choix._ex || {};
+  if (!sans.size && !Object.keys(ex).length) return plan;
+  return blocsRepetes(plan).flatMap(g => {
+    if (sans.has(g.k)) return [];
+    const out = [], tot = g.l.length, p = g.p, ret = ex[g.k] || [];
+    g.l.forEach((q, i) => { const u = Math.floor(i / p);   // un exercice retiré qui terminait son tour laisse son repos (fin de tour) au précédent du même tour
+      if (!ret.includes(q.id)) out.push({ ...q, _u: u }); else if (i % p === p - 1 && out.length && out[out.length - 1]._u === u) out[out.length - 1] = { ...out[out.length - 1], r: q.r }; });
+    // numéros recalculés : dernière fraction de l'étiquette (« tour 2/3 · 4/8 » → 4/8), comptée parmi les étiquettes de même début ;
+    // « · autre côté » garde le numéro de son exercice
+    const fr = /^(.*?)(\d+)\s*\/\s*(\d+)(?!.*\d\s*\/\s*\d)/, rangs = {};
+    out.forEach(q => ["bn", "lab"].forEach(c => { const m = q[c] && fr.exec(q[c]); if (m) (rangs[c + m[1]] = rangs[c + m[1]] || new Set()).add(+m[2]); }));
+    return out.map(({ _u, ...e }) => { if (out.length < tot) ["bn", "lab"].forEach(c => { const m = e[c] && fr.exec(e[c]); if (!m) return; const l = [...rangs[c + m[1]]].sort((a, b) => a - b); e[c] = e[c].replace(fr, `$1${l.indexOf(+m[2]) + 1}/${l.length}`); }); return e; });
+  });
+}
 function planAjuste(plan, choix) {
-  if (!Object.keys(choix).length) return plan;
-  const rx = (a, b) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)`);
+  plan = planRetraits(plan, choix);
+  if (!Object.keys(choix).some(k => k[0] !== "_")) return plan;
+  const rx = (a, b, der) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)` + (der ? `(?!.*\\d\\s*/\\s*\\d)` : ""));
   return blocsRepetes(plan).flatMap(g => {
     const N = choix[g.k], { l, p, n } = g; if (!N || N === n || n < 2) return l;
     const tot = l.length, nu = N * p, out = [];
     for (let u = 0; u < N; u++) { const u0 = u < N - 1 ? Math.min(u, n - 2) : n - 1;
       for (let j = 0; j < p; j++) { const q = l[u0 * p + j], g0 = u0 * p + j, gi = u * p + j;
         // numéro global (« 8/18 ») d'abord, sinon numéro d'unité (« tour 2/3 », « Série 2/3 »)
-        const num = t => t == null ? t : rx(g0 + 1, tot).test(t) ? t.replace(rx(g0 + 1, tot), `$1${gi + 1}/${nu}`) : t.replace(rx(u0 + 1, n), `$1${u + 1}/${N}`);
+        const num = t => t == null ? t : rx(g0 + 1, tot, 1).test(t) ? t.replace(rx(g0 + 1, tot, 1), `$1${gi + 1}/${nu}`) : t.replace(rx(u0 + 1, n), `$1${u + 1}/${N}`);
         out.push({ ...q, bn: num(q.bn), lab: num(q.lab), ...(q.tt === n && { t: u + 1, tt: N, ft: j === p - 1 && u < N - 1 }), ...(q.series === n && { serie: u + 1, series: N }) }); } }
     return out;
   });
 }
-let ajustOuvert = false;
+let ajustOuvert = false, ajustDetail = "";
 function majAjust(blocs, choix) {
-  const R = $("ajustRow"), P = $("ajustPanel"), l = blocs.filter(g => g.n >= 2), modif = l.filter(g => choix[g.k] && choix[g.k] !== g.n);
+  const R = $("ajustRow"), P = $("ajustPanel"), sans = new Set(choix._sans || []), exR = choix._ex || {};
+  const l = blocs.length > 1 || blocs.some(g => g.n >= 2 || g.p > 1) ? blocs : [], modif = nbModifs(choix);
   R.classList.toggle("hidden", !l.length); P.classList.toggle("hidden", !l.length || !ajustOuvert); $("ajustBtn").setAttribute("aria-expanded", ajustOuvert);
   if (!l.length) return;
-  $("ajustInfo").textContent = modif.length ? L("Modifiée : ", "Edited: ") + modif.map(g => `${g.k} × ${choix[g.k]}`).join(" · ") : L("Plus ou moins de répétitions, de séries ou de tours selon ta forme du jour", "More or fewer reps, sets or rounds depending on how you feel today");
-  P.innerHTML = l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4));
-    return `<div class="aj-ligne"><div><b>${g.k}</b><small>${g.p === 1 ? (typeof duTxt === "function" ? duTxt(e.d) : e.d + " s") + (e.r ? " · " + L("repos ", "rest ") + (typeof duTxt === "function" ? duTxt(e.r) : e.r + " s") : "") : L(`${g.p} étapes par tour`, `${g.p} steps per round`)} · ${L("proposé", "suggested")} : ${g.n}</small></div>
-      <div class="stepper"><button data-aj="${i}" data-d="-1" ${v <= 1 ? "disabled" : ""} aria-label="${L("Un de moins", "One fewer")} · ${g.k}">−</button><output>${v}</output><button data-aj="${i}" data-d="1" ${v >= max ? "disabled" : ""} aria-label="${L("Un de plus", "One more")} · ${g.k}">+</button></div></div>`; }).join("")
-    + (modif.length ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. More volume isn’t always better: keep every effort high quality.")}</p>`;
-  const garder = c => { const t = lireJSON("ajustSeances", {}); Object.keys(c).length ? t[ajustCle()] = c : delete t[ajustCle()]; stocker("ajustSeances", JSON.stringify(t)); ouvrirApercu(routineCle); };
-  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = { ...choix }, v = (c[g.k] || g.n) + +b.dataset.d; v === g.n ? delete c[g.k] : c[g.k] = v; garder(c); });
+  const resume = [...[...sans].map(k => L("sans ", "no ") + k.toLowerCase()), ...l.filter(g => !sans.has(g.k) && choix[g.k] && choix[g.k] !== g.n).map(g => `${g.k} × ${choix[g.k]}`),
+    ...Object.entries(exR).filter(([k, v]) => v.length && !sans.has(k)).map(([k, v]) => `${k} − ${v.length}`)];
+  $("ajustInfo").textContent = modif ? L("Modifiée : ", "Edited: ") + resume.join(" · ") : L("Retire l’échauffement ou des exercices, ajuste répétitions, séries et tours", "Remove the warm-up or exercises, adjust reps, sets and rounds");
+  const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.k)).length;
+  const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.k)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.k));
+  P.innerHTML = (ech.length ? `<button class="toggle ${echTous ? "contour" : ""}" id="ajustEch">${echTous ? L("↺ Remettre l’échauffement", "↺ Put the warm-up back") : L("Déjà échauffé : retirer l’échauffement", "Already warm: remove the warm-up")}</button>` : "")
+    + l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.k);
+      const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.k] || [], ouvert = ajustDetail === g.k && !off;
+      return `<div class="aj-ligne${off ? " aj-off" : ""}"><div><b>${g.k}</b><small>${off ? L("Retiré de la séance", "Removed from the workout") : (g.p === 1 ? dur(e.d) + (e.r ? " · " + L("repos ", "rest ") + dur(e.r) : "") : L(`${uniques.length - retires.length} exercices`, `${uniques.length - retires.length} exercises`) + (g.n > 1 ? L(" par tour", " per round") : "")) + (g.n > 1 ? ` · ${L("proposé", "suggested")} : ${g.n}` : "")}</small></div>
+        ${!off && g.n >= 2 ? `<div class="stepper"><button data-aj="${i}" data-d="-1" ${v <= 1 ? "disabled" : ""} aria-label="${L("Un de moins", "One fewer")} · ${g.k}">−</button><output>${v}</output><button data-aj="${i}" data-d="1" ${v >= max ? "disabled" : ""} aria-label="${L("Un de plus", "One more")} · ${g.k}">+</button></div>` : ""}</div>
+        <div class="aj-act">${!off && uniques.length > 1 ? `<button class="aj-mini" data-det="${i}" aria-expanded="${ouvert}">${L("Exercices", "Exercises")} ${ouvert ? "▴" : "▾"}</button>` : ""}<button class="aj-mini" data-off="${i}" ${!off && restants <= 1 ? "disabled" : ""}>${off ? L("↺ Remettre", "↺ Put back") : L("Retirer ce bloc", "Remove this block")}</button></div>`
+        + (ouvert ? `<ul class="aj-ex">${uniques.map(id => { const r = retires.includes(id), dernier = !r && uniques.length - retires.length <= 1;
+          return `<li class="${r ? "aj-off" : ""}">${vignette(id)}<span>${(EXERCICES[id] || {}).nom || id}</span><button class="aj-mini" data-exb="${i}" data-ex="${id}" ${dernier ? "disabled" : ""} aria-label="${(r ? L("Remettre ", "Put back ") : L("Retirer ", "Remove ")) + ((EXERCICES[id] || {}).nom || id)}">${r ? "↺" : "×"}</button></li>`; }).join("")}</ul>` : ""); }).join("")
+    + (modif ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Si tu enchaînes deux séances, retire l’échauffement de la seconde. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. If you do two workouts back to back, remove the warm-up from the second. More volume isn’t always better: keep every effort high quality.")}</p>`;
+  const garder = c => { if (c._sans && !c._sans.length) delete c._sans; if (c._ex) { Object.keys(c._ex).forEach(k => c._ex[k].length || delete c._ex[k]); if (!Object.keys(c._ex).length) delete c._ex; }
+    const t = lireJSON("ajustSeances", {}); Object.keys(c).length ? t[ajustCle()] = c : delete t[ajustCle()]; stocker("ajustSeances", JSON.stringify(t)); ouvrirApercu(routineCle); };
+  const copie = () => ({ ...choix, _sans: [...(choix._sans || [])], _ex: Object.fromEntries(Object.entries(exR).map(([k, v]) => [k, [...v]])) });
+  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(), v = (c[g.k] || g.n) + +b.dataset.d; v === g.n ? delete c[g.k] : c[g.k] = v; garder(c); });
+  P.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { const g = l[+b.dataset.off], c = copie(); c._sans = sans.has(g.k) ? c._sans.filter(k => k !== g.k) : [...c._sans, g.k]; garder(c); });
+  P.querySelectorAll("[data-det]").forEach(b => b.onclick = () => { const k = l[+b.dataset.det].k; ajustDetail = ajustDetail === k ? "" : k; majAjust(blocs, choix); });
+  P.querySelectorAll("[data-exb]").forEach(b => b.onclick = () => { const g = l[+b.dataset.exb], c = copie(), r = c._ex[g.k] || [], id = b.dataset.ex; c._ex[g.k] = r.includes(id) ? r.filter(x => x !== id) : [...r, id]; garder(c); });
+  if ($("ajustEch")) $("ajustEch").onclick = () => { const c = copie(), ks = ech.map(g => g.k); c._sans = echTous ? c._sans.filter(k => !ks.includes(k)) : [...new Set([...c._sans, ...ks])]; garder(c); };
   if ($("ajustDef")) $("ajustDef").onclick = () => garder({});
 }
 $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepetes(routine.plan), ajustDe()); };
 
 function ouvrirApercu(cle) {
-  if (routineCle !== cle) ajustOuvert = false;
+  if (routineCle !== cle) ajustOuvert = false, ajustDetail = "";
   routine = ROUTINES[cle]; routineCle = cle;
   const tb = mode === "tabata", so = mode === "souffle", sa = mode === "salle";
   // en salle, chaque exercice est joué en plusieurs séries (repos entre chaque)
@@ -636,7 +746,7 @@ function ouvrirApercu(cle) {
       + (routine.blessure ? `<li class="etude"><div><small>${routine.etude}</small><small><b>${T("Pas un avis médical : reprends seulement après accord de ton médecin ou kiné. Aucun exercice ne doit faire mal : en cas de douleur, arrête.")}</b></small></div></li>` : "")
     : `<li><small>${T("Aucun exercice. Ajoutes-en au moins un pour commencer.")}</small></li>`;
   if (routine.plan) majAjust(blocsRepetes(routine.plan), choixAj); else $("ajustRow").classList.add("hidden"), $("ajustPanel").classList.add("hidden");
-  $("start").disabled = !tb && !so && ids.length === 0;
+  $("start").disabled = !tb && !so && (ids.length === 0 || !liste.length);
   if (!tb && !so) majAjout();
   ecran("preview");
 }
@@ -654,7 +764,7 @@ function demarrer() {
 
 /* Vidéos d'exercices : fichiers videos/<id>.mp4 déposés à côté de index.html.
    Pour en ajouter une, il suffit d'ajouter son identifiant à VIDEOS. Si le fichier manque, le dessin s'affiche. */
-const VIDEOS = ["esBrasTendus", "esChute", "esDrapeau", "esExtenseurs", "esJete", "esLolotte", "esMousqueton", "esPieds", "esRepos", "esSuspension", "esTalon", "naBattCote", "naBrasseGlisse", "naBulles", "naCoulee", "naCulbute", "naDosUnBras", "naOndulation", "naPapillonUnBras", "naPoings", "naRattrapage", "naRepere", "naRespi", "plBallon", "plBascule", "plCercle", "plCiseaux", "plCorkscrew", "plDoubleLeg", "plOpenLeg", "plRollingBall", "plSaw", "plSeal", "plShoulderBridge", "plSideKick", "plSingleLeg", "plSpineStretch", "plSwan", "sfBottom", "sfCanard", "sfChute", "sfCutback", "sfEquilibre", "sfMousse", "sfPopUp", "sfRameEau", "sfRameSec", "sfTakeOff", "sfTortue", "skAlternatif", "skBaton", "skCarving", "skChasseNeige", "skConversion", "skDerapage", "skDescenteBox", "skGodille", "skPatineur", "skPoudreuse", "skSautsSlalom", "skUnSki", "cyDanseuse", "cyDescente", "cyRelance", "cyUneJambe", "cyVelocite", "cyVirage", "hbDefense", "hbDribble", "hbFeinte", "hbGbBasse", "hbGbParade", "hbGbPosition", "hbPasseDeux", "hbPasseMur", "hbTir", "pdBinome", "pdLob", "pdVibora", "pdVitre", "pdVolee", "vbAttaque", "vbDefense", "vbDeux", "vbManchette", "vbPasse", "vbService", "bk1c1", "bkCross", "bkDefense", "bkDribble", "bkLancer", "bkLayup", "bkPasseDeux", "bkPasseMur", "bkRebond", "bkSautUni", "bkTir", "tnCoupDroit", "tnMur", "tnRetour", "tnRevers", "tnService", "tnVolee", "ftAppuis", "ftConduite", "ftControle", "ftCrochet", "ftDuel", "ftFrappe", "ftJonglage", "ftMurPasse", "ftPasseDeux", "ftTete", "gdDetente", "gdPlongeon", "gdPosition", "gdPrise", "gdReflexes", "gdRelance", "rnBras", "rnDescente", "rnLignes", "rnMarcheCote", "bxAigle", "bxAli", "bxBloc", "bxBoxJump", "bxBoxSquat", "bxClam", "bxCombo", "bxContre", "bxCorps", "bxCrochetAr", "bxCrochetAv", "bxDepth", "bxDirect", "bxEntree", "bxFenteDev", "bxFenteGenou", "bxFenteLat", "bxFentePdc", "bxGarde", "bxGlisses", "bxIsoCoup", "bxIsoMur", "bxJab", "bxKbSouleve", "bxLancerCoup", "bxLancerGenoux", "bxLandmine", "bxMoulin", "bxPallof", "bxPivot", "bxPompeYoga", "bxRelevesAlt", "bxRetrait", "bxRoule", "bxSautHalt", "bxShadowElast", "bxSlamRot", "bxSquatDev", "bxTirageRot", "bxTrapBar", "bxTrx", "bxUpperAr", "bxUpperAv", "burpeeSprawl", "genouxMur", "chasseGarde", "rafaleSac", "traineau", "inchworm", "squatBarre", "poulieTirage", "pecDeck", "rowPoulie", "shoulderMachine", "legExt", "wgs", "openbook", "thread", "wipers", "catcow", "cossack", "shadow", "dogpedal", "scorpion", "hip9090", "rdl", "fente", "pont", "askip", "armcircles", "armcross", "scap", "twist", "tspin", "slips", "bird", "cobra", "footwork", "heelkick", "kneeup", "lateral", "legfwd", "legside", "lungetwist", "sumo", "ankles", "calfraise", "cascade", "enfant", "hydrant", "paddle", "popup", "skater", "skisquat", "surfsquat", "battements", "crawlSec", "frappeVide", "lancer", "pasChasse", "pedalage", "rotEpaule", "sautContre", "sautTir", "skihop", "chaise", "climbers", "coupDroit", "fentesalt", "mollet1", "planche", "planchelat", "pontuni", "squat", "suspension", "burpees", "deadbug", "hollow", "pike", "planchetouch", "pompes", "pompesserrees", "russian", "squatsaute", "superman", "dbCurl", "dbLateral", "dbLunge", "dbPress", "dbRDL", "dbRow", "dbShoulder", "goblet", "kbPress", "kbSwing", "bulgare", "dips", "ezBench", "ezCurl", "ezRow", "ezSkull", "hipThrust", "poulieCrunch", "poulieTriceps", "stepUp", "bandChest", "bandPullApart", "bandRow", "bandWalk", "chinups", "discRussian", "discWood", "poulieBucheron", "roue", "tractions", "abducteurs", "benchBarre", "facePull", "legCurl", "molletsMachine", "presseCuisses", "pullover", "relevesJambes", "souleveTerre", "chestPress", "crossover", "curlMarteau", "extNuque", "grandissement", "inclineHalteres", "militaire", "nuqueFlex", "oiseau", "shrugs", "brasCroise", "dosMains", "flexionAssise", "genouxPoitrine", "lateralDebout", "murPecs", "nuqueLat", "poignets", "torsionAllongee", "triceps", "enfantStat", "fenteBasse", "fenteLatTenue", "figure4", "ischioCouche", "molletMur", "papillon", "quadDebout", "soleaire", "straddle", "alfredson", "cercleJambe", "chien", "copenhague", "equilibre", "extender", "hundred", "nuqueIso", "poignetExc", "rollUp", "bandRotExt", "jumpingJack", "pompesMur", "assisDebout", "donkeyKick", "crunchInverse", "ours", "rdlBarre", "hackSquat", "kickbackPoulie", "adducteursMachine", "curlPupitre", "relaxation", "splitStep", "fenteEtoile", "rotElastique", "bandejaVide", "receptionSaut", "pasDefensifs", "sprintNavette", "nordique", "lancerMedecine", "sautsRebond", "fouleesBond", "jambesTendues", "squatUni", "tractionBloquee", "doigtsElastique", "streamline", "nageElastique", "squatFreine", "fenteSautee", "rotationSurf", "equilibreSurf", "teaser", "swimmingPil", "ciseaux"];
+const VIDEOS = ["esBrasTendus", "esChute", "esDrapeau", "esExtenseurs", "esJete", "esLolotte", "esMousqueton", "esPieds", "esRepos", "esSuspension", "esTalon", "naBattCote", "naBrasseGlisse", "naBulles", "naCoulee", "naCulbute", "naDosUnBras", "naOndulation", "naPapillonUnBras", "naPoings", "naRattrapage", "naRepere", "naRespi", "plBallon", "plBascule", "plCercle", "plCiseaux", "plCorkscrew", "plDoubleLeg", "plOpenLeg", "plRollingBall", "plSaw", "plSeal", "plShoulderBridge", "plSideKick", "plSingleLeg", "plSpineStretch", "plSwan", "sfBottom", "sfCanard", "sfChute", "sfCutback", "sfEquilibre", "sfMousse", "sfPopUp", "sfRameEau", "sfRameSec", "sfTakeOff", "sfTortue", "skAlternatif", "skBaton", "skCarving", "skChasseNeige", "skConversion", "skDerapage", "skDescenteBox", "skGodille", "skPatineur", "skPoudreuse", "skSautsSlalom", "skUnSki", "cyDanseuse", "cyDescente", "cyRelance", "cyUneJambe", "cyVelocite", "cyVirage", "hbDefense", "hbDribble", "hbFeinte", "hbGbBasse", "hbGbParade", "hbGbPosition", "hbPasseDeux", "hbPasseMur", "hbTir", "pdBinome", "pdLob", "pdVibora", "pdVitre", "pdVolee", "vbAttaque", "vbDefense", "vbDeux", "vbManchette", "vbPasse", "vbService", "bk1c1", "bkCross", "bkDefense", "bkDribble", "bkLancer", "bkLayup", "bkPasseDeux", "bkPasseMur", "bkRebond", "bkSautUni", "bkTir", "tnCoupDroit", "tnMur", "tnRetour", "tnRevers", "tnService", "tnVolee", "ftAppuis", "ftConduite", "ftControle", "ftCrochet", "ftDuel", "ftFrappe", "ftJonglage", "ftMurPasse", "ftPasseDeux", "ftTete", "gdDetente", "gdPlongeon", "gdPosition", "gdPrise", "gdReflexes", "gdRelance", "rnBras", "rnDescente", "rnLignes", "rnMarcheCote", "bxAigle", "bxAli", "bxBloc", "bxBoxJump", "bxBoxSquat", "bxClam", "bxCombo", "bxContre", "bxCorps", "bxCrochetAr", "bxCrochetAv", "bxDepth", "bxDirect", "bxEntree", "bxFenteDev", "bxFenteGenou", "bxFenteLat", "bxFentePdc", "bxGarde", "bxGlisses", "bxIsoCoup", "bxIsoMur", "bxJab", "bxKbSouleve", "bxLancerCoup", "bxLancerGenoux", "bxLandmine", "bxMoulin", "bxPallof", "bxPivot", "bxPompeYoga", "bxRelevesAlt", "bxRetrait", "bxRoule", "bxSautHalt", "bxShadowElast", "bxSlamRot", "bxSquatDev", "bxTirageRot", "bxTrapBar", "bxTrx", "bxUpperAr", "bxUpperAv", "burpeeSprawl", "genouxMur", "chasseGarde", "rafaleSac", "traineau", "inchworm", "squatBarre", "poulieTirage", "pecDeck", "rowPoulie", "shoulderMachine", "legExt", "wgs", "openbook", "thread", "wipers", "catcow", "cossack", "shadow", "dogpedal", "scorpion", "hip9090", "rdl", "fente", "pont", "askip", "armcircles", "armcross", "scap", "twist", "tspin", "slips", "bird", "cobra", "footwork", "heelkick", "kneeup", "lateral", "legfwd", "legside", "lungetwist", "sumo", "ankles", "calfraise", "cascade", "enfant", "hydrant", "paddle", "popup", "skater", "skisquat", "surfsquat", "battements", "crawlSec", "frappeVide", "lancer", "pasChasse", "pedalage", "rotEpaule", "sautContre", "sautTir", "skihop", "chaise", "climbers", "coupDroit", "fentesalt", "mollet1", "planche", "planchelat", "pontuni", "squat", "suspension", "burpees", "deadbug", "hollow", "pike", "planchetouch", "pompes", "pompesserrees", "russian", "squatsaute", "superman", "dbCurl", "dbLateral", "dbLunge", "dbPress", "dbRDL", "dbRow", "dbShoulder", "goblet", "kbPress", "kbSwing", "bulgare", "dips", "ezBench", "ezCurl", "ezRow", "ezSkull", "hipThrust", "poulieCrunch", "poulieTriceps", "stepUp", "bandChest", "bandPullApart", "bandRow", "bandWalk", "chinups", "discRussian", "discWood", "poulieBucheron", "roue", "tractions", "abducteurs", "benchBarre", "facePull", "legCurl", "molletsMachine", "presseCuisses", "pullover", "relevesJambes", "souleveTerre", "chestPress", "crossover", "curlMarteau", "extNuque", "grandissement", "inclineHalteres", "militaire", "nuqueFlex", "oiseau", "shrugs", "brasCroise", "dosMains", "flexionAssise", "genouxPoitrine", "lateralDebout", "murPecs", "nuqueLat", "poignets", "torsionAllongee", "triceps", "enfantStat", "fenteBasse", "fenteLatTenue", "figure4", "ischioCouche", "molletMur", "papillon", "quadDebout", "soleaire", "straddle", "alfredson", "cercleJambe", "chien", "copenhague", "equilibre", "extender", "hundred", "nuqueIso", "poignetExc", "rollUp", "bandRotExt", "jumpingJack", "pompesMur", "assisDebout", "donkeyKick", "crunchInverse", "ours", "rdlBarre", "hackSquat", "kickbackPoulie", "adducteursMachine", "curlPupitre", "relaxation", "splitStep", "fenteEtoile", "rotElastique", "bandejaVide", "receptionSaut", "pasDefensifs", "sprintNavette", "nordique", "lancerMedecine", "sautsRebond", "fouleesBond", "jambesTendues", "squatUni", "tractionBloquee", "doigtsElastique", "streamline", "nageElastique", "squatFreine", "fenteSautee", "rotationSurf", "equilibreSurf", "teaser", "swimmingPil", "ciseaux", "bfGarde", "bfChasse", "bfFouette", "bfRevers", "bfPiedBas", "bfArme", "bfCombo", "bfDefJambe", "kxTeep", "kxLow", "kxMiddle", "kxHigh", "kxGenou", "kxCheck", "ftAcceleration", "atDepart", "bkAcceleration", "hbAcceleration", "vbAcceleration", "atBondsAlternes", "atHaieVide", "atImpulsion", "atLancerMBArriere", "atLancerMBAvant", "atMarcheHaies", "atRotationLancer", "atSautLongueurSE", "atTripleSE", "copenhagueLong", "bkEquilibre", "hbEquilibre", "vbEquilibre", "rnEquilibre", "ftFreinage", "bkFreinage", "hbFreinage", "vbFreinage", "ftAdducteurs", "ftBulgareChaise", "ftDemiTour", "ftEquilibreBallon", "ftIschios", "ftSautUni", "ftSprintLance", "hbContact", "rdlUni", "plRespi", "sfApnee", "rnFenteSol", "rnMolletsFlechis", "rqCoiffe", "rqFreinage", "rqLancer", "rqPoignet", "rqRotation", "rnPetitsSauts", "hopStick", "stepDown", "tibialis", "trBatons", "trDescenteLongue", "trMonteeTest"];
 /* Vignette des listes : image fixe tirée de la vidéo (vignettes/<id>.webp, chargée seulement à l'approche de l'écran), sinon le petit dessin */
 const vignette = id => EXERCICES[id].video
   ? `<img class="mini" src="vignettes/${id}.webp" alt="" loading="lazy" decoding="async" width="72" height="49" onerror="this.outerHTML=mini('${id}')">`

@@ -271,9 +271,13 @@ box-shadow: 0 14px 28px -16px var(--c); }
 /* Club : guide de démarrage du coach */
 .cl-demarrer ol { list-style: none; padding: 0; margin: 10px 0 4px; } .cl-demarrer li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0 0 10px; }
 .cl-demarrer li small { color: var(--muted); } .cl-demarrer li.ok small { opacity: .7; }
-/* Séance à ta forme : une ligne par bloc répété, nom à gauche, + / − à droite */
+/* Modifier la séance : une ligne par bloc, nom à gauche, + / −, Exercices et Retirer à droite */
 .aj-panel { margin: 0 0 14px; } .aj-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--ligne); }
 .aj-ligne small { display: block; color: var(--muted); font-size: .82rem; } .aj-ligne .stepper { flex-wrap: nowrap; } .aj-panel #ajustDef { margin-top: 10px; }
+.aj-act { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 10px; border-bottom: 1px solid var(--ligne); } .aj-ligne:has(+ .aj-act) { border-bottom: 0; }
+.aj-mini { padding: 8px 14px; min-height: 40px; font-size: .85rem; font-weight: 600; background: var(--soft); color: var(--ink); border-radius: 999px; }
+.aj-mini:disabled { opacity: .4; } .aj-off > div > b, .aj-off > span { opacity: .5; text-decoration: line-through; } .aj-panel #ajustEch { width: 100%; margin: 0 0 6px; white-space: normal; }
+.aj-ex { list-style: none; margin: 0 0 6px; padding: 0 0 0 8px; } .aj-ex li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--ligne); } .aj-ex li span { flex: 1; } .aj-ex .vignette, .aj-ex img { width: 64px; height: auto; border-radius: 8px; }
 #rgStyle { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }   /* quatre styles : deux par ligne, jamais plus large que l’écran */
 html, body { overflow-x: clip; }   /* filet de sécurité : rien ne doit faire défiler la page de côté */
 #session, #pret { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* pendant l'effort : rien à sélectionner (secouer = « Annuler » sur iPhone) */
@@ -653,6 +657,8 @@ div.zones b { display: block; font-family: var(--titre); font-size: 1.1rem; } di
 .ms-liste li.dispo b::after { content: " · facultatif"; font-weight: 500; color: var(--muted); }
 html[lang="en"] .ms-liste li.dispo b::after { content: " · optional"; }
 .semaine-liste .fait { color: var(--ok); font-size: 1.3rem; font-weight: 800; padding: 0 8px; } .semaine-liste .toggle { flex: none; padding: 8px 12px; }
+.choix-son { display: block; width: 100%; text-align: left; margin: 0 0 10px; padding: 14px 16px; border-radius: 18px; background: var(--soft); color: var(--ink); border: 2px solid transparent; } .choix-son.on { border-color: var(--accent); }
+.choix-son b { display: block; font-size: 1.05rem; } .choix-son small { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; }
 .feuille-fond { position: fixed; inset: 0; z-index: 300; background: rgba(4,7,16,.6); display: flex; align-items: flex-end; animation: voile .2s ease-out; }
 .feuille { width: 100%; max-width: 560px; margin: 0 auto; background: var(--bg); color: var(--ink); border: 1px solid var(--ligne); border-bottom: 0; border-radius: 26px 26px 0 0; max-height: 92vh; overflow-y: auto; padding: 20px 16px max(20px, env(safe-area-inset-bottom)); display: grid; gap: 10px; animation: monteFeuille .32s var(--doux); }
 @keyframes voile { from { opacity: 0; } } @keyframes monteFeuille { from { transform: translateY(40%); opacity: 0; } }
@@ -1012,7 +1018,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <p class="sub" id="pInfo"></p>
 <ol class="list" id="pList"></ol>
 <div class="reglage hidden" id="ajustRow">
-<label for="ajustBtn"><span data-en="Match it to your day">Adapter à ta forme</span><small id="ajustInfo"></small></label>
+<label for="ajustBtn"><span data-en="Edit the workout">Modifier la séance</span><small id="ajustInfo"></small></label>
 <button id="ajustBtn" class="toggle contour" aria-expanded="false" aria-controls="ajustPanel" data-en="✏️ Edit">✏️ Modifier</button>
 </div>
 <div id="ajustPanel" class="carnet aj-panel hidden"></div>
@@ -1183,7 +1189,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="volume"><input type="range" id="volSons" min="0" max="300" step="10" value="100"><output id="volVal">100 %</output></div>
 </div>
 <div class="reglage">
-<label for="musiqueBtn">Écouter ma musique en même temps<small data-en="Beeps mix with your music without stopping it. Turn this off to hear the beeps with the screen off (intervals, running) and to control the workout from the lock screen or your earphones: the app then takes over the phone’s audio.">Les bips se mélangent à ta musique sans la couper, mais se taisent écran éteint. Coupe ce réglage pour entendre les bips <b>même écran éteint</b> (fractionné, course) et piloter la séance depuis l’écran verrouillé ou tes écouteurs : l’appli prend alors le son du téléphone.</small></label>
+<label for="musiqueBtn">Écouter ma musique en même temps<small data-en="The 2 WORK voice and the beeps mix with your music without stopping it, as long as the screen stays on. Turn this off to keep the voice and beeps with the screen off (running, intervals) and to control the workout from the lock screen or your earphones: your music then stops during the workout. For cardio workouts, the app asks you at the start.">La voix 2 WORK et les bips se mélangent à ta musique sans la couper, tant que l’écran reste allumé. Coupe ce réglage pour garder la voix et les bips <b>même écran éteint</b> (course, fractionné) et piloter la séance depuis l’écran verrouillé ou tes écouteurs : ta musique s’arrête alors pendant la séance. Pour les séances de cardio, l’appli te pose la question au départ.</small></label>
 <button id="musiqueBtn" class="toggle" aria-pressed="true">Activé</button>
 </div>
 <div class="reglage">
@@ -1275,43 +1281,43 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-18g"></script>
-<script src="js/donnees.js?v=2026-11-18g"></script>
-<script src="js/seance.js?v=2026-11-18g"></script>
-<script src="js/progres.js?v=2026-11-18g"></script>
-<script src="js/catalogue.js?v=2026-11-18g"></script>
-<script src="js/profil.js?v=2026-11-18g"></script>
-<script src="js/anatomie.js?v=2026-11-18g"></script>
-<script src="js/evenements.js?v=2026-11-18g"></script>
-<script src="js/outils.js?v=2026-11-18g"></script>
-<script src="js/cardio.js?v=2026-11-18g"></script>
-<script src="js/chronos.js?v=2026-11-18g"></script>
-<script src="js/sports.js?v=2026-11-18g"></script>
-<script src="js/sport.js?v=2026-11-18g"></script>
-<script src="js/boxe.js?v=2026-11-18g"></script>
-<script src="js/foot.js?v=2026-11-18g"></script>
-<script src="js/course.js?v=2026-11-18g"></script>
-<script src="js/trail.js?v=2026-11-18g"></script>
-<script src="js/athle.js?v=2026-11-18g"></script>
-<script src="js/basket.js?v=2026-11-18g"></script>
-<script src="js/tennis.js?v=2026-11-18g"></script>
-<script src="js/padel.js?v=2026-11-18g"></script>
-<script src="js/handball.js?v=2026-11-18g"></script>
-<script src="js/volley.js?v=2026-11-18g"></script>
-<script src="js/cyclisme.js?v=2026-11-18g"></script>
-<script src="js/natation.js?v=2026-11-18g"></script>
-<script src="js/escalade.js?v=2026-11-18g"></script>
-<script src="js/ski.js?v=2026-11-18g"></script>
-<script src="js/surf.js?v=2026-11-18g"></script>
-<script src="js/pilates.js?v=2026-11-18g"></script>
-<script src="js/jeu.js?v=2026-11-18g"></script>
-<script src="js/moi.js?v=2026-11-18g"></script>
-<script src="js/forme.js?v=2026-11-18g"></script>
-<script src="js/masemaine.js?v=2026-11-18g"></script>
-<script src="js/apercus.js?v=2026-11-18g"></script>
-<script src="js/guide.js?v=2026-11-18g"></script>
-<script src="js/clubs.js?v=2026-11-18g"></script>
-<script src="js/coach.js?v=2026-11-18g"></script>
-<script src="js/semaine1.js?v=2026-11-18g"></script>
+<script src="consignes.js?v=2026-11-18k"></script>
+<script src="js/donnees.js?v=2026-11-18k"></script>
+<script src="js/seance.js?v=2026-11-18k"></script>
+<script src="js/progres.js?v=2026-11-18k"></script>
+<script src="js/catalogue.js?v=2026-11-18k"></script>
+<script src="js/profil.js?v=2026-11-18k"></script>
+<script src="js/anatomie.js?v=2026-11-18k"></script>
+<script src="js/evenements.js?v=2026-11-18k"></script>
+<script src="js/outils.js?v=2026-11-18k"></script>
+<script src="js/cardio.js?v=2026-11-18k"></script>
+<script src="js/chronos.js?v=2026-11-18k"></script>
+<script src="js/sports.js?v=2026-11-18k"></script>
+<script src="js/sport.js?v=2026-11-18k"></script>
+<script src="js/boxe.js?v=2026-11-18k"></script>
+<script src="js/foot.js?v=2026-11-18k"></script>
+<script src="js/course.js?v=2026-11-18k"></script>
+<script src="js/trail.js?v=2026-11-18k"></script>
+<script src="js/athle.js?v=2026-11-18k"></script>
+<script src="js/basket.js?v=2026-11-18k"></script>
+<script src="js/tennis.js?v=2026-11-18k"></script>
+<script src="js/padel.js?v=2026-11-18k"></script>
+<script src="js/handball.js?v=2026-11-18k"></script>
+<script src="js/volley.js?v=2026-11-18k"></script>
+<script src="js/cyclisme.js?v=2026-11-18k"></script>
+<script src="js/natation.js?v=2026-11-18k"></script>
+<script src="js/escalade.js?v=2026-11-18k"></script>
+<script src="js/ski.js?v=2026-11-18k"></script>
+<script src="js/surf.js?v=2026-11-18k"></script>
+<script src="js/pilates.js?v=2026-11-18k"></script>
+<script src="js/jeu.js?v=2026-11-18k"></script>
+<script src="js/moi.js?v=2026-11-18k"></script>
+<script src="js/forme.js?v=2026-11-18k"></script>
+<script src="js/masemaine.js?v=2026-11-18k"></script>
+<script src="js/apercus.js?v=2026-11-18k"></script>
+<script src="js/guide.js?v=2026-11-18k"></script>
+<script src="js/clubs.js?v=2026-11-18k"></script>
+<script src="js/coach.js?v=2026-11-18k"></script>
+<script src="js/semaine1.js?v=2026-11-18k"></script>
 </body>
 </html>
