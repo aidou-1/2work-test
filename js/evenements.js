@@ -243,22 +243,26 @@ $("voixBtn").onclick = () => {
 majVoixBtn();
 
 /* ============ RÉGLAGES ============ */
+/* Liste reconstruite seulement si elle change, et jamais pendant qu'elle est ouverte : sur téléphone, le système annonce souvent
+   « voix changées » (voiceschanged), et une liste refaite à ce moment se refermait en perdant le choix. */
+let sigVoix = "";
 function remplirVoix() {
-  const sel = $("voixChoix"), liste = voixDispo();
-  sel.innerHTML = `<option value="">${voixSet[langueVoix] && voixSet[langueVoix].size ? L("Voix 2 WORK (recommandée, ne coupe pas ta musique)", "2 WORK voice (recommended, keeps your music playing)") : T("Automatique (recommandée)")}</option>` + liste.map(v => `<option value="${v.name}">${v.name} · ${v.lang}</option>`).join("");
+  const sel = $("voixChoix"), liste = voixDispo(), rec = !!(voixSet[langueVoix] && voixSet[langueVoix].size), sig = [langueVoix, rec, ...liste.map(v => v.name + v.lang)].join("|");
+  if (sig !== sigVoix && document.activeElement !== sel) { sigVoix = sig;
+    sel.innerHTML = `<option value="">${rec ? L("Voix 2 WORK (recommandée, ne coupe pas ta musique)", "2 WORK voice (recommended, keeps your music playing)") : T("Automatique (recommandée)")}</option>` + liste.map(v => `<option value="${v.name.replace(/"/g, "&quot;")}">${v.name} · ${v.lang}</option>`).join(""); }
   sel.value = liste.some(v => v.name === nomVoix) ? nomVoix : "";
-  $("voixAide").textContent = liste.length ? T(langueVoix === "fr" ? "{n} voix françaises sur ce téléphone" : "{n} voix anglaises sur ce téléphone", { n: liste.length }) : T("Aucune voix de cette langue trouvée sur ce téléphone");
+  $("voixAide").textContent = liste.length ? T(langueVoix === "fr" ? "{n} voix françaises sur ce téléphone" : "{n} voix anglaises sur ce téléphone", { n: liste.length }) : voixSet[langueVoix] && voixSet[langueVoix].size ? L("Aucune voix du téléphone accessible ici : la voix 2 WORK est utilisée", "No phone voice available here: the 2 WORK voice is used") : T("Aucune voix de cette langue trouvée sur ce téléphone");
   ["langFr", "langEn"].forEach(id => $(id).setAttribute("aria-pressed", (id === "langFr") === (langueVoix === "fr")));
 }
 function sauverVoix() { stocker("langueVoix", langueVoix); stocker("nomVoix", nomVoix); }
 $("langFr").onclick = () => { langueVoix = "fr"; nomVoix = ""; sauverVoix(); remplirVoix(); };
 $("langEn").onclick = () => { langueVoix = "en"; nomVoix = ""; sauverVoix(); remplirVoix(); };
-$("voixChoix").onchange = ev => { nomVoix = ev.target.value; sauverVoix(); };
+$("voixChoix").onchange = ev => { nomVoix = ev.target.value; sauverVoix(); ev.target.blur(); remplirVoix(); };
 $("voixTest").onclick = () => {
   const avant = voixActive; voixActive = true; parler(PH("test"), 0); voixActive = avant;
 };
 if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", remplirVoix);
-$("reglagesBtn").onclick = () => { remplirVoix(); ecran("reglages"); };
+$("reglagesBtn").onclick = () => { if ("speechSynthesis" in window) speechSynthesis.getVoices(); dispoVoix(langueVoix).then(remplirVoix); remplirVoix(); ecran("reglages"); };
 ["appFr", "appEn"].forEach(id => {
   $(id).setAttribute("aria-pressed", (id === "appEn") === (LANGUE === "en"));
   $(id).onclick = () => {
