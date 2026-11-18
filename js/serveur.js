@@ -17,7 +17,9 @@ export const PSEUDO_OK = /^[A-Za-z0-9_.-]{3,20}$/;
 
 /* --- Compte --- */
 export const langue = l => { auth.languageCode = l; };
-export function surCompte(cb) { return F.onAuthStateChanged(auth, async u => cb(u ? { uid: u.uid, email: u.email, ...(await lireDoc("profils", u.uid)) } : null)); }
+// le pseudo est lu à part : une lecture qui échoue ou traîne (réseau, compte en cours de création) ne doit jamais bloquer l'écran des clubs
+export function surCompte(cb) { return F.onAuthStateChanged(auth, async u => { if (!u) return cb(null);
+  const p = await Promise.race([lireDoc("profils", u.uid).catch(() => null), new Promise(r => setTimeout(r, 8000))]); cb({ uid: u.uid, email: u.email, ...(p || {}) }); }); }
 export async function pseudoLibre(p) { return (!/[a4][i1l]d[o0]u/.test(p.toLowerCase().replace(/[._-]/g, "")) || moi() === "30YnJqhA5NX6vSOy6TbDC6hza9r2") && !(await lireDoc("pseudos", p.toLowerCase())); }   // « aidou » et ses variantes : réservé à l'éditeur (firestore.rules)
 export async function inscription({ email, mdp, pseudo, naissance, parental }) {
   if (!PSEUDO_OK.test(pseudo)) throw { code: "2work/pseudo-format" };

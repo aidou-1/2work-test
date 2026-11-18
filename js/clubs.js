@@ -39,16 +39,22 @@ function stop() { desab.forEach(f => f()); desab = []; }
 
 async function chargerServeur() {
   if (!SV) { SV = await import("./serveur.js?v=" + VER); SV.langue(LANGUE === "en" ? "en" : "fr");
-    SV.surCompte(async u => { CL.u = u; if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; CL.sansFiche = false; CL.nais = ""; } if (ecranCourant === "clubs") rendu(); majCarteClubs(); }); }
+    SV.surCompte(async u => { CL.u = u;
+      try { if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; CL.sansFiche = false; CL.nais = ""; } }
+      finally { if (ecranCourant === "clubs") rendu(); majCarteClubs(); } }); }   // l'écran s'affiche même si une lecture a échoué
   return SV;
 }
-async function rafraichir() { try { Object.assign(CL, await SV.mesClubs()); } catch (e) {} syncAccordSauvegarde(); }
+// au plus 12 s : un serveur qui ne répond pas laisse la liste telle quelle au lieu de bloquer l'écran
+async function rafraichir() { try { Object.assign(CL, await Promise.race([SV.mesClubs(), new Promise((_, ko) => setTimeout(ko, 12000))])); } catch (e) {} syncAccordSauvegarde(); }
 async function ouvrirClubs(vue) {
   stop(); if (!vue || !("depuisAccueil" in vue)) CL.depuisAccueil = false; if (vue) Object.assign(CL, vue);
   $("clCorps").innerHTML = `<p class="vide">${L("Connexion au serveur…", "Connecting…")}</p>`; ecran("clubs", () => scrollTo(0, 0));
   try { await chargerServeur(); } catch (e) { $("clCorps").innerHTML = `<p class="vide">📡 ${L("Les clubs ont besoin d’internet. Vérifie ta connexion et réessaie.", "Clubs need internet. Check your connection and try again.")}</p><button class="toggle" id="clReessai">${L("Réessayer", "Retry")}</button>`; $("clReessai").onclick = () => ouvrirClubs(); return; }
   if (CL.u) await rafraichir().catch(() => {});   // sections et rôles à jour (le coach a pu en créer)
-  if (CL.u !== undefined) rendu();
+  if (CL.u !== undefined) return rendu();
+  setTimeout(() => { if (CL.u === undefined && ecranCourant === "clubs") {   // compte jamais annoncé (réseau, navigateur) : on le dit, avec un bouton pour réessayer
+    $("clCorps").innerHTML = `<p class="vide">📡 ${L("Le serveur des clubs ne répond pas. Vérifie ta connexion et réessaie.", "The clubs server isn’t responding. Check your connection and try again.")}</p><button class="toggle" id="clReessai">${L("Réessayer", "Retry")}</button>`;
+    $("clReessai").onclick = () => location.reload(); } }, 15000);
 }
 // retour : d'un club vers la liste des clubs (en haut de page), ou vers l'accueil si le club a été ouvert directement depuis la carte de l'accueil
 $("clRetour").onclick = () => { stop(); if (CL.vue === "club" && !CL.depuisAccueil) { CL.vue = "liste"; CL.c = null; sensRetour = true; ecran("clubs", () => { rendu(); scrollTo(0, 0); }); } else { CL.depuisAccueil = false; CL.vue = "liste"; retour(() => ecran("menu")); } };
@@ -177,8 +183,10 @@ function renduCompte(C, mode, apres) {   // apres : suite éventuelle, une fois 
       if (!/^(?=.*[a-z])(?=.*[0-9]).{8,}$/.test($("cfMdp").value)) return err(msgErr({ code: "auth/weak-password" }));
       if (!$("cfAccord").checked) return err(L("Coche la case d’accord pour continuer.", "Tick the consent box to continue.")); }
     $("cfOk").disabled = true;
-    try { ins ? await SV.inscription({ email: v("cfEmail"), mdp: $("cfMdp").value, pseudo: v("cfPseudo"), naissance: v("cfNais"), parental: ageDe(v("cfNais")) < 15 }) : await SV.connexion(v("cfEmail"), $("cfMdp").value);
-      if (ins && !lireProfil().naissance) ecrireProfil("naissance", v("cfNais")); if (ins) { await rafraichir(); if (ecranCourant === "clubs") rendu(); } if (apres) apres(); }
+    try { const r = ins ? await SV.inscription({ email: v("cfEmail"), mdp: $("cfMdp").value, pseudo: v("cfPseudo"), naissance: v("cfNais"), parental: ageDe(v("cfNais")) < 15 }) : await SV.connexion(v("cfEmail"), $("cfMdp").value);
+      if (ins && !lireProfil().naissance) ecrireProfil("naissance", v("cfNais"));
+      if (!CL.u) CL.u = { uid: ins ? r : r.user.uid, email: v("cfEmail"), pseudo: ins ? v("cfPseudo") : "" };   // compte ouvert : on n'attend pas l'annonce du serveur pour quitter ce formulaire
+      await rafraichir(); if (ecranCourant === "clubs") rendu(); if (apres) apres(); }
     catch (x) { err(msgErr(x)); $("cfOk").disabled = false; }
   };
   if ($("cfOubli")) $("cfOubli").onclick = async () => { if (!v("cfEmail")) return err(L("Écris d’abord ton email ci-dessus.", "Type your email above first."));
