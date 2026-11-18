@@ -292,7 +292,7 @@ Object.assign(POSES, {
 
 /* Catégories d'échauffement par sport (chaque routine appartient à une catégorie) */
 const CATS = {
-  boxe:   { titre: "Boxe", detail: "Épaules, thoracique, hanches, tronc", couleur: "#C8283C" },
+  boxe:   { titre: "Boxe · anglaise, française, kick", detail: "Épaules, thoracique, hanches, tronc", couleur: "#C8283C" },
   course: { titre: "Course à pied", detail: "Hanches, jambes, chevilles", couleur: "#0E7C86" },
   renfo:  { titre: "Renfo", detail: "Haut du corps, bas du corps ou tout le corps", couleur: "#7B5EA7" },
   yoga:   { titre: "Yoga", detail: "Souplesse, dos, hanches, respiration", couleur: "#C0527A" }
@@ -1053,7 +1053,7 @@ if (LANGUE === "en") {
       b.titreFr = b.titre; b.titre = m ? e[0].replace("{n}", m[1].replace(",", ".")) : e[0]; b.consigne = e[1]; b.resume = e[2];
     });
   }
-  const CATS_EN = {"boxe": ["Boxing", "Shoulders, thoracic spine, hips, trunk"], "course": ["Running", "Hips, legs, ankles"], "handball": ["Handball", "Shoulders, rotator cuff, footwork, jumps"], "cyclisme": ["Cycling", "Hips, legs, back"], "renfo": ["Strength", "Upper body, lower body or full body"], "yoga": ["Yoga", "Flexibility, back, hips, breathing"], "surf": ["Surf", "Shoulders, back, hips, pop-up"], "ski": ["Ski", "Legs, ankles, hips, balance"]};
+  const CATS_EN = {"boxe": ["Boxing · boxing, savate, kick", "Shoulders, thoracic spine, hips, trunk"], "course": ["Running", "Hips, legs, ankles"], "handball": ["Handball", "Shoulders, rotator cuff, footwork, jumps"], "cyclisme": ["Cycling", "Hips, legs, back"], "renfo": ["Strength", "Upper body, lower body or full body"], "yoga": ["Yoga", "Flexibility, back, hips, breathing"], "surf": ["Surf", "Shoulders, back, hips, pop-up"], "ski": ["Ski", "Legs, ankles, hips, balance"]};
   for (const [k, [titre, detail]] of Object.entries(CATS_EN)) if (CATS[k]) Object.assign(CATS[k], { titre, detail });
 }
 

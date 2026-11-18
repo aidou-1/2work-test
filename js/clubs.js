@@ -263,9 +263,24 @@ function routineClub(s) {   // séance du club → routine locale « club_<id> �
   ROUTINES[k] = { ...b, titre: t, titreFr: t, club: { c: CL.c, s: s.id, sec: s.sec || "", titre: t }, retour: retourClub(), exercices: (s.ids || b.exercices || []).filter(i => EXERCICES[i]) };
   if (typeof CONSEILLES !== "undefined") CONSEILLES[k] = CONSEILLES[s.base] || ROUTINES[k].exercices; return k;
 }
+/* Staff : « Lancer ton club en 4 étapes », cochées d'après l'état réel du club (sections, membres, séances) ; masquable, disparaît quand tout est fait */
+function guideClub(cb, et) {
+  const Z = $("clDemarrer"), k = "clubGuide_" + cb.id; if (!Z) return;
+  const E = [["reglages", "🏷️", "Créer les sections", "Create sections", "Une par discipline ou par groupe (ex. boxe française, kick-boxing, loisir, compétition), dans l’onglet Club.", "One per discipline or group (e.g. savate, kickboxing, leisure, competition), in the Club tab.", sectionsDe(cb).length > 0],
+    ["reglages", "📲", "Inviter les membres", "Invite members", "Envoie le lien ou affiche le QR code à la salle (onglet Club). Tu valides les arrivées dans Membres.", "Send the link or show the QR code at the gym (Club tab). You approve newcomers in Members.", et.m > 1],
+    ["pub", "＋", "Publier une séance", "Post a workout", "Catalogue, séance enregistrée ou programme, pour tout le club ou une section : chacun la lance et la coche.", "Catalogue, saved workout or programme, for the whole club or a section: everyone starts it and ticks it off.", et.s > 0],
+    ["suivi", "📈", "Suivre le groupe", "Track the group", "Assiduité, membres à relancer, filtres par section, dans l’onglet Suivi.", "Attendance, members to nudge, section filters, in the Tracking tab.", et.s > 0 && et.m > 1]];
+  if (lire(k) === "1" || E.every(e => e[6])) { Z.innerHTML = ""; return; }
+  Z.innerHTML = `<div class="carnet cl-demarrer"><b>🚀 ${L("Lancer ton club en 4 étapes", "Launch your club in 4 steps")}</b><ol>${E.map(([o, i, tf, te, df, de, ok], n) => `<li class="${ok ? "ok" : ""}"><button class="toggle${ok ? " contour" : ""}" data-et="${o}">${ok ? "✓" : i} ${n + 1}. ${L(tf, te)}</button><small>${L(df, de)}</small></li>`).join("")}</ol><button class="lien" id="clDemX">${L("Masquer ce guide", "Hide this guide")}</button></div>`;
+  Z.onclick = e => { const b = e.target.closest("[data-et]");
+    if (b) b.dataset.et === "pub" ? feuillePublier() : (CL.onglet = b.dataset.et, rendu(), scrollTo(0, 0));
+    if (e.target.id === "clDemX") { stocker(k, "1"); Z.innerHTML = ""; } };
+}
 function ongSeances(Z, cb) {
-  Z.innerHTML = `${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="prevZone"></div><div id="spListe"><p class="vide">…</p></div>`;
-  if (staff()) $("spNouv").onclick = () => feuillePublier(); prevCarte($("prevZone"), cb);
+  const et = { m: 0, s: 0 };
+  Z.innerHTML = `${staff() ? '<div id="clDemarrer"></div>' : ""}${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="prevZone"></div><div id="spListe"><p class="vide">…</p></div>`;
+  if (staff()) { $("spNouv").onclick = () => feuillePublier(); guideClub(cb, et); desab.push(SV.ecouterMembres(cb.id, x => { et.m = x.length; guideClub(cb, et); })); }
+  prevCarte($("prevZone"), cb);
   const filtres = sectionsDe(cb).length && mesSections(cb).length ? [["*", L("Tout", "All")], ["", L("Club", "Club")], ...mesSections(cb).map(id => [id, nomSec(cb, id)])] : [];
   if (!filtres.some(f => f[0] === CL.filtre)) CL.filtre = "*";
   if (sectionsDe(cb).length && !staff() && !mesSections(cb).length && (cb.mesDem || []).length) $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>⏳ ${L("Demande envoyée pour ", "Request sent for ")}${cb.mesDem.map(id => echap(nomSec(cb, id))).join(", ")}${L(" : le coach doit la valider.", ": the coach has to approve it.")}</p></div>`);
@@ -274,7 +289,7 @@ function ongSeances(Z, cb) {
   if (filtres.length) $("prevZone").insertAdjacentHTML("afterend", `<div class="chips cl-filtre" id="spFiltre">${filtres.map(([k, n]) => `<button class="toggle" data-f="${k}" aria-pressed="${(CL.filtre ?? "*") === k}">${echap(n)}</button>`).join("")}</div>`);
   if ($("spFiltre")) $("spFiltre").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.filtre = b.dataset.f; rendu(); } };
   let ecoutesFaits = []; desab.push(() => ecoutesFaits.forEach(f => f()));
-  desab.push(ecouterSeancesClub(cb, async tout => { const l = tout.filter(s => !filtres.length || (CL.filtre ?? "*") === "*" || s.sec === CL.filtre);
+  desab.push(ecouterSeancesClub(cb, async tout => { if (staff()) { et.s = tout.length; guideClub(cb, et); } const l = tout.filter(s => !filtres.length || (CL.filtre ?? "*") === "*" || s.sec === CL.filtre);
     const auj = jourCle(), av = l.filter(s => s.date >= auj).reverse(), pa = l.filter(s => s.date < auj), faits = await SV.mesFaits(cb.id, l);
     const carte = s => { const P = s.prog && PROGRAMMES.find(p => p[0] === s.prog);
       return `<div class="carnet cl-seance" data-s="${s.id}"><div class="cl-s-haut"><small>${s.sec ? `<span class="cl-sec">${echap(nomSec(cb, s.sec))}</span> ` : ""}${P ? L("Programme · ", "Programme · ") : ""}${dateLisible(s.date)}</small>${staff() ? `<button class="lien" data-sup="${s.id}" aria-label="${L("Supprimer", "Delete")}">🗑</button>` : ""}</div>

@@ -199,7 +199,7 @@ const PIEDS_EX = [
 /* --- Réglages et choix du matériel --- */
 const bxPref = () => spPref("boxe"), bxGarder = p => spGarder("boxe", p);
 // types de séance de club propres à la boxe (le reste : TYPES_CLUB dans js/sport.js)
-TYPES_CLUB.boxe = { tech: ["Technique / pattes", "Technique / pads", 6, 0, []], spar: ["Sparring", "Sparring", 8, 1, ["cardio"]], phys: ["Physique / cardio", "Conditioning", 8, 1, ["cardio", "jambes", "gainage"]] };
+TYPES_CLUB.boxe = { tech: ["Technique / pattes", "Technique / pads", 6, 0, []], spar: ["Sparring / assaut", "Sparring / assaut", 8, 1, ["cardio"]], phys: ["Physique / cardio", "Conditioning", 8, 1, ["cardio", "jambes", "gainage"]] };
 const TYPES_CLUB_BX = TYPES_CLUB.boxe, clubJourBx = (j, P = bxPref(), C = lireClubs()) => clubJour("boxe", j, P, C);
 const ouvrirBoxe = (o, rv) => ouvrirSport("boxe", o, rv), lancerBx = (c, f) => lancerSp("boxe", c, f), bxSeance = (c, o) => spSeance("boxe", c, o);
 const COMBOS_BX = [["1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3", "1 · 1-1 · 1-2 · 1-1-2 · 2-3 · 1-2-3"], ["1-2-3-2 · 1-6-3 · 1c-2 · 3c-3 · 2-3-2 · 1-2-5-2", "1-2-3-2 · 1-6-3 · 1b-2 · 3b-3 · 2-3-2 · 1-2-5-2"],
