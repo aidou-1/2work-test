@@ -1,7 +1,7 @@
-// Récolte de toutes les phrases que la voix peut dire (hors consignes de posture), exécutée dans la page de l'appli.
+// Récolte de toutes les phrases que la voix peut dire (consignes de posture comprises), exécutée dans la page de l'appli.
 (() => {
   const out = { fr: new Map(), en: new Map() }, vus = new Set();
-  const ajout = (lang, t) => { if (typeof t !== "string" || !t.trim() || t.length > 220) return;
+  const ajout = (lang, t, long) => { if (typeof t !== "string" || !t.trim() || t.length > 220 && !long) return;
     morceauxVoix(t).forEach(m => { const k = cleVoix(m); if (k && !out[lang].has(k)) out[lang].set(k, m.replace(/[,;:]+$/, ".")); }); };
   const paire = (fr, en) => { ajout("fr", fr); ajout("en", en); };
   // paires [fr, en] dans des objets de données
@@ -31,7 +31,9 @@
   Object.values(ROUTINES).forEach(blocs);
   // 5. changements de côté annoncés pendant l'exercice
   Object.keys(EXERCICES).forEach(id => essai(() => (changements(id).t || []).forEach(([, fr, en]) => paire(fr, en))));
-  // 6. noms d'exercices (fr : nomFr ; en : VOIX ou nom), autre côté — en dernier : les séances de cardio créent leurs exercices à la volée
+  // 6. consignes de posture (consignes.js), dites plusieurs fois par exercice : sans elles, la voix du téléphone prend le relais
+  Object.values(typeof CONSIGNES !== "undefined" ? CONSIGNES : {}).forEach(c => c.forEach((s, i) => s.split("|").forEach(t => ajout(i ? "en" : "fr", t, 1))));
+  // 7. noms d'exercices (fr : nomFr ; en : VOIX ou nom), autre côté — en dernier : les séances de cardio créent leurs exercices à la volée
   Object.getOwnPropertyNames(EXERCICES).map(id => [id, EXERCICES[id]]).forEach(([id, e]) => { ajout("fr", e.nomFr || e.nom); ajout("en", VOIX[id] || e.nom); if (PASSAGES[id]) paire(PASSAGES[id][0], PASSAGES[id][1]); });
   return { fr: [...out.fr.entries()], en: [...out.en.entries()] };
 })()

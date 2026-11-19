@@ -196,8 +196,9 @@ const nomVoixFichier = k => { let h = 5381; for (const c of k) h = ((h * 33) ^ c
 const voixSet = {};   // langue → fichiers disponibles (voix/<langue>.json)
 const dispoVoix = l => voixSet[l] ? Promise.resolve(voixSet[l]) : fetch(`voix/${l}.json`).then(r => r.ok ? r.json() : null).catch(() => null).then(a => a ? voixSet[l] = new Set(a) : new Set());   // échec : on réessaiera
 ["fr", "en"].forEach(dispoVoix);
-// voix enregistrée choisie (« Voix 2 WORK », par défaut) et disponible ; sinon synthèse vocale du téléphone
-const voixEnregistree = () => !nomVoix && !!(voixSet[langueVoix] && voixSet[langueVoix].size);
+/* Voix choisie dans Réglages : "" = voix de base du téléphone (par défaut), "2work" = voix 2 WORK enregistrée, sinon le nom d'une voix du téléphone.
+   La voix enregistrée sert aussi quand le téléphone n'a aucune synthèse vocale. */
+const voixEnregistree = () => (nomVoix === "2work" || !("speechSynthesis" in window)) && !!(voixSet[langueVoix] && voixSet[langueVoix].size);
 // fichiers des morceaux d'une phrase : null s'il en manque un, sauf « partiel » (morceaux présents seulement, ex. consigne non enregistrée)
 const urlsVoix = (t, partiel, l = langueVoix) => { const s = voixSet[l], m = morceauxVoix(t).map(x => nomVoixFichier(cleVoix(x))), ok = s ? m.filter(f => s.has(f)) : [];
   return ok.length && (partiel || ok.length === m.length) ? ok.map(f => `voix/${l}/${f}.mp3`) : null; };
@@ -387,10 +388,10 @@ function lireAudio(src, boucle, decale = 0) {
 }
 /* Piste guide, écran éteint : quand le téléphone se verrouille, il gèle la page (minuteur, voix, bips) mais laisse jouer un fichier audio.
    On enregistre donc à l'avance, dans un fichier, toute la suite de la séance : les annonces de la voix 2 WORK (exercice, repos, tour,
-   10 dernières secondes) et les bips (3 bips avant chaque changement, 2 notes montantes pour l'effort, une note grave pour le repos,
+   consignes de posture, 10 dernières secondes) et les bips (3 bips avant chaque changement, 2 notes montantes pour l'effort, une note grave pour le repos,
    3 notes à la fin). Refaite à chaque départ, pause, reprise, passage ou retour ; à défaut (séries aux répétitions), la piste muette. */
 let guide = null, jetonGuide = 0, prepGuide = -1;
-function etapesRestantes() {   // [durée, "ex" | "rep", annonce au début, annonce 10 s avant la fin]
+function etapesRestantes() {   // [durée, "ex" | "rep", annonce au début, annonce 10 s avant la fin, consignes { secondes restantes: texte }]
   const l = [], tons = e => { if (!coachActif || !e || e.duree < 25) return ""; const P = COACH[langueVoix], t = tonPhase(e); return auHasard(P[t === "fort" ? "fin" : t + "Fin"]); };
   if (mode === "tabata") {
     const t = { ...tab }, D = { ex: dureeGlobale, rep: repos, rec: recup };
@@ -402,11 +403,13 @@ function etapesRestantes() {   // [durée, "ex" | "rep", annonce au début, anno
     }
   } else if (liste.length && mode !== "souffle") {
     const ok = i => liste[i] && Number.isFinite(liste[i].duree) && liste[i].duree > 0;   // séries aux répétitions : la piste s'arrête là
-    const rp = i => ["seance", "salle"].includes(mode) ? (liste[i].r ?? repos) : 0, ex = i => annonce(liste[i], liste[i - 1]), re = i => PH("repos") + annonce(liste[i + 1], liste[i], true);
-    l.push(enRepos ? [reste, "rep", reste >= rp(index) - 1 ? re(index) : ""] : [reste, "ex", reste >= liste[index].duree - 1 ? ex(index) : "", tons(liste[index])]);
+    const rp = i => ["seance", "salle"].includes(mode) ? (liste[i].r ?? repos) : 0, ex = i => annonce(liste[i], liste[i - 1]), re = i => texteRepos(liste[i + 1], liste[i], rp(i));
+    // consignes de l'exercice i, la première sautée si elle a déjà suivi l'annonce du repos (comme en direct)
+    const cs = i => conseilsActifs ? planDe(liste[i], i > 0 && rp(i - 1) > 0 && !!consigneRepos(liste[i], rp(i - 1))) : {}, etape = i => [liste[i].duree, "ex", ex(i), tons(liste[i]), cs(i)];
+    l.push(enRepos ? [reste, "rep", reste >= rp(index) - 1 ? re(index) : ""] : [reste, "ex", reste >= liste[index].duree - 1 ? ex(index) : "", tons(liste[index]), conseilsActifs ? planConseils : {}]);
     let i = enRepos ? index + 1 : index;
-    if (enRepos) { if (!ok(i)) return l; l.push([liste[i].duree, "ex", ex(i), tons(liste[i])]); }
-    for (; i < liste.length - 1; i++) { const r = rp(i); if (r > 0) l.push([r, "rep", re(i)]); if (!ok(i + 1)) break; l.push([liste[i + 1].duree, "ex", ex(i + 1), tons(liste[i + 1])]); }
+    if (enRepos) { if (!ok(i)) return l; l.push(etape(i)); }
+    for (; i < liste.length - 1; i++) { const r = rp(i); if (r > 0) l.push([r, "rep", re(i)]); if (!ok(i + 1)) break; l.push(etape(i + 1)); }
   }
   return l.filter(([d]) => d > 0);
 }
@@ -416,7 +419,7 @@ async function pisteGuide(j) {   // j : jeton de la préparation ; une préparat
   const et = etapesRestantes(); if (!et.length || (!volSons && !voixActive)) return null;
   const SR = 10000, tot = Math.min(3600, et.reduce((s, [d]) => s + d, 0) + 3), n = Math.round(SR * tot), dits = [], voix = [], textes = new Set();   // 20 Ko par seconde
   let t = 0;
-  et.forEach(([dur, , a, b]) => { if (a) dits.push([t + .7, a]); if (b && dur >= 25) dits.push([t + dur - 10, b]); t += dur; });
+  et.forEach(([dur, , a, b, c]) => { if (a) dits.push([t + .7, a]); Object.entries(c || {}).forEach(([r, x]) => +r < dur && dits.push([t + dur - r, x])); if (b && dur >= 25) dits.push([t + dur - 10, b]); t += dur; });
   if (voixActive && voixEnregistree()) {   // morceaux décodés d'abord, la piste n'est allouée qu'ensuite
     const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, SR);
     for (const [t0, tx] of dits) { const u = t0 < tot && urlsVoix(tx); if (!u) continue;
@@ -1040,8 +1043,7 @@ function afficherRepos() {
   timer = horloge(tic);
   $("pause").textContent = T(enPause ? "Reprendre" : "Pause");
   bip(440, 350, 0.2, "sine"); vibrer(220); $("conseil").textContent = "";
-  const c0 = conseilsActifs && reste >= 10 && !(e.serie > 1 || e.t > 1) && consignes(e.id)[0];
-  parler(PH("repos") + annonce(e, liste[index], true) + (c0 ? ". " + c0 : "")); if (c0) conseilDejaDit = index + 1;
+  parler(texteRepos(e, liste[index], reste)); if (consigneRepos(e, reste)) conseilDejaDit = index + 1;
   $("plusRepos").classList.remove("hidden");
 }
 $("plusRepos").onclick = () => { if (enRepos) { reste += 15; $("time").textContent = reste; majGuide(); } };

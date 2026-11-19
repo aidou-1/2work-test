@@ -104,16 +104,20 @@ function annonce(e, prec, repos) {   // nom de l'exercice, précédé du bloc qu
 let conseilsActifs = true, planConseils = {}, conseilDejaDit = -1;
 try { conseilsActifs = localStorage.getItem("conseils") !== "0"; } catch (e) {}
 const consignes = id => typeof CONSIGNES !== "undefined" && CONSIGNES[id] ? CONSIGNES[id][langueVoix === "fr" ? 0 : 1].split("|") : [];
-function programmerConseils(e, dejaDit) {   // une consigne toutes les 8 à 14 s ; s'il manque de place, on garde placement et vigilance
-  planConseils = {}; $("conseil").textContent = "";
-  const c = consignes(e.id), d = e.duree, bas = d >= 25 ? 16 : 9, h = d - 6;   // après l'annonce du nom, avant « plus que 10 secondes »
-  if (!c.length || d < 12) return;
+function planDe(e, dejaDit) {   // secondes restantes → consigne ; une toutes les 8 à 14 s ; s'il manque de place, on garde placement et vigilance
+  const plan = {}, c = consignes(e.id), d = e.duree, bas = d >= 25 ? 16 : 9, h = d - 6;   // après l'annonce du nom, avant « plus que 10 secondes »
+  if (!c.length || d < 12) return plan;
   const idx = (e.serie > 1 || e.t > 1 || e.autreCote) ? [2] : dejaDit ? [1, 2] : [0, 1, 2];
   while (idx.length > 1 && (h - bas) / (idx.length - 1) < 8) idx.splice(idx.includes(1) ? idx.indexOf(1) : idx.length - 1, 1);
   const pas = idx.length > 1 ? Math.min(14, (h - bas) / (idx.length - 1)) : 0;
   let der = 1e9;   // pas juste avant ni juste après le changement de côté, et 7 s d'écart au moins entre deux consignes
-  idx.forEach((k, j) => { let r = h - Math.round(j * pas); const ic = j ? instantsCh(e).find(x => r - x > -3 && r - x < 7) : undefined; if (ic !== undefined) r = ic - 3; if (r >= bas && der - r >= 7) planConseils[der = r] = c[k]; });
+  idx.forEach((k, j) => { let r = h - Math.round(j * pas); const ic = j ? instantsCh(e).find(x => r - x > -3 && r - x < 7) : undefined; if (ic !== undefined) r = ic - 3; if (r >= bas && der - r >= 7) plan[der = r] = c[k]; });
+  return plan;
 }
+function programmerConseils(e, dejaDit) { $("conseil").textContent = ""; planConseils = planDe(e, dejaDit); }
+// au repos, la première consigne du prochain exercice suit son annonce ; même texte en direct et dans la piste écran éteint
+const consigneRepos = (e, d) => conseilsActifs && d >= 10 && !(e.serie > 1 || e.t > 1) && consignes(e.id)[0];
+const texteRepos = (e, prec, d) => { const c0 = consigneRepos(e, d); return PH("repos") + annonce(e, prec, true) + (c0 ? ". " + c0 : ""); };
 function direConseil(r) {
   const t = conseilsActifs && planConseils[r]; if (!t) return false;
   $("conseil").textContent = t; parler(t, 0, 1); return voixActive;
