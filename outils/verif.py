@@ -4,6 +4,7 @@
    3. vidéos et vignettes déclarées présentes ; 4. dans un navigateur (Playwright + Chrome) : démarrage sans erreur,
    accueil du premier lancement, chaque onglet de chaque sport, chaque séance de sport à 20/35/50 min, sans et avec
    tout le matériel, pour plusieurs profils (niveau, objectif, pratique) : aucun exercice inconnu, aucune séance vide.
+   5. parcours clés : Ma semaine, Ma forme, douleur, séance guidée, voix enregistrée, planning de club.
    Sortie : la liste des problèmes, et un code de retour 1 s'il y en a (0 sinon)."""
 import asyncio, glob, os, re, subprocess, sys, threading, http.server, functools, json
 
@@ -70,6 +71,26 @@ JS_SPORTS = r"""() => {
   return [...new Set(P)];
 }"""
 
+# 5. parcours clés (données d'essai effacées ensuite) : Ma semaine et son suivi, Ma forme, une séance guidée avec « Explique-moi »,
+#    voix enregistrée (chaque consigne et chaque nom d'exercice, en français et en anglais), planning de club piégé
+JS_PARCOURS = r"""async () => {
+  const P = [], essai = (nom, f) => { try { const r = f(); if (r) P.push(nom + " : " + r); } catch (x) { P.push(nom + " : erreur " + x.message); } };
+  localStorage.setItem("planning", JSON.stringify({ jours: [0, 2, 4], heure: "18:00", fait: {}, dep: {} }));
+  localStorage.setItem("forme", JSON.stringify({ [jourCle()]: { h: 7, q: 3, e: 3, c: 2, st: 2, dl: 2, z: ["genou"], rv: 420 } }));
+  essai("Ma semaine", () => { const U = suiviSemaine(); return U.prevues ? "" : "aucune séance prévue avec 3 jours perso"; });
+  essai("écran Ma semaine", () => { ouvrirPlanning("menu"); return $("plSemaine") && $("plSemaine").querySelector(".ms-suivi") ? "" : "bloc de suivi absent"; });
+  essai("Ma forme", () => { ecran("menu"); majSemaine(); return ["fmOuvrir", "fbDl", "fbSem"].every(id => $(id)) ? "" : "tuiles manquantes"; });
+  essai("douleur", () => { feuilleDouleur(); const ok = !!$("dlListe") && !!document.querySelector(".corps"); fermerFeuille(); return ok ? "" : "carte du corps absente"; });
+  essai("option conseillée", () => optionRecommandee() ? "" : "pas d'option avec une douleur notée");
+  essai("séance guidée", () => { ouvrirRoutine("legDay"); demarrer(); expliquer(liste[index]); const ok = !!$("expliqueOk"); $("expliqueOk") && $("expliqueOk").click(); clearInterval(timer); return ok ? "" : "explication absente"; });
+  essai("planning de club", () => nettoiePlan({ sp: "constructor", jours: [1] }) === null && nettoiePlan({ sp: "boxe", jours: [1, 9], types: { 1: "__proto__" } }).types[1] !== "__proto__" ? "" : "planning piégé accepté");
+  for (const lg of ["fr", "en"]) { await dispoVoix(lg); const i = lg === "fr" ? 0 : 1, manq = [];
+    for (const id in CONSIGNES) CONSIGNES[id][i].split("|").forEach(t => urlsVoix(t, false, lg) || manq.push(t));
+    if (manq.length) P.push(`voix ${lg} : ${manq.length} consigne(s) sans enregistrement (outils/voix), ex. « ${manq[0].slice(0, 60)} »`); }
+  ["planning", "forme", "exVus"].forEach(k => localStorage.removeItem(k));
+  return P;
+}"""
+
 async def navigateur():
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
@@ -89,6 +110,7 @@ async def navigateur():
             await pg.evaluate('localStorage.setItem("guideVu", JSON.stringify(GUIDE.map(g => g[0]))); ecran("menu")')
         except Exception as x: err.append(f"accueil : {x}")
         pb.extend(await pg.evaluate(JS_SPORTS))
+        pb.extend(await pg.evaluate(JS_PARCOURS))
         n = await pg.evaluate("[Object.keys(SP).length, Object.keys(EXERCICES).length]")
         pb.extend(dict.fromkeys(err)); await b.close(); return n
 
