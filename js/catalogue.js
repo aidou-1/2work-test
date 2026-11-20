@@ -78,9 +78,9 @@ function seanceSalle(mId, sId, choix) {
   ech.forEach((e, k) => add({ id: e, d: 30, r: k < ech.length - 1 ? 5 : 15, bn: blocs[0].n, lab: blocs[0].n + " · " + (k + 1) + "/" + ech.length }));
   // 2. séries d'approche sur le premier exercice
   if (!circuit) {
-    const n = L("Séries d’approche", "Warm-up sets"); blocs.push({ n, l: [[ex[0], "2 × 10 / 5", L("Série légère (~40 %) puis moyenne (~60 %)", "Light (~40 %) then medium (~60 %) set")]] });
-    add({ id: ex[0], d: 30, r: 60, bn: n, lab: n + " · 1/2", presc: L("10 reps légères, environ 40 % : on prépare les articulations", "10 light reps, about 40 %: prepare the joints") });
-    add({ id: ex[0], d: 20, r: 90, bn: n, lab: n + " · 2/2", presc: L("5 reps à environ 60 % : on prépare le système nerveux", "5 reps at about 60 %: prime the nervous system") });
+    const n = L("Séries d’approche", "Warm-up sets"); blocs.push({ n, l: [[ex[0], "2 × 10 / 5", L("Série légère (~40 %) puis moyenne (~60 %)", "Light (~40%) then medium (~60%) set")]] });
+    add({ id: ex[0], d: 30, r: 60, bn: n, lab: n + " · 1/2", presc: L("10 reps légères, environ 40 % : on prépare les articulations", "10 light reps, about 40%: prepare the joints") });
+    add({ id: ex[0], d: 20, r: 90, bn: n, lab: n + " · 2/2", presc: L("5 reps à environ 60 % : on prépare le système nerveux", "5 reps at about 60%: prime the nervous system") });
   }
   // 3. corps de séance
   const nC = L(circuit ? "Circuit" : "Corps de séance", circuit ? "Circuit" : "Main workout"), lignes = [];

@@ -170,7 +170,7 @@ const dire = e => langueVoix === "fr" ? e.nomFr || e.nom : (VOIX[e.id] || e.nom)
 let langueVoix = "en", nomVoix = "";
 try { langueVoix = localStorage.getItem("langueVoix") || LANGUE; nomVoix = localStorage.getItem("nomVoix") || ""; } catch (e) {}
 const PHRASES = {
-  en: { pret: "Get ready", repos: "Rest. Next: ", serie: ", set ", recup: "Recovery", tour: "Round ", go: "Let’s go!", test: "Hello, I will guide your workout. Let's go!" },
+  en: { pret: "Get ready", repos: "Rest. Next: ", serie: ", set ", recup: "Recovery", tour: "Round ", go: "Let’s go!", test: "Hello, I will guide your workout. Let’s go!" },
   fr: { pret: "Prépare-toi", repos: "Repos. Ensuite : ", serie: ", série ", recup: "Récupération", tour: "Tour ", go: "C’est parti !", test: "Bonjour, je vais te guider pendant ta séance. C’est parti !" }
 };
 const PH = k => PHRASES[langueVoix][k];
