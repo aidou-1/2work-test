@@ -853,8 +853,8 @@ let expliqueFin = null;
 function expliquer(e, premiere) {
   const c = consignes(e.id); if (c.length < 3) return;
   if (!enPause) pause(); clearTimeout(expliqueFin);
-  const t = (premiere ? L("Première fois : écoute bien. ", "First time: listen carefully. ") : "") + c.join(" ");
-  parler(t); $("desc").classList.add("explication");
+  const t = c.join(" ");   // seulement les consignes : elles sont enregistrées avec la voix 2 WORK (une phrase en plus passerait par la voix du téléphone)
+  parler(t); $("desc").classList.add("explication"); if (premiere) bulleMs(L("Première fois : écoute l’explication, la séance repart toute seule.", "First time: listen to the explanation, the workout restarts on its own."));
   if (!$("expliqueOk")) $("desc").insertAdjacentHTML("beforeend", `<button class="primary" id="expliqueOk">${L("On y va", "Let’s go")}</button>`);
   const fin = () => { clearTimeout(expliqueFin); $("desc").classList.remove("explication"); if ($("expliqueOk")) $("expliqueOk").remove(); if (enPause && liste[index] === e) pause(); };
   $("expliqueOk").onclick = fin;
