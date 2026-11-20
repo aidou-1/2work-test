@@ -222,17 +222,68 @@ function majJour() {
 }
 $("formeCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte jour-carte" id="jourCarte"></div>`);
 
-/* --- Carte de l'accueil --- */
+/* --- Carte du corps : zones de gêne et exercices qui les sollicitent ---
+   Repérage par mots-clés dans le nom, les muscles et la description de chaque exercice : une aide pour éviter ce qui risque de réveiller la douleur, pas un avis médical. */
+const SOLLICITE = { epaule: /épaule|deltoïde|coiffe|pompe|push|développ|dips|traction|tirage|press|planche|burpee|ours|bear|crawl|shoulder/i,
+  poignet: /poignet|avant-bras|pompe|planche|burpee|climber|ours|bear|crawl|mains? au sol|appui sur les mains|wrist/i,
+  dos: /\bdos\b|lombaire|soulevé|deadlift|good morning|rowing|superman|tirage|\bback/i, hanche: /hanche|fessier|adducteur|psoas|fléchisseur|fente|squat|pont|hip|glute/i,
+  genou: /genou|squat|fente|saut|sauté|jump|step|chaise|pistol|burpee|skater|lunge|bond|pliom|knee/i, cheville: /cheville|mollet|saut|jump|corde|sprint|skipping|talon|pointes? de pieds?|burpee|skater|ankle|calf/i };
+// nom et muscles travaillés seulement (la description cite souvent d'autres parties du corps) ; les étirements doux ne sont pas signalés
+const zonesEx = id => { const e = EXERCICES[id]; if (!e || e.etir) return []; const t = [e.nom, e.nomFr, e.muscles].join(" "); return Object.keys(SOLLICITE).filter(z => SOLLICITE[z].test(t)); };
+const zonesDouleur = () => { const r = lireForme()[jourCle()]; return r && r.dl ? r.z || [] : []; };
+const nomZone = z => L(ZONES_FM[z][0], ZONES_FM[z][1]);
+// silhouette de face ; chaque zone est un bouton (cible de 44 px au moins à l'écran)
+function carteCorps(sel) {
+  const P = { epaule: [[54, 74], [106, 74]], poignet: [[30, 152], [130, 152]], dos: [[80, 108]], hanche: [[80, 156]], genou: [[66, 216], [94, 216]], cheville: [[64, 276], [96, 276]] };
+  return `<svg class="corps" viewBox="0 0 160 300" role="group" aria-label="${L("Carte du corps : touche les zones qui te gênent", "Body map: tap the areas that bother you")}"><g class="corps-sil" aria-hidden="true"><circle cx="80" cy="28" r="18"/><rect x="56" y="52" width="48" height="104" rx="20"/><path d="M58 66 L32 150 M102 66 L128 150 M70 150 L65 282 M90 150 L95 282"/></g>
+    ${Object.entries(P).map(([k, pts]) => `<g class="corps-z" data-zone="${k}" role="button" tabindex="0" aria-pressed="${sel.includes(k)}" aria-label="${nomZone(k)}">${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="15"/>`).join("")}</g>`).join("")}</svg>`;
+}
+function brancherCorps(Z, sel, maj) {
+  Z.querySelectorAll("[data-zone]").forEach(g => { const f = () => { const k = g.dataset.zone, i = sel.indexOf(k); i < 0 ? sel.push(k) : sel.splice(i, 1); g.setAttribute("aria-pressed", sel.includes(k)); if (maj) maj(); };
+    g.onclick = f; g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); f(); } }; });
+}
+// feuille « Douleur et gêne » : niveau, carte du corps, exercices qui sollicitent chaque zone, séance sans douleur ; enregistré dans la réponse du matin
+function feuilleDouleur() {
+  const auj = jourCle(), r = lireForme()[auj]; if (!r) return questionnaire();
+  let niv = r.dl || 0; const sel = [...(niv ? r.z || [] : [])], tous = Object.keys(EXERCICES);
+  ouvrirFeuilleInfo(L("Douleur et gêne", "Pain and discomfort"), `<p class="sh-aide">${L("Touche les zones qui te gênent aujourd’hui : l’appli te signale les exercices qui les sollicitent et te propose une séance qui les évite.", "Tap the areas that bother you today: the app flags the exercises that load them and suggests a session that avoids them.")}</p>
+    <div class="fm-q">${choixFm("dlNiv", [[0, "Aucune", "None"], [1, "Gêne", "Discomfort"], [2, "Douleur", "Pain"]], niv)}</div><div class="corps-boite" id="dlCorps">${carteCorps(sel)}</div><ul class="carnet dl-liste" id="dlListe"></ul>
+    <button class="primary" id="dlGo">🧘 ${L("Séance sans douleur · 15 min", "Pain-free session · 15 min")}</button>
+    <p class="sh-aide">${L("Une douleur qui dure plus de quelques jours, qui augmente ou qui t’empêche de bouger normalement : consulte un professionnel de santé. L’appli ne fait pas de diagnostic.", "Pain that lasts more than a few days, gets worse or stops you moving normally: see a health professional. The app does not diagnose.")}</p>`);
+  const rendu = () => { $("dlListe").innerHTML = sel.length ? sel.map(z => { const ex = tous.filter(id => zonesEx(id).includes(z)); return `<li><span><b>${nomZone(z)}</b><small>${ex.length} ${L("exercices la sollicitent, mis de côté dans la séance sans douleur et signalés avant tes séances", "exercises load it, left out of the pain-free session and flagged before your workouts")}${ex.length ? " : " + ex.slice(0, 4).map(id => EXERCICES[id].nom).join(", ") + (ex.length > 4 ? "…" : "") : ""}</small></span></li>`; }).join("")
+      : `<li><small>${L("Aucune zone choisie.", "No area selected.")}</small></li>`; $("dlGo").hidden = !sel.length; };
+  const garder = () => { const G = lireForme(); G[auj] = { ...G[auj], dl: niv, z: niv ? [...sel] : [] }; stockerForme(G); majForme(); rendu(); };
+  const majNiv = v => { niv = v; $("dlNiv").querySelectorAll("[data-v]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.v === v)); };
+  brancherFm("dlNiv", v => { majNiv(+v); if (!niv) { sel.length = 0; $("dlCorps").innerHTML = carteCorps(sel); brancherCorps($("dlCorps"), sel, toucher); } garder(); });
+  const toucher = () => { if (sel.length && !niv) majNiv(1); garder(); };
+  brancherCorps($("dlCorps"), sel, toucher); rendu();
+  $("dlGo").onclick = () => { fermerFeuille(); if (!composerExpress({ ...quickPrefs(), min: 15, int: "calme", sans: sel })) alert(L("Pas assez d’exercices sans ces zones : fais plutôt une marche ou de la mobilité douce.", "Not enough exercises without these areas: take a walk or do gentle mobility instead.")); };
+}
+/* Option recommandée (à la place du Plan B sur l'accueil) quand la fatigue ou le risque de blessure est fort :
+   douleur ou gêne localisée → séance sans douleur ; batterie très basse ou charge de la semaine en forte hausse → récupération active. */
+function optionRecommandee() {
+  const N = batterieMaintenant(), r = lireForme()[jourCle()] || {}, zs = r.dl ? r.z || [] : [], ra = ratioCharge();
+  if (r.dl === 2 || zs.length) return { t: L("Séance sans douleur", "Pain-free session"), raison: r.dl === 2 ? L("douleur", "pain") + (zs.length ? " : " + zs.map(nomZone).join(", ").toLowerCase() : "") : L("gêne : ", "discomfort: ") + zs.map(nomZone).join(", ").toLowerCase(), ico: "🩹",
+    go: () => composerExpress({ ...quickPrefs(), min: 15, int: "calme", sans: zs }) || tpl("C:repos").go() };
+  if ((N && N.conseil < 35) || (ra && ra >= 1.5)) return { t: L("Récupération active", "Active recovery"), raison: N && N.conseil < 35 ? L("batterie très basse", "very low battery") : L("charge de la semaine en forte hausse", "weekly load rising sharply"), ico: "🧘", go: () => tpl("C:repos").go() };
+  return null;
+}
+/* --- Carte de l'accueil « Ma forme » : batterie, douleur et semaine côte à côte, chacune ouvre son détail --- */
 function majForme() {
   majJour();
   const Z = $("formeCarte"); if (!Z) return;
-  const B = batterieMaintenant();
-  // le chiffre affiché descend dans la journée ; le conseil d'effort suit la récupération et les séances du jour (B.conseil)
-  if (!B) Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:var(--brand)"><span class="sc-ico">🔋</span><span><strong>${L("Ta batterie du jour", "Today’s battery")}</strong><small>${L("30 secondes : sommeil, énergie, courbatures, stress, douleur", "30 seconds: sleep, energy, soreness, stress, pain")}</small></span></button><button class="sc-go" id="fmGo" style="background:var(--brand)" aria-label="${L("Remplir le questionnaire", "Fill in the check-in")}">→</button>`;
-  else { const P = palier(B.conseil), cr = pointAttendu(B.r); Z.innerHTML = `<button class="sc-corps" id="fmOuvrir" style="--c:${P[6]}">${icoBatterie(B.v)}<span><strong>${B.v} % · ${L(P[2], P[3])}</strong><small>${B.v !== B.matin ? L(`${B.matin} % au réveil · `, `${B.matin} % on waking · `) : ""}${L(P[4], P[5])}</small></span></button>${cr ? `<button class="sc-go" id="fmPt" style="background:${P[6]}" aria-label="${L("Faire le point", "Check in")} · ${L(cr[1], cr[2])}">📍</button>` : ""}`; }
+  const B = batterieMaintenant();   // le chiffre affiché descend dans la journée ; le conseil d'effort suit la récupération et les séances du jour (B.conseil)
+  // regroupement : la batterie (ci-dessus) devient la première tuile, puis la douleur et la semaine
+  const r = lireForme()[jourCle()] || {}, zs = r.dl ? r.z || [] : [], P0 = B && palier(B.conseil), cr = B && pointAttendu(B.r);
+  Z.classList.add("forme-bloc");
+  Z.innerHTML = `<div class="fb-tete"><strong>${L("Ma forme", "My fitness")}</strong>${cr ? `<button class="toggle" id="fmPt">📍 ${L("Faire le point", "Check in")}</button>` : ""}</div><div class="fb-tuiles">
+    <button class="fb-t" id="fmOuvrir" style="--c:${B ? P0[6] : "var(--brand)"}">${B ? icoBatterie(B.v) : `<span class="fb-i">🔋</span>`}<b>${B ? B.v + " %" : L("À remplir", "To fill in")}</b><small>${B ? L(P0[2], P0[3]) : L("30 s le matin", "30 s each morning")}</small></button>
+    <button class="fb-t" id="fbDl" style="--c:${r.dl === 2 ? "#DC2626" : r.dl ? "#F59E0B" : "#16A34A"}"><span class="fb-i">${r.dl ? "🩹" : "💚"}</span><b>${!B ? L("Douleur", "Pain") : r.dl === 2 ? L("Douleur", "Pain") : r.dl ? L("Gêne", "Discomfort") : L("Aucune", "None")}</b><small>${zs.length ? zs.map(nomZone).join(", ") : B ? L("carte du corps", "body map") : L("au questionnaire", "in the check-in")}</small></button>
+    <button class="fb-t" id="fbSem"><span class="fb-i">📅</span><b id="fbSemV">${L("Ma semaine", "My week")}</b><small id="fbSemS"></small></button></div>`;
   $("fmOuvrir").onclick = () => B ? detailForme() : questionnaire();
+  $("fbDl").onclick = () => B ? feuilleDouleur() : questionnaire();
   if ($("fmPt")) $("fmPt").onclick = () => pointJour();
-  if ($("fmGo")) $("fmGo").onclick = () => questionnaire();
+  if (typeof tuileSemaine === "function") tuileSemaine();
 }
 function detailForme() {
   const N = batterieMaintenant(), B = N.B, P = palier(N.conseil), c = conseilsForme(B), auj = jourCle();
@@ -263,13 +314,15 @@ function questionnaire() {
     <div class="fm-q"><b>${L("Heures de sommeil", "Hours of sleep")}</b><div class="stepper"><button id="fmMoins" aria-label="${L("Une demi-heure de moins", "Half an hour less")}">−</button><output id="fmH"></output><button id="fmPlus" aria-label="${L("Une demi-heure de plus", "Half an hour more")}">+</button></div></div>
     ${QF.map(ligne).join("")}
     <div class="fm-q"><b>${L("Douleur ou gêne", "Pain or discomfort")}</b>${choixFm("fmDl", [[0, "Aucune", "None"], [1, "Gêne", "Discomfort"], [2, "Douleur", "Pain"]], r.dl)}
-      <div id="fmZones" ${r.dl ? "" : "hidden"}><small>${L("Où ? (plusieurs possibles)", "Where? (several allowed)")}</small><div class="chips">${Object.entries(ZONES_FM).map(([k, [f, e]]) => `<button class="toggle" data-fmz="${k}" aria-pressed="${r.z.includes(k)}">${L(f, e)}</button>`).join("")}</div></div></div>
+      <div id="fmZones" ${r.dl ? "" : "hidden"}><small>${L("Où ? Touche le corps ou les noms (plusieurs possibles)", "Where? Tap the body or the names (several allowed)")}</small><div class="corps-boite" id="fmCorps">${carteCorps(r.z)}</div><div class="chips">${Object.entries(ZONES_FM).map(([k, [f, e]]) => `<button class="toggle" data-fmz="${k}" aria-pressed="${r.z.includes(k)}">${L(f, e)}</button>`).join("")}</div></div></div>
     ${ch ? `<div class="fm-q"><b>${L("Ta séance de club d’hier", "Yesterday’s club session")} · ${L(...SP[ch.sp].nom)}</b>${blocClub(ch)}</div>` : ""}<button class="primary" id="fmOk">${L("Voir ma batterie", "See my battery")}</button>`);
   const majH = () => $("fmH").textContent = Math.floor(r.h) + " h" + (r.h % 1 ? " 30" : "");
   majH(); $("fmMoins").onclick = () => { r.h = Math.max(2, r.h - .5); majH(); }; $("fmPlus").onclick = () => { r.h = Math.min(13, r.h + .5); majH(); };
   document.querySelectorAll(".fm-notes [data-k]").forEach(b => b.onclick = () => { r[b.dataset.k] = +b.dataset.v; b.parentNode.querySelectorAll("button").forEach(x => { const on = x === b; x.setAttribute("aria-pressed", on); x.setAttribute("aria-checked", on); }); });
   brancherFm("fmDl", v => { r.dl = +v; $("fmZones").hidden = !r.dl; });
-  document.querySelectorAll("[data-fmz]").forEach(b => b.onclick = () => { const k = b.dataset.fmz; r.z = r.z.includes(k) ? r.z.filter(x => x !== k) : [...r.z, k]; b.setAttribute("aria-pressed", r.z.includes(k)); });
+  r.z = [...r.z]; const syncZ = () => { document.querySelectorAll("[data-fmz]").forEach(x => x.setAttribute("aria-pressed", r.z.includes(x.dataset.fmz))); $("fmCorps").querySelectorAll("[data-zone]").forEach(g => g.setAttribute("aria-pressed", r.z.includes(g.dataset.zone))); };
+  document.querySelectorAll("[data-fmz]").forEach(b => b.onclick = () => { const k = b.dataset.fmz, i = r.z.indexOf(k); i < 0 ? r.z.push(k) : r.z.splice(i, 1); syncZ(); });
+  brancherCorps($("fmCorps"), r.z, syncZ);
   if (ch) brancherClub(ch);
   $("fmOk").onclick = () => { F[auj] = { ...(F[auj] || {}), h: r.h, q: r.q, e: r.e, c: r.c, st: r.st, dl: r.dl, z: r.dl ? r.z : [], rv: (F[auj] || {}).rv || Math.max(300, Math.min(660, minutesMaintenant())) }; stockerForme(F); if (ch) noterClub(hier, ch); majForme(); if (ecranCourant === "progres") ouvrirProgres(); detailForme(); };
 }

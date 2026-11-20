@@ -298,9 +298,9 @@ function bilanSemaine() {
   const F = lireForme(), bat = Array.from({ length: 7 }, (_, k) => jourCle(plusJ(L0, k))).filter(j => F[j]).map(j => batterie(j, F, h)).filter(Boolean).map(b => b.v);
   return { a, suiv: jourCle(plusJ(L0, 7)), faites, prevues: (P.jours || []).length, clubs: clubs.length, notes, ch, evol: chAvant ? Math.round((ch / chAvant - 1) * 100) : null, bat: bat.length ? Math.round(bat.reduce((t, v) => t + v, 0) / bat.length) : null, dure: clubs.filter(c => c.dur).length };
 }
-function carteBilan() {
-  const Z = $("bilanCarte"); if (!Z) return; const B = bilanSemaine(); if (!B) { Z.innerHTML = ""; Z.hidden = true; return; }
-  Z.hidden = false;
+// bilan affiché dans une feuille ouverte depuis la tuile « Semaine » de Ma forme ; sans Z, on masque seulement l'ancienne carte séparée
+function carteBilan(Z) {
+  const D = $("bilanCarte"); if (D) D.hidden = true; const B = Z && bilanSemaine(); if (!B) return;
   // conseil : alléger si la charge a bondi ou si la batterie est restée basse
   const lourd = (B.evol !== null && B.evol > 30) || (B.bat !== null && B.bat < 50);
   Z.innerHTML = `<strong>📊 ${L("Bilan de ta semaine", "Your week in review")}</strong>
@@ -310,7 +310,7 @@ function carteBilan() {
       ${B.bat !== null ? `<li>${L("Batterie moyenne", "Average battery")} : <b>${B.bat} %</b></li>` : ""}</ul>
     <small>${lourd ? L("Ta semaine a été chargée : une semaine plus légère t’aidera à progresser sans te blesser.", "Your week was heavy: a lighter week will help you progress without getting hurt.") : L("Bel équilibre : tu peux garder le même rythme.", "Good balance: you can keep the same pace.")}</small>
     <div class="bilan-b"><button class="${lourd ? "toggle" : "primary"}" id="biGarder">${L("Garder le même rythme", "Keep the same pace")}</button><button class="${lourd ? "primary" : "toggle"}" id="biAlleger">${L("Alléger la semaine prochaine", "Lighten next week")}</button></div>`;
-  const fin = allege => { const Q = lirePlan(); Q.bilanVu = B.a; if (allege) Q.allege = B.suiv; else if (Q.allege === B.suiv) delete Q.allege; stocker("planning", JSON.stringify(Q)); carteBilan(); majSemaine();
+  const fin = allege => { const Q = lirePlan(); Q.bilanVu = B.a; if (allege) Q.allege = B.suiv; else if (Q.allege === B.suiv) delete Q.allege; stocker("planning", JSON.stringify(Q)); fermerFeuille(); majSemaine();
     bulleMs(allege ? L("C’est noté : la semaine prochaine sera allégée.", "Noted: next week will be lighter.") : L("C’est noté : même rythme la semaine prochaine.", "Noted: same pace next week.")); };
   $("biGarder").onclick = () => fin(0); $("biAlleger").onclick = () => fin(1);
 }
@@ -329,14 +329,16 @@ function carteJourComplet(Z) {
 $("semaineCarte").insertAdjacentHTML("beforebegin", `<div class="semaine-carte bilan-carte" id="bilanCarte" hidden></div>`);
 $("semaineCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte" id="suiviCarte" hidden></div>`);
 // carte de l'accueil : où en est la semaine, ce qui reste et ce qui est à rattraper ; elle ouvre Ma semaine
-function carteSuivi() {
-  const Z = $("suiviCarte"); if (!Z) return; const P = lirePlanning(), CS = lireJSON("clubSemaine", {}), U = (P && ((P.jours || []).length || modeComplet(lirePlan()))) || (CS.clubs || []).some(c => (c.seances || []).length) ? suiviSemaine() : null;
-  if (!U || !U.prevues) { Z.hidden = true; return; }
-  const pro = U.suite.find(e => !e.c && e.d > jourSemaine()) || U.suite.find(e => e.d > jourSemaine());
-  Z.hidden = false;
-  Z.innerHTML = `<button class="sc-corps" id="suiviOuvrir"><span class="sc-ico">${U.retard.length ? "⚠️" : U.faites === U.prevues ? "🎉" : "📅"}</span><span><strong>${L("Ma semaine", "My week")} · ${U.faites} / ${U.prevues} ${L("faites", "done")}</strong>${barreSuivi(U)}<small>${U.retard.length
-    ? `${U.retard.length} ${U.retard.length > 1 ? L("séances à rattraper", "sessions to catch up") : L("séance à rattraper", "session to catch up")} : ${U.retard.map(e => JOURS_LONGS()[e.x.d]).join(", ")}`
-    : U.faites === U.prevues ? L("Tout est fait cette semaine, bravo !", "Everything is done this week, well done!")
-    : `${L("Il te reste ", "")}${U.suite.length} ${U.suite.length > 1 ? L("séances", "sessions left") : L("séance", "session left")}${pro ? " · " + L("prochaine : ", "next: ") + JOURS_LONGS()[pro.d] + ", " + nomSuivi(pro) : ""}`}</small></span></button>`;
-  $("suiviOuvrir").onclick = () => ouvrirPlanning("menu");
+// tuile « Semaine » de Ma forme (accueil) : séances faites, à rattraper, bilan à lire ; l'ancienne carte séparée reste masquée
+function tuileSemaine() {
+  const S = $("suiviCarte"); if (S) S.hidden = true; const b = $("fbSem"); if (!b) return;
+  const P = lirePlanning(), CS = lireJSON("clubSemaine", {}), Bi = bilanSemaine(), U = (P && ((P.jours || []).length || modeComplet(lirePlan()))) || (CS.clubs || []).some(c => (c.seances || []).length) ? suiviSemaine() : null;
+  const pro = U && (U.suite.find(e => !e.c && e.d > jourSemaine()) || U.suite.find(e => e.d > jourSemaine()));
+  $("fbSemV").textContent = Bi ? "📊 " + L("Bilan", "Review") : U && U.prevues ? `${U.faites} / ${U.prevues}` : L("Ma semaine", "My week");
+  $("fbSemS").textContent = Bi ? L("de ta semaine, à lire", "of your week, to read") : !U || !U.prevues ? L("à planifier", "to plan") : U.retard.length ? `⚠️ ${U.retard.length} ${L("à rattraper", "to catch up")}`
+    : U.faites === U.prevues ? "🎉 " + L("tout est fait", "all done") : pro ? L("prochaine : ", "next: ") + JOURS_LONGS()[pro.d] : L("séances faites", "sessions done");
+  b.style.setProperty("--c", Bi || (U && U.retard.length) ? "#F59E0B" : "var(--brand)");
+  b.onclick = () => Bi ? feuilleBilan() : ouvrirPlanning("menu");
 }
+const carteSuivi = tuileSemaine;
+function feuilleBilan() { ouvrirFeuilleInfo(L("Bilan de ta semaine", "Your week in review"), `<div class="semaine-carte bilan-carte" id="bilanFeuille"></div>`); carteBilan($("bilanFeuille")); }

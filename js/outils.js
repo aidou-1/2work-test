@@ -72,9 +72,9 @@ const renfoQuick = () => [...new Set([...["renfoHaut", "renfoBas", "renfoComplet
 // zone principale d'un exercice : celle de son premier muscle (« Lombaires, fessiers » → abdos et gainage), pour ne pas mettre un gainage dans « cuisses »
 const zoneQuick = id => { const m = EXERCICES[id].muscles.split(" · ")[0], z1 = ZONES.slice(1).find(x => x[3].test(m.split(",")[0])); return z1 ? z1[0] : (ZONES.slice(1).find(x => x[3].test(m)) || [""])[0]; };
 const quickPrefs = () => ({ z: "tout", m: monMatos().length ? "mien" : "sans", int: "normal", ...lireJSON("quickPrefs", {}) });
-function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal" }) {   // renvoie faux s'il n'y a pas assez d'exercices
+function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal", sans = [] }) {   // renvoie faux s'il n'y a pas assez d'exercices ; sans : zones douloureuses à éviter
   const dyn = id => /saut|burpee|climber|jump|skater|sprint|explos/i.test(EXERCICES[id].nom + " " + EXERCICES[id].description);
-  const pool = renfoQuick().filter(id => !EXERCICES[id].etir && (z === "tout" ? zoneQuick(id) : zoneQuick(id) === z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (int !== "calme" || !dyn(id)));
+  const pool = renfoQuick().filter(id => !EXERCICES[id].etir && (z === "tout" ? zoneQuick(id) : zoneQuick(id) === z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (int !== "calme" || !dyn(id)) && !(sans.length && zonesEx(id).some(x => sans.includes(x))));
   if (pool.length < 3) return false;
   stocker("quickPrefs", JSON.stringify({ z, m, int }));
   const hasard = l => l.map(x => [Math.random() - (int === "intense" && dyn(x) ? 1 : 0) - (m === "mien" && EXERCICES[x].mat ? .6 : 0), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);   // très intense : les exercices dynamiques d'abord ; avec ton matériel : surtout des exercices qui s'en servent

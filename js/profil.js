@@ -220,8 +220,12 @@ function majSemaine() {   // carte « Aujourd'hui » du menu et salutation
   $("scOuvrir").onclick = () => ouvrirPlanning("menu");
   if (x && !fait) {   // plan B : une version courte plutôt que rien, et le lieu prévu pour rappel
     const P = lirePlanning(); if (P.lieu) $("scOuvrir").querySelector("small").textContent += " · 📍 " + P.lieu;
-    Z.insertAdjacentHTML("beforeend", `<button class="sc-go sc-planb" id="scB" aria-label="${L("Plan B : 7 minutes de Quick start", "Plan B: 7 minutes of Quick start")}"><small>${L("Plan B", "Plan B")}</small>7′</button>`);
-    $("scB").onclick = () => composerExpress({ ...quickPrefs(), min: 7 }) || composerExpress({ min: 7, m: "sans", z: "tout", int: "normal" });
+    // fatigue ou risque de blessure fort : l'option recommandée remplace le Plan B, avec sa raison
+    const R = typeof optionRecommandee === "function" && optionRecommandee();
+    if (R) { $("scOuvrir").querySelector("small").textContent += " · ⚠️ " + R.raison;
+      Z.insertAdjacentHTML("beforeend", `<button class="sc-go sc-planb sc-reco" id="scB" aria-label="${L("Option recommandée", "Recommended option")} : ${R.t} (${R.raison})"><small>${L("Conseillé", "Advised")}</small>${R.ico}</button>`); $("scB").onclick = R.go; }
+    else { Z.insertAdjacentHTML("beforeend", `<button class="sc-go sc-planb" id="scB" aria-label="${L("Plan B : 7 minutes de Quick start", "Plan B: 7 minutes of Quick start")}"><small>${L("Plan B", "Plan B")}</small>7′</button>`);
+      $("scB").onclick = () => composerExpress({ ...quickPrefs(), min: 7 }) || composerExpress({ min: 7, m: "sans", z: "tout", int: "normal" }); }
   }
 }
 
