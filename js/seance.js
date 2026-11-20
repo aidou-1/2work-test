@@ -754,6 +754,9 @@ function ouvrirApercu(cle) {
   if (routine.plan) majAjust(blocsRepetes(routine.plan), choixAj); else $("ajustRow").classList.add("hidden"), $("ajustPanel").classList.add("hidden");
   $("start").disabled = !tb && !so && (ids.length === 0 || !liste.length);
   if (!tb && !so) majAjout();
+  // séance de salle : charges conseillées aujourd'hui, d'après le carnet (même règle qu'en fin de séance)
+  const cc = typeof exosCharges === "function" && (routine.gym || routine.salle) ? exosCharges().map(id => [id, chargeConseillee(id)]).filter(x => x[1]) : [];
+  if (cc.length) $("pList").insertAdjacentHTML("afterbegin", `<li class="etude"><div><small><b>🏋️ ${L("Charges conseillées aujourd’hui", "Advised weights today")}</b><br>${cc.map(([id, C]) => `${EXERCICES[id].nom} : ${kgTxt(C.kg)} kg${C.monte ? " 📈" : ""}`).join(" · ")}</small></div></li>`);
   // douleur notée ce matin : exercices qui sollicitent la zone, à retirer pour aujourd'hui seulement (la séance enregistrée ne change pas)
   const zd = typeof zonesDouleur === "function" && !routine.plan && !routine.blocsProg && !so && !tb ? zonesDouleur() : [], risque = zd.length ? ids.filter(id => zonesEx(id).some(z => zd.includes(z))) : [];
   if (risque.length) { $("pList").insertAdjacentHTML("afterbegin", `<li class="etude dl-alerte"><div><small><b>🩹 ${L("Douleur notée ce matin", "Pain noted this morning")} (${zd.map(nomZone).join(", ").toLowerCase()})</b><br>${L("Sollicite cette zone : ", "Loads this area: ")}${risque.map(id => EXERCICES[id].nom).join(", ")}.</small>${ids.length - risque.length >= 2 ? `<button class="toggle" id="dlRetirer">${L("Les retirer pour aujourd’hui", "Leave them out today")}</button>` : ""}</div></li>`);
