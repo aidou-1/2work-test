@@ -119,6 +119,10 @@ function seanceDuJour(x) {
   const P = PROGRAMMES.map(p => [p, progAvance(p[0])]).filter(([, a]) => a > 0 && a < NB_PROG).sort((a, b) => b[1] - a[1])[0];
   if (P) return { t: L(P[0][1], P[0][2]), s: L("Programme · jour", "Programme · day") + " " + (P[1] + 1) + "/" + NB_PROG, c: P[0][5], go: () => ouvrirProg(P[0][0]) };
   if (x) return x.s;
+  // salle de muscu cochée au questionnaire : séance de salle du jour, poussée, tirage et jambes à tour de rôle (sauf reprise après 3 jours ou salle hier)
+  const pr = lireProfil();
+  if ((pr.sportsPratiques || []).includes("muscu") && vide < 3 && !hier.some(y => y.m === "salle")) { const sp = ["push", "pull", "bas"][Math.floor(Date.now() / 864e5) % 3], T1 = tpl(`S:${pr.objectif === "force" ? "force" : "hypertrophie"}:${sp}`, niv);
+    if (T1) return { ...T1, r: L("Tu t’entraînes en salle : poussée, tirage et jambes à tour de rôle.", "You train at the gym: push, pull and legs in turn."), ico: "🏋️" }; }
   const plan = PLANS[lireProfil().objectif], sem = Array.isArray(plan) ? plan : PLANS.forme, cle = vide >= 3 ? "R:complet" : hier.some(y => ["seance", "salle", "tabata"].includes(y.m)) ? "C:repos" : sem[(new Date().getDay() + 6) % 7].replace("@", "complet"), T0 = tpl(cle, niv);
   return T0 && { ...T0, r: vide >= 3 && vide < 99 ? L(`${vide} jours sans séance : on relance avec une séance complète.`, `${vide} days without a workout: restart with a full-body session.`) : cle === "C:repos" ? L("Séance intense hier : aujourd’hui, on récupère.", "Hard session yesterday: today is for recovery.") : "", ico: cle === "C:repos" ? "🧘" : "🎯" };
 }

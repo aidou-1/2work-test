@@ -695,13 +695,14 @@ function majAjust(blocs, choix) {
 }
 $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepetes(routine.plan), ajustDe()); };
 
+let sansAuj = new Set();   // exercices retirés pour aujourd'hui (douleur) : hors de la liste jouée, jamais retirés de la séance enregistrée
 function ouvrirApercu(cle) {
-  if (routineCle !== cle) ajustOuvert = false, ajustDetail = "";
+  if (routineCle !== cle) ajustOuvert = false, ajustDetail = "", sansAuj = new Set();
   routine = ROUTINES[cle]; routineCle = cle;
   const tb = mode === "tabata", so = mode === "souffle", sa = mode === "salle";
   // en salle, chaque exercice est joué en plusieurs séries (repos entre chaque)
   const choixAj = routine.plan ? ajustDe() : {};
-  liste = (routine.plan ? planAjuste(routine.plan, choixAj).map(q => ({ ...EXERCICES[q.id], id: q.id, duree: q.d, r: q.r, bn: q.bn, t: q.t, tt: q.tt, ft: q.ft, lab: q.lab, presc: q.presc, serie: q.serie, series: q.series })) : ids.flatMap(id => Array.from({ length: sa ? cycles : 1 }, (_, k) => ({ ...EXERCICES[id], id, duree: dureeGlobale, ...(sa && { serie: k + 1, series: cycles }) }))))
+  liste = (routine.plan ? planAjuste(routine.plan, choixAj).map(q => ({ ...EXERCICES[q.id], id: q.id, duree: q.d, r: q.r, bn: q.bn, t: q.t, tt: q.tt, ft: q.ft, lab: q.lab, presc: q.presc, serie: q.serie, series: q.series })) : ids.filter(id => !sansAuj.has(id)).flatMap(id => Array.from({ length: sa ? cycles : 1 }, (_, k) => ({ ...EXERCICES[id], id, duree: dureeGlobale, ...(sa && { serie: k + 1, series: cycles }) }))))
     .flatMap(e => { const a = PASSAGES[e.id] && " · " + L(...PASSAGES[e.id]); return a ? [{ ...e, r: 0 }, { ...e, autreCote: 1, nom: e.nom + a, lab: e.lab && e.lab + a }] : [e]; });
   $("dureeVal").textContent = dureeGlobale + (so ? " min" : " s");
   const rr = routine.reglerRepos, rProp = rr ? routine.reposProp : !routine.fixe && (sa || mode === "seance") ? reposPropose(mode, cle) : null;
@@ -758,9 +759,11 @@ function ouvrirApercu(cle) {
   const cc = typeof exosCharges === "function" && (routine.gym || routine.salle) ? exosCharges().map(id => [id, chargeConseillee(id)]).filter(x => x[1]) : [];
   if (cc.length) $("pList").insertAdjacentHTML("afterbegin", `<li class="etude"><div><small><b>🏋️ ${L("Charges conseillées aujourd’hui", "Advised weights today")}</b><br>${cc.map(([id, C]) => `${EXERCICES[id].nom} : ${kgTxt(C.kg)} kg${C.monte ? " 📈" : ""}`).join(" · ")}</small></div></li>`);
   // douleur notée ce matin : exercices qui sollicitent la zone, à retirer pour aujourd'hui seulement (la séance enregistrée ne change pas)
-  const zd = typeof zonesDouleur === "function" && !routine.plan && !routine.blocsProg && !so && !tb ? zonesDouleur() : [], risque = zd.length ? ids.filter(id => zonesEx(id).some(z => zd.includes(z))) : [];
-  if (risque.length) { $("pList").insertAdjacentHTML("afterbegin", `<li class="etude dl-alerte"><div><small><b>🩹 ${L("Douleur notée ce matin", "Pain noted this morning")} (${zd.map(nomZone).join(", ").toLowerCase()})</b><br>${L("Sollicite cette zone : ", "Loads this area: ")}${risque.map(id => EXERCICES[id].nom).join(", ")}.</small>${ids.length - risque.length >= 2 ? `<button class="toggle" id="dlRetirer">${L("Les retirer pour aujourd’hui", "Leave them out today")}</button>` : ""}</div></li>`);
-    if ($("dlRetirer")) $("dlRetirer").onclick = () => { ids = ids.filter(id => !risque.includes(id)); ouvrirApercu(cle); }; }
+  const zd = typeof zonesDouleur === "function" && !routine.plan && !routine.blocsProg && !so && !tb ? zonesDouleur() : [], risque = zd.length ? ids.filter(id => !sansAuj.has(id) && zonesEx(id).some(z => zd.includes(z))) : [];
+  if (sansAuj.size) $("pList").insertAdjacentHTML("afterbegin", `<li class="etude dl-alerte"><div><small><b>🩹 ${L("Retirés pour aujourd’hui", "Left out today")}</b> : ${[...sansAuj].map(id => EXERCICES[id].nom).join(", ")}</small><button class="toggle" id="dlRemettre">↺ ${L("Les remettre", "Put them back")}</button></div></li>`);
+  if ($("dlRemettre")) $("dlRemettre").onclick = () => { sansAuj = new Set(); ouvrirApercu(cle); };
+  if (risque.length) { $("pList").insertAdjacentHTML("afterbegin", `<li class="etude dl-alerte"><div><small><b>🩹 ${L("Douleur notée ce matin", "Pain noted this morning")} (${zd.map(nomZone).join(", ").toLowerCase()})</b><br>${L("Sollicite cette zone : ", "Loads this area: ")}${risque.map(id => EXERCICES[id].nom).join(", ")}.</small>${ids.length - sansAuj.size - risque.length >= 2 ? `<button class="toggle" id="dlRetirer">${L("Les retirer pour aujourd’hui", "Leave them out today")}</button>` : ""}</div></li>`);
+    if ($("dlRetirer")) $("dlRetirer").onclick = () => { risque.forEach(id => sansAuj.add(id)); ouvrirApercu(cle); }; }
   ecran("preview");
 }
 
@@ -852,11 +855,11 @@ function afficher() {
 let expliqueFin = null;
 function expliquer(e, premiere) {
   const c = consignes(e.id); if (c.length < 3) return;
-  if (!enPause) pause(); clearTimeout(expliqueFin);
+  const tournait = !enPause; if (tournait) pause(); clearTimeout(expliqueFin);
   const t = c.join(" ");   // seulement les consignes : elles sont enregistrées avec la voix 2 WORK (une phrase en plus passerait par la voix du téléphone)
   parler(t); $("desc").classList.add("explication"); if (premiere) bulleMs(L("Première fois : écoute l’explication, la séance repart toute seule.", "First time: listen to the explanation, the workout restarts on its own."));
   if (!$("expliqueOk")) $("desc").insertAdjacentHTML("beforeend", `<button class="primary" id="expliqueOk">${L("On y va", "Let’s go")}</button>`);
-  const fin = () => { clearTimeout(expliqueFin); $("desc").classList.remove("explication"); if ($("expliqueOk")) $("expliqueOk").remove(); if (enPause && liste[index] === e) pause(); };
+  const fin = () => { clearTimeout(expliqueFin); $("desc").classList.remove("explication"); if ($("expliqueOk")) $("expliqueOk").remove(); if (tournait && enPause && liste[index] === e && ecranCourant === "session") pause(); };
   $("expliqueOk").onclick = fin;
   expliqueFin = setTimeout(fin, 1500 + t.length * 70);   // environ 14 caractères par seconde à la voix
 }
@@ -1073,7 +1076,7 @@ function afficherRepos() {
 $("plusRepos").onclick = () => { if (enRepos) { reste += 15; $("time").textContent = reste; majGuide(); } };
 
 function terminer() {
-  clearInterval(timer); horlogeActive++; oublierSeance();
+  clearInterval(timer); clearTimeout(expliqueFin); horlogeActive++; oublierSeance();
   const R0 = routine || {};
   sons.change();
   const [titre, sous] = {

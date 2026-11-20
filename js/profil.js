@@ -606,7 +606,7 @@ const besoinBienvenue = () => { try { return !localStorage.getItem("bienvenue2")
 function finBienvenue() { stocker("bienvenue", "1"); stocker("bienvenue2", "1"); const p = lireProfil(); if (!p.objectif) ecrireProfil("objectif", "forme"); if (!p.niveau && !lire("niveauRenfo")) ecrireProfil("niveau", "debutant"); }   // niveau inconnu : on démarre doucement
 const ENVS_Q = [["salle", "En salle", "Indoors"], ["ext", "Dehors", "Outdoors"], ["eau", "Dans l’eau", "In the water"], ["montagne", "En montagne", "In the mountains"], ["maison", "À la maison", "At home"]];
 const STYLES_Q = [["seul", "Seul, à mon rythme", "Solo, at my own pace"], ["equipe", "En équipe", "In a team"], ["duel", "En duel, raquette en main", "One-on-one, with a racket"], ["combat", "Sports de combat", "Combat sports"]];
-const sportsQ = () => Object.keys(SP_PREF).filter(k => CATS[k] && k !== "renfo").map(k => [k, T(CATS[k].titre), T(CATS[k].titre)]);
+const sportsQ = () => [...Object.keys(SP_PREF).filter(k => CATS[k] && k !== "renfo").map(k => [k, T(CATS[k].titre), T(CATS[k].titre)]), ["muscu", "Salle de muscu", "Gym (weights)"]];   // muscu : la séance du jour devient une séance de salle (js/jeu.js)
 const basculer = (cle, k) => { const l = lireProfil()[cle] || [], n = l.includes(k) ? l.filter(x => x !== k) : [...l, k]; ecrireProfil(cle, n); return n.includes(k); };
 function bienvenue(etape = 1) {
   etape = Math.min(2, etape); bienvenue.etape = etape;

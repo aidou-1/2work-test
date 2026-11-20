@@ -167,15 +167,16 @@ const kgTxt = v => String(v).replace(".", L(",", "."));
 function formCharges() {
   const ex = exosCharges(); if (!ex.length) return "";
   const h = lireCharges();
-  return `<div class="carnet"><h3>🏋️ ${L("Note tes charges", "Log your weights")}</h3><p>${L("Charge et répétitions de ta dernière série : l’appli suit ta progression et estime ta force maximale. Les cases sont pré-remplies avec la charge conseillée : corrige seulement si tu as fait autrement.", "Weight and reps of your last set: the app tracks your progress and estimates your max strength. Boxes are pre-filled with the advised weight: only correct them if you did otherwise.")}</p>
+  return `<div class="carnet"><h3>🏋️ ${L("Note tes charges", "Log your weights")}</h3><p>${L("Charge et répétitions de ta dernière série : l’appli suit ta progression et estime ta force maximale. Touche une case kg : la charge conseillée s’y inscrit, corrige-la si tu as fait autrement. Une ligne vide n’est pas enregistrée.", "Weight and reps of your last set: the app tracks your progress and estimates your max strength. Tap a kg box: the advised weight fills in, correct it if you did otherwise. An empty row is not saved.")}</p>
     ${ex.map(id => { const d = h.filter(x => x.id === id).pop(), q = (routine.plan || []).find(x => x.id === id && x.presc && x.serie), C = chargeConseillee(id);
-      // pré-rempli avec la charge conseillée : on corrige seulement ce qui a changé
+      // charge conseillée en indication : un appui dans la case la recopie ; une ligne laissée vide n'est pas enregistrée (exercice sauté)
       const reps = q ? parseInt(q.presc, 10) || "" : d ? d.r : ""; return `<div class="carnet-ligne" data-id="${id}"><span>${EXERCICES[id].nom}${d ? `<small>${L("Dernière fois", "Last time")} : ${kgTxt(d.kg)} kg × ${d.r}${C && C.monte ? " · 📈 " + L("conseillé", "advised") + " " + kgTxt(C.kg) + " kg" : ""}</small>` : ""}</span>
-      <label><input type="number" inputmode="decimal" min="0" max="500" step="0.5" placeholder="kg" value="${C ? C.kg : ""}" class="ck"><i>kg</i></label><label><input type="number" inputmode="numeric" min="1" max="100" value="${reps}" class="cr"><i>reps</i></label></div>`; }).join("")}
+      <label><input type="number" inputmode="decimal" min="0" max="500" step="0.5" placeholder="${C ? kgTxt(C.kg) : "kg"}" data-conseil="${C ? C.kg : ""}" class="ck"><i>kg</i></label><label><input type="number" inputmode="numeric" min="1" max="100" value="${reps}" class="cr"><i>reps</i></label></div>`; }).join("")}
     <button class="primary" id="ckOk">${L("Enregistrer mes charges", "Save my weights")}</button><div id="ckRes"></div></div>`;
 }
 function brancherCharges() {
   if (!$("ckOk")) return;
+  document.querySelectorAll(".ck[data-conseil]").forEach(i => i.onfocus = () => { if (!i.value && i.dataset.conseil) { i.value = i.dataset.conseil; i.select(); } });
   $("ckOk").onclick = () => {
     const h = lireCharges(), res = [];
     document.querySelectorAll(".carnet-ligne").forEach(l => { const id = l.dataset.id, kg = parseFloat(l.querySelector(".ck").value), r = parseInt(l.querySelector(".cr").value, 10);

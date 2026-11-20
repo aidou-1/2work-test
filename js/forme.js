@@ -224,7 +224,7 @@ $("formeCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte jour-c
 
 /* --- Carte du corps : zones de gêne et exercices qui les sollicitent ---
    Repérage par mots-clés dans le nom, les muscles et la description de chaque exercice : une aide pour éviter ce qui risque de réveiller la douleur, pas un avis médical. */
-const SOLLICITE = { epaule: /épaule|deltoïde|coiffe|pompe|push|développ|dips|traction|tirage|press|planche|burpee|ours|bear|crawl|shoulder/i,
+const SOLLICITE = { epaule: /épaule|deltoïde|coiffe|pompe|push|développ|dips|traction|tirage|\bpress\b|planche|burpee|ours|bear|crawl|shoulder/i,
   poignet: /poignet|avant-bras|pompe|planche|burpee|climber|ours|bear|crawl|mains? au sol|appui sur les mains|wrist/i,
   dos: /\bdos\b|lombaire|soulevé|deadlift|good morning|rowing|superman|tirage|\bback/i, hanche: /hanche|fessier|adducteur|psoas|fléchisseur|fente|squat|pont|hip|glute/i,
   genou: /genou|squat|fente|saut|sauté|jump|step|chaise|pistol|burpee|skater|lunge|bond|pliom|knee/i, cheville: /cheville|mollet|saut|jump|corde|sprint|skipping|talon|pointes? de pieds?|burpee|skater|ankle|calf/i };
@@ -236,7 +236,7 @@ const nomZone = z => L(ZONES_FM[z][0], ZONES_FM[z][1]);
 function carteCorps(sel) {
   const P = { epaule: [[54, 74], [106, 74]], poignet: [[30, 152], [130, 152]], dos: [[80, 108]], hanche: [[80, 156]], genou: [[66, 216], [94, 216]], cheville: [[64, 276], [96, 276]] };
   return `<svg class="corps" viewBox="0 0 160 300" role="group" aria-label="${L("Carte du corps : touche les zones qui te gênent", "Body map: tap the areas that bother you")}"><g class="corps-sil" aria-hidden="true"><circle cx="80" cy="28" r="18"/><rect x="56" y="52" width="48" height="104" rx="20"/><path d="M58 66 L32 150 M102 66 L128 150 M70 150 L65 282 M90 150 L95 282"/></g>
-    ${Object.entries(P).map(([k, pts]) => `<g class="corps-z" data-zone="${k}" role="button" tabindex="0" aria-pressed="${sel.includes(k)}" aria-label="${nomZone(k)}">${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="15"/>`).join("")}</g>`).join("")}</svg>`;
+    ${Object.entries(P).map(([k, pts]) => `<g class="corps-z" data-zone="${k}" role="button" tabindex="0" aria-pressed="${sel.includes(k)}" aria-label="${nomZone(k)}">${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="18"/>`).join("")}</g>`).join("")}</svg>`;
 }
 function brancherCorps(Z, sel, maj) {
   Z.querySelectorAll("[data-zone]").forEach(g => { const f = () => { const k = g.dataset.zone, i = sel.indexOf(k); i < 0 ? sel.push(k) : sel.splice(i, 1); g.setAttribute("aria-pressed", sel.includes(k)); if (maj) maj(); };
