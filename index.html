@@ -36,6 +36,7 @@
 /* ===== 2 WORK · design « net » : surfaces plates, bordures fines, une couleur d'accent par séance, clair et sombre par les mêmes variables ===== */
 :root {
 --brand: #EA580C; --vert: #15803D; --accent: var(--brand);
+--rouge: #DC2626; --ambre: #F59E0B; --feu-vert: #16A34A; --coach: #2563EB; --sarcelle: #0D9488;   /* couleurs d'état (douleur, alerte, coach) */
 --bg: #FBF6F1; --surface: #FFFFFF; --soft: #F1E8DF; --ligne: rgba(60,30,10,.11); --ink: #1C1410; --muted: #6B5D52; --voile: 251,246,241;
 --accent-txt: color-mix(in srgb, var(--accent) 82%, #000); --fond-o: .6;
 --ok: #15803D; --rose: #E11D48; --or: #B45309; --or-fond: #FFF4D1; --or-bord: #F6DC8B;
@@ -641,10 +642,11 @@ div.zones b { display: block; font-family: var(--titre); font-size: 1.1rem; } di
 .ms-rattr li { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 4px 10px; border-left: 3px solid var(--c, var(--brand)); } .ms-rattr li > span:first-child { display: flex; flex-direction: column; } .ms-rattr small { color: var(--muted); }
 .ms-rattr .ms-liens { align-items: center; gap: 4px 12px; } .ms-rattr .toggle { min-height: 44px; padding: 8px 14px; }
 #suiviCarte[hidden] { display: none; }
-.ms-propose { border-left: 4px solid #2563EB; } .ms-propose p { margin: 4px 0 8px; } .ms-coach b { color: var(--ink); }
+.ms-propose { border-left: 4px solid var(--coach); } .ms-propose p { margin: 4px 0 8px; } .ms-coach b { color: var(--ink); }
 .cl-case > span > small { display: block; margin-top: 2px; } .cl-aide-coach { display: block; margin: 2px 0 4px; color: var(--ink); } .cl-case > span > b { color: var(--ink); }
 .cl-jours { display: flex; gap: 4px; margin: 4px 0 2px; } .cl-jours i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; font-style: normal; font-size: .78rem; font-weight: 700; background: var(--soft); color: var(--muted); }
-.cl-jours i.ok { background: color-mix(in srgb, var(--ok) 22%, var(--surface)); color: var(--ink); } .cl-jours i.dur { background: color-mix(in srgb, #DC2626 25%, var(--surface)); color: var(--ink); }
+.cl-jours i.ok { background: color-mix(in srgb, var(--ok) 22%, var(--surface)); color: var(--ink); } .cl-jours i.dur { background: color-mix(in srgb, var(--rouge) 25%, var(--surface)); color: var(--ink); }
+.obj-chips { flex-wrap: wrap; overflow: visible; } .obj-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; } .obj-liste li { display: grid; gap: 4px; } .obj-tete { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .obj-liste small { color: var(--muted); } .moi-records { margin-top: 14px; }
 .moi-retour { display: block; width: 100%; min-height: 48px; margin: 14px 0 calc(90px + env(safe-area-inset-bottom)); }
 /* Explique-moi : explication complète à la voix */
 .explique { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; } #expliqueOk { width: 100%; margin-top: 8px; }
@@ -659,12 +661,12 @@ div.zones b { display: block; font-family: var(--titre); font-size: 1.1rem; } di
 .corps-boite { display: flex; justify-content: center; margin: 8px 0; } .corps { width: 224px; height: auto; touch-action: manipulation; }
 .corps-sil circle, .corps-sil rect { fill: color-mix(in srgb, var(--ink) 14%, transparent); } .corps-sil path { stroke: color-mix(in srgb, var(--ink) 14%, transparent); stroke-width: 14; stroke-linecap: round; fill: none; }
 .corps-z { cursor: pointer; outline: none; } .corps-z circle { fill: transparent; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 4 3; }
-.corps-z[aria-pressed="true"] circle { fill: color-mix(in srgb, #DC2626 55%, transparent); stroke: #DC2626; stroke-dasharray: none; } .corps-z:focus-visible circle { stroke: var(--brand); stroke-width: 3; }
+.corps-z[aria-pressed="true"] circle { fill: color-mix(in srgb, var(--rouge) 55%, transparent); stroke: var(--rouge); stroke-dasharray: none; } .corps-z:focus-visible circle { stroke: var(--brand); stroke-width: 3; }
 .dl-liste { list-style: none; padding: 10px 12px; display: grid; gap: 8px; } .dl-liste span { display: flex; flex-direction: column; } .dl-liste small { color: var(--muted); }
-.dl-alerte { border-left: 4px solid #DC2626; } .dl-alerte .toggle { margin-top: 6px; min-height: 44px; }
-.semaine-carte .sc-reco { background: #0D9488; font-size: 1.3rem; } .semaine-carte .sc-reco small { font-size: .62rem; }
+.dl-alerte { border-left: 4px solid var(--rouge); } .dl-alerte .toggle { margin-top: 6px; min-height: 44px; }
+.semaine-carte .sc-reco { background: var(--sarcelle); font-size: 1.3rem; } .semaine-carte .sc-reco small { font-size: .62rem; }
 .cl-planning .chips { flex-wrap: wrap; overflow: visible; } .cl-planning .partage-btns .primary { flex: 1; }
-.cl-alerte { border-left: 4px solid #DC2626; } .cl-alerte p { margin: 6px 0; } #suiviCarte .sc-corps > span:last-child { flex: 1; min-width: 0; }
+.cl-alerte { border-left: 4px solid var(--rouge); } .cl-alerte p { margin: 6px 0; } #suiviCarte .sc-corps > span:last-child { flex: 1; min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .ms-barre > i { transition: none; } }
 /* Aperçus (js/apercus.js) : ressenti et performances expliqués */
 .apercu { margin-top: 10px; padding: 12px 14px; border-radius: var(--r); border: 1px solid var(--ligne); border-left: 4px solid var(--ap, var(--brand)); background: color-mix(in srgb, var(--ap, var(--brand)) 7%, var(--surface)); }

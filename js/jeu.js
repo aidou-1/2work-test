@@ -87,17 +87,79 @@ function blocGain() {
     + neufs.map(d => `<div class="nouveau-trophee"><b class="xp-rond ok">✓</b><div><small>${L("Défi de la semaine réussi · +50 XP", "Weekly challenge done · +50 XP")}</small><b>${L(d.fr, d.en)}</b></div></div>`).join("");
 }
 
+/* --- Records personnels : séances, semaines, série, cœur, VMA, plus le meilleur de chaque test et les 3 plus lourdes charges (Mes progrès et Moi) --- */
+function recordsPerso(h = lireHist(), sr = series(h)) {
+  const parSem = {}; h.forEach(x => { const k = lundiDe(x.j); (parSem[k] = parSem[k] || []).push(x); });
+  const mSem = Object.values(parSem), vma = lireTests().filter(x => x.id === "navette"), rec = [[h.length ? Math.round(Math.max(...h.map(x => x.s)) / 60) + " min" : "", L("Séance la plus longue", "Longest workout")], [mSem.length ? Math.max(...mSem.map(minDe)) + " min" : "", L("Meilleure semaine", "Best week")], [mSem.length ? Math.max(...mSem.map(s => s.length)) : "", L("Séances en une semaine", "Workouts in a week")],
+    [sr.best ? sr.best + L(" j", " d") : "", L("Meilleure série", "Best streak")], [h.some(x => x.fcMax) ? Math.max(...h.map(x => x.fcMax || 0)) + " bpm" : "", L("Fréquence cardiaque max", "Max heart rate")], [vma && vma.length ? Math.max(...vma.map(t => t.v)) + " km/h" : "", L("Meilleure VMA estimée", "Best estimated top aerobic speed")]].filter(r => r[0] !== "");
+  const T = lireTests(), C = lireCharges(), maxC = {};
+  C.forEach(c => { if (!maxC[c.id] || c.kg > maxC[c.id]) maxC[c.id] = c.kg; });
+  TESTS.forEach(t => { const l = T.filter(x => x.id === t[0] && t[0] !== "navette"); if (l.length) rec.push([Math.max(...l.map(x => x.v)) + " " + L(t[3], t[4]), L(t[1], t[2])]); });
+  Object.entries(maxC).sort((a, b) => b[1] - a[1]).slice(0, 3).forEach(([id, kg]) => EXERCICES[id] && rec.push([String(kg).replace(".", L(",", ".")) + " kg", EXERCICES[id].nom]));
+  return rec;
+}
+/* --- Objectifs chiffrés (« objectifs ») : [{ type: "test" | "charge", ref, cible, date: échéance, debut: { j, v } }], 3 au plus.
+   Le plan découle de l'écart et du temps restant : progression à viser par semaine, séance conseillée, test à refaire. */
+const lireObjectifs = () => lireJSON("objectifs", []);
+const SEANCE_TEST = { pompes: "haut", squats: "bas", chaise: "bas", planche: "tronc" };
+const testDe = id => TESTS.find(t => t[0] === id), nbJ = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
+const nomObj = o => o.type === "test" ? (testDe(o.ref) ? L(testDe(o.ref)[1], testDe(o.ref)[2]) : o.ref) : EXERCICES[o.ref] ? EXERCICES[o.ref].nom : o.ref;
+const uniteObj = o => o.type === "test" ? (testDe(o.ref) ? L(testDe(o.ref)[3], testDe(o.ref)[4]) : "") : "kg", nb = v => String(Math.round(v * 10) / 10).replace(".", L(",", "."));
+const valeurObj = o => { const l = o.type === "test" ? lireTests().filter(x => x.id === o.ref).map(x => x.v) : lireCharges().filter(x => x.id === o.ref).map(x => x.kg); return l.length ? +l[l.length - 1] : null; };
+function etatObjectif(o) {
+  const v = valeurObj(o), auj = jourCle(), d0 = o.debut.v ?? v, tot = Math.max(1, nbJ(o.debut.j, o.date)), reste = Math.max(0, nbJ(auj, o.date));
+  const att = d0 === null ? null : d0 + (o.cible - d0) * Math.min(1, nbJ(o.debut.j, auj) / tot), pr = v === null || d0 === null ? 0 : Math.max(0, Math.min(1, (v - d0) / ((o.cible - d0) || 1)));
+  return { v, d0, pr, reste, ok: v !== null && v >= o.cible, avance: v !== null && att !== null && v >= att - 1e-9, parSem: reste >= 7 ? (o.cible - (v ?? d0 ?? 0)) / (reste / 7) : 0 };
+}
+function carteObjectifs() {
+  const O = lireObjectifs(); let maj = false;
+  O.forEach(o => { if (o.debut.v === null) { const v = valeurObj(o); if (v !== null) { o.debut.v = v; maj = true; } } });   // première mesure après la création : point de départ
+  if (maj) stocker("objectifs", JSON.stringify(O));
+  const ligne = (o, i) => { const E = etatObjectif(o), u = uniteObj(o), z = o.type === "test" && SEANCE_TEST[o.ref];
+    const plan = E.ok ? "🏆 " + L("Objectif atteint, bravo ! Fixe-toi le suivant.", "Goal reached, well done! Set the next one.")
+      : E.v === null ? (o.type === "test" ? L("Fais le test une première fois pour démarrer.", "Take the test once to start.") : L("Note ta charge en fin de séance de salle pour démarrer.", "Log your weight after a gym session to start."))
+      : !E.reste ? L("Échéance passée : garde l’objectif avec une nouvelle date, ou retire-le.", "Deadline passed: keep the goal with a new date, or remove it.")
+      : `${L("Actuel", "Now")} : ${nb(E.v)} ${u} · ${E.reste} ${L("j restants", "days left")} · ${E.avance ? "✅ " + L("dans les temps", "on track") : "⚠️ " + L("en retard", "behind")}${E.parSem > 0 ? ` · ${L("vise", "aim for")} +${nb(E.parSem)} ${u} ${L("par semaine", "a week")}` : ""}.<br>${o.type === "test"
+        ? (z ? L("2 séances ciblées par semaine, et refais le test toutes les 3 semaines.", "2 targeted sessions a week, and retake the test every 3 weeks.") : o.ref === "navette" ? L("2 séances de fractionné par semaine (Programmes → course), et refais le test toutes les 4 semaines.", "2 interval sessions a week (Programmes → running), and retake the test every 4 weeks.") : L("Un peu chaque jour, et refais le test toutes les 3 semaines.", "A little every day, and retake the test every 3 weeks."))
+        : L("Ajoute 2,5 kg quand tu fais toutes tes répétitions avec une bonne technique ; sinon garde la charge.", "Add 2.5 kg when you complete all your reps with good form; otherwise keep the weight.")}`;
+    return `<li><div class="obj-tete"><b>${nomObj(o)} : ${nb(o.cible)} ${u}</b><small>${L("avant le", "by")} ${dateCourte(o.date)}</small></div>${barreSuivi({ prevues: 100, faites: Math.round(E.pr * 100) })}<small>${plan}</small>
+      <span class="ms-liens">${o.type === "test" ? `<button class="ms-retirer" data-otest="1">📏 ${L("Faire le test", "Take the test")}</button>` : ""}${z && !E.ok ? `<button class="ms-retirer" data-oseance="${z}">▶ ${L("Séance conseillée", "Advised workout")}</button>` : ""}<button class="ms-retirer" data-odel="${i}">${L("Retirer", "Remove")}</button></span></li>`; };
+  return `<div class="carte" id="objCarte"><h2>🎯 ${L("Mes objectifs", "My goals")}</h2>${O.length ? `<ul class="obj-liste">${O.map(ligne).join("")}</ul>` : `<p class="sh-aide">${L("Un chiffre et une date (« 30 pompes d’ici mars ») : l’appli te dit chaque semaine si tu es dans les temps et quoi faire.", "A number and a date (“30 push-ups by March”): each week the app tells you whether you are on track and what to do.")}</p>`}
+    ${O.length < 3 ? `<button class="toggle contour" id="objNouveau">+ ${L("Nouvel objectif", "New goal")}</button>` : ""}</div>`;
+}
+function brancherObjectifs(refaire) {
+  const Z = $("objCarte"); if (!Z) return;
+  Z.querySelectorAll("[data-otest]").forEach(b => b.onclick = () => ouvrirTests());
+  Z.querySelectorAll("[data-oseance]").forEach(b => b.onclick = () => composerExpress({ ...quickPrefs(), min: 20, z: b.dataset.oseance, int: "normal" }));
+  Z.querySelectorAll("[data-odel]").forEach(b => b.onclick = () => { const O = lireObjectifs(); O.splice(+b.dataset.odel, 1); stocker("objectifs", JSON.stringify(O)); refaire(); });
+  if ($("objNouveau")) $("objNouveau").onclick = () => nouvelObjectif(refaire);
+}
+function nouvelObjectif(refaire) {
+  const exC = [...new Set(lireCharges().map(c => c.id))].filter(id => EXERCICES[id]), N = { type: "test", ref: TESTS[1][0], sem: 8 };
+  const rendu = () => { const l = N.type === "test" ? TESTS.map(t => [t[0], L(t[1], t[2])]) : exC.map(id => [id, EXERCICES[id].nom]), v = valeurObj(N);
+    $("onCorps").innerHTML = `<div class="chips">${[["test", L("Test de forme", "Fitness test")], ["charge", L("Charge en salle", "Gym weight")]].map(([k, t]) => `<button class="toggle" data-on="type" data-v="${k}" aria-pressed="${N.type === k}">${t}</button>`).join("")}</div>
+      ${l.length ? `<span class="champ-titre">${N.type === "test" ? L("Quel test ?", "Which test?") : L("Quel exercice ?", "Which exercise?")}</span><div class="chips obj-chips">${l.map(([k, t]) => `<button class="toggle" data-on="ref" data-v="${k}" aria-pressed="${N.ref === k}">${t}</button>`).join("")}</div>`
+        : `<p class="sh-aide">${L("Note d’abord une charge en fin de séance de salle : l’exercice apparaîtra ici.", "First log a weight after a gym session: the exercise will appear here.")}</p>`}
+      <label class="champ"><span>${L("Objectif", "Goal")} (${uniteObj(N)})${v !== null ? ` · ${L("actuel", "now")} : ${nb(v)}` : ""}</span><input type="number" inputmode="decimal" min="0" step="0.5" id="onCible" value="${N.cible ?? ""}"></label>
+      <span class="champ-titre">${L("D’ici", "Within")}</span><div class="chips">${[4, 8, 12, 16].map(w => `<button class="toggle" data-on="sem" data-v="${w}" aria-pressed="${N.sem === w}">${w} ${L("semaines", "weeks")}</button>`).join("")}</div>
+      <button class="primary" id="onOk">${L("Fixer cet objectif", "Set this goal")}</button><p class="sh-aide" id="onEtat"></p>`;
+    $("onCorps").querySelectorAll("[data-on]").forEach(b => b.onclick = () => { N.cible = $("onCible").value === "" ? undefined : +$("onCible").value; const k = b.dataset.on, v2 = b.dataset.v;
+      N[k] = k === "sem" ? +v2 : v2; if (k === "type") N.ref = v2 === "test" ? TESTS[1][0] : exC[0]; rendu(); });
+    $("onOk").onclick = () => { const c = +$("onCible").value; if (!N.ref || !(c > 0)) return ($("onEtat").textContent = L("Choisis un exercice et un chiffre.", "Pick an exercise and a number.")); if (v !== null && c <= v) return ($("onEtat").textContent = L("Vise plus haut que ton chiffre actuel.", "Aim higher than your current number."));
+      stocker("objectifs", JSON.stringify([...lireObjectifs(), { type: N.type, ref: N.ref, cible: c, date: decaler(jourCle(), N.sem * 7), debut: { j: jourCle(), v } }].slice(-3))); fermerFeuille(); refaire(); }; };
+  ouvrirFeuilleInfo(L("Nouvel objectif", "New goal"), `<div id="onCorps" class="cl-form"></div>`); rendu();
+}
+
 /* --- Mes progrès : niveau, défis, charge des 8 dernières semaines, effort ressenti, records --- */
 function blocsJeu() {
   const h = lireHist(), N = niveauXp(), l = lundiDe(), D = defisSemaine(l, h), sr = series(h);
   const sems = Array.from({ length: 8 }, (_, k) => statsSemaine(decaler(l, (k - 7) * 7), h)), mx = Math.max(60, ...sems.map(s => s.charge)), moy = Math.round(sems.slice(0, 7).reduce((t, s) => t + s.charge, 0) / 7);
   const ef = h.filter(x => x.ef !== undefined).slice(-12), pts = ef.map((x, k) => [10 + k * (280 / Math.max(1, ef.length - 1)), 92 - x.ef * 8.4]);
-  const parSem = {}; h.forEach(x => { const k = lundiDe(x.j); (parSem[k] = parSem[k] || []).push(x); });
-  const mSem = Object.values(parSem), vma = lireTests().filter(x => x.id === "navette"), rec = [[h.length ? Math.round(Math.max(...h.map(x => x.s)) / 60) + " min" : "", L("Séance la plus longue", "Longest workout")], [mSem.length ? Math.max(...mSem.map(minDe)) + " min" : "", L("Meilleure semaine", "Best week")], [mSem.length ? Math.max(...mSem.map(s => s.length)) : "", L("Séances en une semaine", "Workouts in a week")],
-    [sr.best ? sr.best + L(" j", " d") : "", L("Meilleure série", "Best streak")], [h.some(x => x.fcMax) ? Math.max(...h.map(x => x.fcMax || 0)) + " bpm" : "", L("Fréquence cardiaque max", "Max heart rate")], [vma && vma.length ? Math.max(...vma.map(t => t.v)) + " km/h" : "", L("Meilleure VMA estimée", "Best estimated top aerobic speed")]].filter(r => r[0] !== "");
+  const rec = recordsPerso(h, sr);
   return `<div id="jeuBloc" class="carte jeu-carte"><h2>${L("Niveau", "Level")} ${N.n} · ${N.nom}</h2>${barreXp(N)}<p class="sh-aide">${N.dans} / ${N.pour} XP · ${L("encore", "another")} ${N.pour - N.dans} XP ${L("pour le niveau", "to reach level")} ${N.n + 1}. ${L("Chaque séance rapporte 10 XP, plus ses minutes multipliées par son intensité.", "Each workout earns 10 XP, plus its minutes multiplied by its intensity.")}</p>
       <p class="joker">🛡️ ${sr.joker ? L("Joker de la semaine utilisé : ta série a survécu à un jour sans séance.", "This week’s joker is used: your streak survived a day without a workout.") : L("Joker de la semaine disponible : un jour sans séance ne cassera pas ta série.", "This week’s joker is available: one day without a workout will not break your streak.")}</p></div>
     ${carteDefis(D, `<button class="toggle contour" id="voirBilan">${L("Voir le bilan de ma semaine", "See my weekly summary")}</button>`)}
+    ${carteObjectifs()}
     <div class="carte"><h2>${L("Charge d’entraînement · 8 semaines", "Training load · 8 weeks")}</h2><div class="barres b8">${sems.map((s, k) => `<div class="${k === 7 ? "auj" : ""}"><b>${s.charge || ""}</b><i style="--h:${s.charge / mx * 100}%;--k:${k}"></i>${dateCourte(s.l).replace(/\D+$/, "").trim()}</div>`).join("")}</div>
       <p class="sh-aide">${L("Charge = minutes × intensité de la séance. Moyenne des 7 semaines précédentes : ", "Load = minutes × session intensity. Average of the 7 previous weeks: ")}${moy}. ${moy && sems[7].charge > moy * 1.5 ? L("Cette semaine est nettement au-dessus : prévois une journée de récupération.", "This week is well above it: plan a recovery day.") : ""}</p></div>
     ${ef.length > 1 ? `<div class="carte"><h2>${L("Effort ressenti · séances cardio", "Perceived effort · cardio sessions")}</h2><svg class="courbe" viewBox="0 0 300 100" role="img" aria-label="${L("Effort ressenti des dernières séances", "Perceived effort of recent sessions")} : ${ef.map(x => x.ef).join(", ")}">

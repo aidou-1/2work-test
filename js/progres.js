@@ -240,6 +240,7 @@ function ouvrirProgres() {
     ${dernieres ? `<h2 class="sec">${L("Dernières séances", "Recent workouts")}</h2><ul class="list historique">${dernieres}</ul>` : `<p class="vide">${L("Termine ta première séance pour allumer la flamme !", "Finish your first workout to light the flame!")}</p>`}`;
   $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("prCorps").querySelectorAll("[data-tr]").forEach(b => b.onclick = () => ouvrirBadge(b.dataset.tr)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
   document.documentElement.style.setProperty("--accent", "#F97316");
+  brancherObjectifs(() => { const y = scrollY; ouvrirProgres(); scrollTo(0, y); });
   ecran("progres");
   setTimeout(() => $("prCorps").querySelectorAll("[data-v]").forEach(b => compteur(b, +b.dataset.v)), 350);
 }

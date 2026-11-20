@@ -67,7 +67,7 @@ let visite = null, tAuto;
 function lancerVisite(liste = GUIDE) {
   clearTimeout(tAuto); fermerFeuille(); if ($("tour")) $("tour").remove();
   const go = () => { visite = { l: liste, i: 0 };
-    document.body.insertAdjacentHTML("beforeend", `<div class="tour" id="tour" role="dialog" aria-modal="true"><div class="tour-trou" id="tourTrou"></div><div class="tour-bulle" id="tourBulle" aria-live="polite"></div></div>`);
+    document.body.insertAdjacentHTML("beforeend", `<div class="tour" id="tour" role="dialog" aria-modal="true" aria-label="${L("Visite guidée", "Guided tour")}"><div class="tour-trou" id="tourTrou"></div><div class="tour-bulle" id="tourBulle" aria-live="polite"></div></div>`);
     $("tour").onclick = e => { const b = e.target.closest("button"); if (!b) return; b.id === "tvPasser" ? finVisite() : etapeVisite(visite.i + (b.id === "tvPrec" ? -1 : 1), b.id === "tvPrec" ? -1 : 1); };
     etapeVisite(0); };
   ecranCourant === "menu" ? go() : (ecran("menu"), setTimeout(go, 500));
