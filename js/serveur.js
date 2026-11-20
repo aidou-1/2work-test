@@ -64,7 +64,7 @@ export async function mesClubs() {
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
     const sa = cl && m && m.muet ? await lireDoc("clubs", id, "sanctions", uid) : null;
     if (cl && m && !!(await lireDoc("clubs", id, "mineurs", uid).catch(() => null)) !== m15) await (m15 ? X.setDoc : X.deleteDoc)(d("clubs", id, "mineurs", uid), ...(m15 ? [{}] : [])).catch(() => {});   // badge « -15 » tenu à jour : membres d'avant, 15 ans passés
-    if (cl && m) nc.push({ ...cl, role: m.role, partage: m.partage !== false, dl: !!m.dl, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
+    if (cl && m) nc.push({ ...cl, role: m.role, partage: m.partage !== false, partageOui: m.partage === true, dl: !!m.dl, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
   return { clubs: nc, attente: na, retraits: nr, nais: c.naissance || "", sansFiche: false };
@@ -188,7 +188,9 @@ export async function exporterCompte() {
    Le membre règle sur sa fiche : partage (false = ne rien envoyer, true par défaut) et dl (accord pour la gêne, décoché par défaut). */
 export const modifierPlanning = (c, p) => X.updateDoc(d("clubs", c), { planning: p });
 export const reglerPartage = (c, v) => X.updateDoc(d("clubs", c, "membres", moi()), v);   // v : { partage } ou { dl }
-export async function semaineSeances(c, lundi, dim, secs) { return (await prochaines(c, lundi, secs)).filter(s => s.date <= dim); }
+export async function semaineSeances(c, lundi, dim, secs = []) {   // toutes les séances de la semaine (club, sections, pour moi), sans limite de nombre
+  const l = await Promise.all(["", ...secs].map(async sal => { const s = await X.getDocs(X.query(col(...B(c, sal), "seances"), X.where("date", ">=", lundi), X.where("date", "<=", dim), X.orderBy("date"))).catch(() => null); return s ? vers(s).map(x => ({ ...x, sec: sal })) : []; }));
+  return l.flat().sort((a, b) => a.date < b.date ? -1 : 1); }
 export const envoyerRetour = (c, pseudo, j, v) => X.setDoc(d("clubs", c, "retours", j + "_" + moi()), { uid: moi(), pseudo, j, ...v, t: X.serverTimestamp(), exp: exp(DUREES.retours) });
 export const retirerRetour = (c, j) => X.deleteDoc(d("clubs", c, "retours", j + "_" + moi())).catch(() => {});
 export async function retoursDepuis(c, j) { const q = await X.getDocs(X.query(col("clubs", c, "retours"), X.where("j", ">=", j))).catch(() => null); return q ? vers(q) : []; }   // staff

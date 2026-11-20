@@ -145,7 +145,7 @@ function semaineComplete(P = lirePlan()) {
 }
 // compatibilité : [{ j, s }] des jours perso, comme l'ancien planning (accueil, rappels, agenda)
 // rappels : semaine type pour l'agenda et les rappels répétés, sans les choix ponctuels ni les compléments légers des jours de club
-function semaine(rappels) { const P = lirePlanning(); if (!P || (!P.jours.length && !modeComplet(lirePlan()))) return []; return semaineComplete(lirePlan()).jours.filter(x => x.perso && x.perso.s && !x.perso.s.passe && !(!rappels && x.avance) && !(rappels && ["choix", "leger"].includes(x.perso.src))).map(x => ({ j: x.d, s: x.perso.s })); }
+function semaine(rappels) { const P = lirePlanning(); if (!P || (!(P.jours || []).length && !modeComplet(lirePlan()))) return []; return semaineComplete(lirePlan()).jours.filter(x => x.perso && x.perso.s && !x.perso.s.passe && !(!rappels && x.avance) && !(rappels && ["choix", "leger"].includes(x.perso.src))).map(x => ({ j: x.d, s: x.perso.s })); }
 
 /* Suivi : séances perso (sans les compléments légers des jours de club) et séances de club de la semaine.
    faites / prevues ; retard : jours passés non faits et non déplacés (à rattraper) ; suite : encore à faire aujourd'hui et après (d : jour où elle aura lieu). */
@@ -213,7 +213,7 @@ function renduPlanning() {
 }
 function listeSemaine() {
   const P = lirePlan(), W = semaineComplete(P), auj = jourSemaine(), Z = $("plSemaine");
-  if (!W.jours.some(x => x.clubs.length || x.perso)) { Z.innerHTML = `<p class="vide">${L("Ajoute un club ou touche les jours où tu veux t’entraîner.", "Add a club or tap the days you want to train.")}</p>`; return; }
+  if (!W.jours.some(x => x.clubs.length || x.perso || x.coach.length) && !(lireJSON("clubSemaine", {}).propose || []).length) { Z.innerHTML = `<p class="vide">${L("Ajoute un club ou touche les jours où tu veux t’entraîner.", "Add a club or tap the days you want to train.")}</p>`; return; }
   const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = W.jours.filter(x => x.perso).map(x => JOURS_LONGS()[x.d]);   // jours de séance perso réels (sans les jours de club)
   const U = suiviSemaine(W), suite = U.suite.map(e => JOURS_LONGS()[e.d].slice(0, 3) + ". " + nomSuivi(e));
   // une séance pas faite : lancer, déplacer, valider (faite sans l'appli) ou abandonner ; un club : le noter
@@ -259,7 +259,8 @@ function listeSemaine() {
   // séances du coach : lancer (retour à Ma semaine) ou cocher, et planning du club proposé (appliquer ou garder ses réglages)
   const cs = v => { const [d, i] = v.split(":").map(Number); return W.jours[d].coach[i]; };
   Z.querySelectorAll("[data-cgo]").forEach(b => b.onclick = () => { const s = cs(b.dataset.cgo); lancer({ go: () => lancerSeanceCoach(s.c, s) }); });
-  Z.querySelectorAll("[data-cfait]").forEach(b => b.onclick = () => { const s = cs(b.dataset.cfait); cocherSeanceCoach(s.c, s, true); listeSemaine(); bulleMs(L("Séance validée : ton coach la voit cochée.", "Workout confirmed: your coach sees it ticked.")); });
+  Z.querySelectorAll("[data-cfait]").forEach(b => b.onclick = async () => { const s = cs(b.dataset.cfait); b.disabled = true; const ok = await cocherSeanceCoach(s.c, s, true); listeSemaine();
+    bulleMs(ok ? L("Séance validée : ton coach la voit cochée.", "Workout confirmed: your coach sees it ticked.") : L("Séance validée sur ton téléphone : elle sera envoyée à ton coach à la prochaine connexion.", "Workout confirmed on your phone: it will be sent to your coach next time you are online.")); });
   const finProp = (i, ok) => { const Q = lireJSON("clubSemaine", {}), x = props[i]; if (ok) appliquerPlanningClub(x.c, x.sp, x); else Q.ignore = { ...(Q.ignore || {}), [x.c + x.sp]: x.sig };
     Q.propose = (Q.propose || []).filter(y => y.sig !== x.sig || y.c !== x.c); stocker("clubSemaine", JSON.stringify(Q)); renduPlanning(); };
   Z.querySelectorAll("[data-papp]").forEach(b => b.onclick = () => finProp(+b.dataset.papp, 1));
@@ -292,10 +293,10 @@ function choisirJour(W, x, garderJour, ajout) {   // ajout : séance en plus de 
 /* --- Bilan de la semaine : sur l'accueil le dimanche (semaine en cours) et le lundi (semaine passée), jusqu'à ce qu'il soit lu --- */
 function bilanSemaine() {
   const auj = jourSemaine(), L0 = auj === 0 ? plusJ(lundi(), -7) : lundi(), a = jourCle(L0), z = jourCle(plusJ(L0, 6)), avant = jourCle(plusJ(L0, -7)), h = lireHist(), P = lirePlan();
-  if (!(auj === 6 || auj === 0) || P.bilanVu === a || !(P.jours.length || sportsClub().length)) return null;
+  if (!(auj === 6 || auj === 0) || P.bilanVu === a || !((P.jours || []).length || sportsClub().length)) return null;
   const faites = h.filter(e => e.j >= a && e.j <= z).length, clubs = clubsEntre(a, z), notes = clubs.filter(c => c.note).length, ch = chargeEntre(h, a, z), chAvant = chargeEntre(h, avant, jourCle(plusJ(L0, -1)));
   const F = lireForme(), bat = Array.from({ length: 7 }, (_, k) => jourCle(plusJ(L0, k))).filter(j => F[j]).map(j => batterie(j, F, h)).filter(Boolean).map(b => b.v);
-  return { a, suiv: jourCle(plusJ(L0, 7)), faites, prevues: P.jours.length, clubs: clubs.length, notes, ch, evol: chAvant ? Math.round((ch / chAvant - 1) * 100) : null, bat: bat.length ? Math.round(bat.reduce((t, v) => t + v, 0) / bat.length) : null, dure: clubs.filter(c => c.dur).length };
+  return { a, suiv: jourCle(plusJ(L0, 7)), faites, prevues: (P.jours || []).length, clubs: clubs.length, notes, ch, evol: chAvant ? Math.round((ch / chAvant - 1) * 100) : null, bat: bat.length ? Math.round(bat.reduce((t, v) => t + v, 0) / bat.length) : null, dure: clubs.filter(c => c.dur).length };
 }
 function carteBilan() {
   const Z = $("bilanCarte"); if (!Z) return; const B = bilanSemaine(); if (!B) { Z.innerHTML = ""; Z.hidden = true; return; }
@@ -329,7 +330,7 @@ $("semaineCarte").insertAdjacentHTML("beforebegin", `<div class="semaine-carte b
 $("semaineCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte" id="suiviCarte" hidden></div>`);
 // carte de l'accueil : où en est la semaine, ce qui reste et ce qui est à rattraper ; elle ouvre Ma semaine
 function carteSuivi() {
-  const Z = $("suiviCarte"); if (!Z) return; const P = lirePlanning(), U = P && (P.jours.length || modeComplet(lirePlan())) ? suiviSemaine() : null;
+  const Z = $("suiviCarte"); if (!Z) return; const P = lirePlanning(), CS = lireJSON("clubSemaine", {}), U = (P && ((P.jours || []).length || modeComplet(lirePlan()))) || (CS.clubs || []).some(c => (c.seances || []).length) ? suiviSemaine() : null;
   if (!U || !U.prevues) { Z.hidden = true; return; }
   const pro = U.suite.find(e => !e.c && e.d > jourSemaine()) || U.suite.find(e => e.d > jourSemaine());
   Z.hidden = false;

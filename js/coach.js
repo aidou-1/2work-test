@@ -75,7 +75,7 @@ function prevReglages(Z, cb) {
 /* --- Retours des 7 derniers jours (staff) : effort ressenti de chaque membre, gêne s'il a donné son accord, et alertes ---
    Alerte charge : effort de 8 ou plus au moins 3 jours sur 7. Alerte gêne : forte un jour, ou présente au moins 2 jours. */
 function blocRetours(mb, rts) {
-  const par = m => rts.filter(r => r.uid === m.id).sort((a, b) => a.j < b.j ? -1 : 1), zn = l => [...new Set(l.flatMap(r => r.zn || []))].map(z => typeof ZONES_FM !== "undefined" && ZONES_FM[z] ? L(ZONES_FM[z][0], ZONES_FM[z][1]).toLowerCase() : z).join(", ");
+  const par = m => rts.filter(r => r.uid === m.id).sort((a, b) => a.j < b.j ? -1 : 1), zn = l => [...new Set(l.flatMap(r => r.zn || []))].map(z => typeof ZONES_FM !== "undefined" && Object.hasOwn(ZONES_FM, z) ? L(ZONES_FM[z][0], ZONES_FM[z][1]).toLowerCase() : echap(String(z).slice(0, 20))).join(", ");
   const l = mb.filter(m => m.role !== "coach").map(m => { const r = par(m), efs = r.map(x => x.ef), dls = r.filter(x => x.dl);
     return { m, r, moy: efs.length ? Math.round(efs.reduce((a, b) => a + b, 0) / efs.length * 10) / 10 : null, dur: efs.filter(v => v >= 8).length, dl: dls, alerte: efs.filter(v => v >= 8).length >= 3 || dls.some(x => x.dl === 2) || dls.length >= 2 }; });
   if (!l.length) return "";

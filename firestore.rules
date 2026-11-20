@@ -38,7 +38,8 @@ service cloud.firestore {
       && D().uid == moi() && D().pseudo == monPseudo() && jour(D().j) && r == D().j + '_' + moi() && D().ef is int && D().ef >= 0 && D().ef <= 10 && maintenant(D().t)
       && get(membreDoc(c)).data.get('partage', true) == true
       && (!('dl' in D()) || (D().dl is int && D().dl >= 0 && D().dl <= 2 && get(membreDoc(c)).data.get('dl', false) == true && ageOk(naissanceDe(moi()), 15)))
-      && (!('zn' in D()) || ('dl' in D() && D().zn is list && D().zn.size() <= 8)); }
+      && (!('zn' in D()) || ('dl' in D() && D().zn is list && D().zn.size() <= 6 && D().zn.hasOnly(['epaule', 'poignet', 'dos', 'hanche', 'genou', 'cheville'])))
+      && (ageOk(naissanceDe(moi()), 15) || get(membreDoc(c)).data.get('partage', false) == true); }   // moins de 15 ans : seulement après un choix explicite
     function poli(t) { return !t.lower().matches('(?s)(.*[^a-z])?(connard|connasse|salope|salaud|pute|encul|ntm|nique ta|niquer ta|fdp|fils de pute|batard|bâtard|pédé|negre|nègre|bougnoul|youpin|bitch|fuck|motherf|cunt|nigg|faggot|retardé mental|suicide-toi|va te pendre).*'); }
     // séances, coches et messages : mêmes vérifications pour tout le club et pour chaque section
     function seanceOk() { return champs(['titre', 'date', 'note', 'auteur', 'cree'], ['titre', 'date', 'note', 'auteur', 'cree', 'base', 'ids', 'prog'])

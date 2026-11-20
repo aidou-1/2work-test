@@ -245,7 +245,7 @@ async function renduRejoindre(C) {
   const inv = await SV.lireInvitation(c, k).catch(() => null);
   if (!inv) { C.innerHTML = `<p class="vide">⚠️ ${L("Ce lien d’invitation n’est plus valable. Demande un nouveau lien à ton coach.", "This invite link is no longer valid. Ask your coach for a new link.")}</p><button class="toggle" id="rjRet">${L("Retour", "Back")}</button>`; $("rjRet").onclick = () => { rejoindre = null; rendu(); }; return; }
   C.innerHTML = `<div class="carnet cl-invit"><span class="cl-blason" style="--c:${couleurPseudo(inv.nom)}">${echap(inv.nom.slice(0, 2).toUpperCase())}</span><h2>${echap(inv.nom)}</h2><p>${L("Tu es invité à rejoindre ce club. Le coach validera ta demande ; ton pseudo", "You are invited to join this club. The coach will approve your request; your username")} <b>${echap(CL.u.pseudo)}</b> ${L("lui sera montré.", "will be shown to them.")}</p>
-    <p class="sh-aide">🔒 ${L("Une fois membre, ton effort ressenti du jour (sur 10) et les séances du club que tu fais sont partagés avec le staff, pour adapter les entraînements. Tu peux l’arrêter dans l’onglet Club.", "Once a member, your perceived effort of the day (out of 10) and the club workouts you do are shared with the staff, to adapt training. You can stop it in the Club tab.")}</p>
+    <p class="sh-aide">🔒 ${monAge() !== null && monAge() < 15 ? L("Une fois membre, tu pourras choisir de partager ton effort ressenti du jour avec le staff (onglet Club). Rien n’est partagé sans ton choix.", "Once a member, you can choose to share your daily perceived effort with the staff (Club tab). Nothing is shared without your choice.") : L("Une fois membre, ton effort ressenti du jour (sur 10) et les séances du club que tu fais sont partagés avec le staff, pour adapter les entraînements. Tu peux l’arrêter dans l’onglet Club.", "Once a member, your perceived effort of the day (out of 10) and the club workouts you do are shared with the staff, to adapt training. You can stop it in the Club tab.")}</p>
     <button class="primary" id="rjOk">${L("Demander à rejoindre", "Ask to join")}</button><button class="lien-discret" id="rjNon">${L("Annuler", "Cancel")}</button></div>`;
   $("rjNon").onclick = () => { rejoindre = null; rendu(); };
   $("rjOk").onclick = async () => { $("rjOk").disabled = true; stocker("partageVu_" + c, "1"); try { await SV.demander(c, k, CL.u.pseudo, inv.nom, CL.nais); rejoindre = null; await rafraichir(); rendu(); } catch (x) { $("rjOk").disabled = false; $("rjOk").textContent = msgErr(x); } };
@@ -291,9 +291,10 @@ function ongSeances(Z, cb) {
   if (staff()) { $("spNouv").onclick = () => feuillePublier(); guideClub(cb, et); desab.push(SV.ecouterMembres(cb.id, x => { et.m = x.length; guideClub(cb, et); })); }
   prevCarte($("prevZone"), cb);
   // membres arrivés avant le partage des retours : une information à lire avant tout envoi, avec le choix de ne pas partager
-  if (cb.role !== "coach" && !lire("partageVu_" + cb.id)) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet ms-propose" id="ptInfo"><b>🔒 ${L("Nouveau : ton suivi partagé avec le staff", "New: your progress shared with the staff")}</b><p class="sh-aide">${L("Ton effort ressenti du jour (sur 10) et les séances du club que tu fais aident ton coach à adapter les entraînements. Rien d’autre n’est envoyé ; tes gênes seulement si tu donnes ton accord (onglet Club). Gardé 8 semaines.", "Your perceived effort of the day (out of 10) and the club workouts you do help your coach adapt training. Nothing else is sent; your discomfort only if you consent (Club tab). Kept for 8 weeks.")}</p><div class="partage-btns"><button class="primary" id="ptOk">${L("D’accord", "OK")}</button><button class="toggle contour" id="ptNon">${L("Ne pas partager", "Don’t share")}</button></div></div>`);
-    $("ptOk").onclick = () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); synchroSemaineClubs().catch(() => {}); };
-    $("ptNon").onclick = async () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); await SV.reglerPartage(cb.id, { partage: false }).catch(() => {}); cb.partage = false; }; }
+  const m15 = monAge() !== null && monAge() < 15;
+  if (cb.role !== "coach" && !lire("partageVu_" + cb.id)) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet ms-propose" id="ptInfo"><b>🔒 ${L("Nouveau : ton suivi partagé avec le staff", "New: your progress shared with the staff")}</b><p class="sh-aide">${L("Ton effort ressenti du jour (sur 10) et les séances du club que tu fais aident ton coach à adapter les entraînements. Rien d’autre n’est envoyé ; tes gênes seulement si tu donnes ton accord (onglet Club). Gardé 8 semaines.", "Your perceived effort of the day (out of 10) and the club workouts you do help your coach adapt training. Nothing else is sent; your discomfort only if you consent (Club tab). Kept for 8 weeks.")}</p><div class="partage-btns"><button class="primary" id="ptOk">${m15 ? L("Partager", "Share") : L("D’accord", "OK")}</button><button class="toggle contour" id="ptNon">${L("Ne pas partager", "Don’t share")}</button></div></div>`);
+    $("ptOk").onclick = async () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); if (m15) { await SV.reglerPartage(cb.id, { partage: true }).catch(() => {}); cb.partage = cb.partageOui = true; } synchroSemaineClubs().catch(() => {}); };
+    $("ptNon").onclick = async () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); await SV.reglerPartage(cb.id, { partage: false }).catch(() => {}); await SV.mesRetoursEffacer(cb.id).catch(() => {}); cb.partage = false; }; }
   const filtres = sectionsDe(cb).length && mesSections(cb).length ? [["*", L("Tout", "All")], ["", L("Club", "Club")], ...mesSections(cb).map(id => [id, nomSec(cb, id)])] : [];
   if (!filtres.some(f => f[0] === CL.filtre)) CL.filtre = "*";
   if (sectionsDe(cb).length && !staff() && !mesSections(cb).length && (cb.mesDem || []).length) $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>⏳ ${L("Demande envoyée pour ", "Request sent for ")}${cb.mesDem.map(id => echap(nomSec(cb, id))).join(", ")}${L(" : le coach doit la valider.", ": the coach has to approve it.")}</p></div>`);
@@ -503,8 +504,8 @@ function ongReglages(Z, cb) {
 const DUREES_PL = [60, 75, 90, 120];
 // planning relu et nettoyé (écrit par un coach : on ne garde que des valeurs connues de l'appli)
 function nettoiePlan(p) {
-  if (!p || !SP[p.sp] || !Array.isArray(p.jours)) return null; const Ty = typesClub(p.sp), jours = [...new Set(p.jours.map(Number).filter(d => d >= 0 && d <= 6))].sort();
-  return { sp: p.sp, jours, types: Object.fromEntries(jours.map(d => [d, Ty[(p.types || {})[d]] ? p.types[d] : Object.keys(Ty)[0]])), min: DUREES_PL.includes(+p.min) ? +p.min : 90 };
+  if (!p || typeof p.sp !== "string" || !Object.hasOwn(SP, p.sp) || !Array.isArray(p.jours)) return null; const Ty = typesClub(p.sp), jours = [...new Set(p.jours.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort(), t = (p.types || {});
+  return { sp: p.sp, jours, types: Object.fromEntries(jours.map(d => [d, typeof t[d] === "string" && Object.hasOwn(Ty, t[d]) ? t[d] : Object.keys(Ty)[0]])), min: DUREES_PL.includes(+p.min) ? +p.min : 90 };
 }
 const plansDe = cb => ["club", ...mesSections(cb)].map(k => nettoiePlan((cb.planning || {})[k])).filter(p => p && p.jours.length);
 function reglagesPlanning(Z, cb) {
@@ -532,16 +533,18 @@ function reglagesPlanning(Z, cb) {
 /* --- Ce que je partage avec le staff (chaque membre, pour ce club) ---
    Effort et séances faites : partagés par défaut, c'est le suivi que le club propose ; on peut l'arrêter à tout moment (tout est alors effacé du serveur).
    Gêne et douleur : donnée de santé, seulement avec un accord explicite (case décochée par défaut), dès 15 ans ; retirer l'accord efface ce qui a été envoyé. */
+// moins de 15 ans : rien n'est envoyé sans choix explicite (case décochée par défaut) ; dès 15 ans, partagé par défaut avec possibilité d'arrêt
+const partageActif = cb => monAge() !== null && monAge() < 15 ? cb.partageOui : cb.partage;
 function reglagesPartage(Z, cb) {
   if (cb.role === "coach") { Z.innerHTML = ""; return; }
   stocker("partageVu_" + cb.id, "1");
   const m15 = monAge() !== null && monAge() < 15;
   Z.innerHTML = `<h2 class="sec">🔒 ${L("Ce que voit le staff", "What the staff sees")}</h2><div class="carnet cl-form">
-    <label class="cl-case"><input type="checkbox" id="ptOn" ${cb.partage ? "checked" : ""}><span><b>${L("Partager mon suivi avec le staff", "Share my progress with the staff")}</b><small>${L("Les séances du club que tu fais et ton effort ressenti du jour (sur 10), pour que ton coach adapte les entraînements. Rien d’autre : ni ton historique complet, ni tes réponses du matin. Gardé 8 semaines.", "The club workouts you do and your perceived effort of the day (out of 10), so your coach can adapt training. Nothing else: not your full history, not your morning answers. Kept for 8 weeks.")}</small></span></label>
+    <label class="cl-case"><input type="checkbox" id="ptOn" ${partageActif(cb) ? "checked" : ""}><span><b>${L("Partager mon suivi avec le staff", "Share my progress with the staff")}</b><small>${L("Les séances du club que tu fais et ton effort ressenti du jour (sur 10), pour que ton coach adapte les entraînements. Rien d’autre : ni ton historique complet, ni tes réponses du matin. Gardé 8 semaines.", "The club workouts you do and your perceived effort of the day (out of 10), so your coach can adapt training. Nothing else: not your full history, not your morning answers. Kept for 8 weeks.")}</small></span></label>
     ${m15 ? `<p class="sh-aide">${L("Gênes et douleurs : non partagées avant 15 ans. Parles-en directement à ton coach.", "Discomfort and pain: not shared under 15. Tell your coach directly.")}</p>`
-      : `<label class="cl-case"><input type="checkbox" id="ptDl" ${cb.dl ? "checked" : ""} ${cb.partage ? "" : "disabled"}><span><b>${L("Partager aussi mes gênes et douleurs", "Also share my discomfort and pain")}</b><small>${L("Facultatif. Le niveau de gêne et les zones notés dans ta batterie du matin, pour que ton coach évite ce qui te fait mal. C’est une donnée de santé : elle n’est envoyée qu’avec ton accord, que tu peux retirer ici (ce qui a été envoyé est alors effacé).", "Optional. The discomfort level and areas noted in your morning battery, so your coach avoids what hurts. This is health data: it is only sent with your consent, which you can withdraw here (what was sent is then deleted).")}</small></span></label>`}
+      : `<label class="cl-case"><input type="checkbox" id="ptDl" ${cb.dl ? "checked" : ""} ${partageActif(cb) ? "" : "disabled"}><span><b>${L("Partager aussi mes gênes et douleurs", "Also share my discomfort and pain")}</b><small>${L("Facultatif. Le niveau de gêne et les zones notés dans ta batterie du matin, pour que ton coach évite ce qui te fait mal. C’est une donnée de santé : elle n’est envoyée qu’avec ton accord, que tu peux retirer ici (ce qui a été envoyé est alors effacé).", "Optional. The discomfort level and areas noted in your morning battery, so your coach avoids what hurts. This is health data: it is only sent with your consent, which you can withdraw here (what was sent is then deleted).")}</small></span></label>`}
     <p class="sh-aide" id="ptEtat"></p></div>`;
-  const regler = async (v, msg) => { try { await SV.reglerPartage(cb.id, v); Object.assign(cb, v);
+  const regler = async (v, msg) => { try { await SV.reglerPartage(cb.id, v); Object.assign(cb, v, "partage" in v ? { partageOui: v.partage } : {});
       if (v.partage === false || v.dl === false) { await SV.mesRetoursEffacer(cb.id); stocker("retoursEnv", JSON.stringify({ ...lireJSON("retoursEnv", {}), [cb.id]: {} })); }
       if (v.partage === false && cb.dl) { await SV.reglerPartage(cb.id, { dl: false }); cb.dl = false; }
       reglagesPartage(Z, cb); $("ptEtat").textContent = "✓ " + msg; synchroSemaineClubs().catch(() => {}); } catch (x) { $("ptEtat").textContent = msgErr(x); } };
@@ -554,6 +557,9 @@ function reglagesPartage(Z, cb) {
 async function synchroSemaineClubs(force = 1) {
   const L0 = jourCle(lundi()), D0 = decaler(L0, 6), auj = jourCle(), Q = lireJSON("clubSemaine", {}), propose = [], clubs = [];
   if (!CL.u || !CL.clubs.length || (!force && Q.lundi === L0 && Date.now() - (Q.maj || 0) < 6e5) || !(await serveurPret())) return;   // depuis l'accueil : 10 min entre deux synchronisations (lectures du forfait gratuit)
+  const A = lireJSON("faitsAttente", {});
+  for (const [k, x] of Object.entries(A)) if (await SV.marquerFait(x.c, x.s, CL.u.pseudo, x.oui, x.sec).then(() => true, () => !CL.clubs.some(c => c.id === x.c))) delete A[k];   // club quitté : abandonnée
+  stocker("faitsAttente", JSON.stringify(A));
   for (const cb of CL.clubs) {
     const secs = [...mesSections(cb), "u_" + CL.u.uid], ses = await SV.semaineSeances(cb.id, L0, D0, secs).catch(() => null), f = ses ? await SV.mesFaits(cb.id, ses).catch(() => ({})) : {};
     clubs.push({ id: cb.id, nom: cb.nom, seances: (ses || ((Q.clubs || []).find(x => x.id === cb.id) || {}).seances || []).map(s => ({ id: s.id, sec: s.sec || "", titre: String(s.titre).slice(0, 60), date: s.date, base: s.base || "", ids: s.ids || null, prog: s.prog || "" })), faits: ses ? f : ((Q.clubs || []).find(x => x.id === cb.id) || {}).faits || {} });
@@ -563,7 +569,7 @@ async function synchroSemaineClubs(force = 1) {
       if (P.clubSig === sig) return;
       if (!P.jours.length || P.club === cb.id) appliquerPlanningClub(cb.id, sp, x);
       else if ((Q.ignore || {})[cb.id + sp] !== sig) propose.push({ c: cb.id, nom: cb.nom, sp, ...x, sig }); });
-    if (cb.partage && lire("partageVu_" + cb.id)) await envoyerRetours(cb, auj).catch(() => {});   // rien n'est envoyé avant que le membre ait vu l'information
+    if (partageActif(cb) && lire("partageVu_" + cb.id)) await envoyerRetours(cb, auj).catch(() => {});   // rien n'est envoyé avant que le membre ait vu l'information
   }
   stocker("clubSemaine", JSON.stringify({ lundi: L0, maj: Date.now(), clubs, propose, ignore: Q.ignore || {} }));
   if (typeof carteSuivi === "function") carteSuivi();
@@ -571,7 +577,7 @@ async function synchroSemaineClubs(force = 1) {
 // planning du club repris dans les réglages du sport (une seule source pour Ma semaine et l'écran du sport) ; le sport apparaît dans Ma semaine
 function appliquerPlanningClub(c, sp, x) {
   spGarder(sp, { ...spPref(sp), jours: x.jours, types: { ...(spPref(sp).types || {}), ...x.types }, clubMin: x.min, club: c, clubSig: JSON.stringify({ jours: x.jours, types: x.types, min: x.min }) });
-  const P = lirePlanning() || {}; if (!(P.clubs || []).includes(sp)) stocker("planning", JSON.stringify({ ...P, clubs: [...(P.clubs || []), sp] }));
+  const P = lirePlan(); if (!P.clubs.includes(sp)) stocker("planning", JSON.stringify({ ...P, clubs: [...P.clubs, sp] }));   // planning complet (jours…), jamais seulement la liste des clubs
 }
 // retours des 7 derniers jours : effort le plus haut du jour (séances de l'appli et clubs notés), et la gêne du matin avec l'accord ; seulement ce qui a changé
 async function envoyerRetours(cb, auj) {
@@ -580,7 +586,7 @@ async function envoyerRetours(cb, auj) {
     const fm = F[j] || {}, v = efs.length ? { ef: Math.max(0, Math.min(10, Math.round(Math.max(...efs)))), ...(dlOk && fm.dl ? { dl: Math.min(2, +fm.dl || 0), zn: (fm.z || []).slice(0, 8) } : {}) } : null, sig = v ? JSON.stringify(v) : "";
     if (sig === (deja[j] || "")) continue;
     if (v) await SV.envoyerRetour(cb.id, CL.u.pseudo, j, v); else await SV.retirerRetour(cb.id, j);
-    deja[j] = sig; }
+    deja[j] = sig; E[cb.id] = deja; stocker("retoursEnv", JSON.stringify(E)); }
   E[cb.id] = Object.fromEntries(Object.entries(deja).filter(([j]) => j >= decaler(auj, -10))); stocker("retoursEnv", JSON.stringify(E));
 }
 // depuis Ma semaine : lancer une séance du coach, ou la cocher (faite sans l'appli)
@@ -589,7 +595,10 @@ function lancerSeanceCoach(c, s) {
   CL.c = c; const k = routineClub(s); if (!k) return alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); ouvrirRoutine(k);
 }
 function noterFaitCache(c, s, oui) { const Q = lireJSON("clubSemaine", {}), x = (Q.clubs || []).find(y => y.id === c); if (x) { x.faits = { ...x.faits, [s]: oui }; stocker("clubSemaine", JSON.stringify(Q)); } }
-async function cocherSeanceCoach(c, s, oui) { noterFaitCache(c, s.id, oui); if (await serveurPret()) await SV.marquerFait(c, s.id, CL.u.pseudo, oui, s.sec).catch(() => {}); }
+// coche pas encore envoyée (hors ligne) : gardée dans « faitsAttente » et renvoyée à la synchronisation suivante ; renvoie true si le coach la voit déjà
+async function cocherSeanceCoach(c, s, oui) { noterFaitCache(c, s.id, oui); const A = lireJSON("faitsAttente", {}), k = c + "/" + s.id;
+  const ok = await serveurPret() && await SV.marquerFait(c, s.id, CL.u.pseudo, oui, s.sec).then(() => true, () => false);
+  if (ok) delete A[k]; else A[k] = { c, s: s.id, sec: s.sec || "", oui }; stocker("faitsAttente", JSON.stringify(A)); return ok; }
 // QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
   if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/qrcode.js?v=" + VER; s.onload = ok; s.onerror = ko; document.head.append(s); });
