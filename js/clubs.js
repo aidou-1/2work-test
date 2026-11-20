@@ -40,7 +40,7 @@ function stop() { desab.forEach(f => f()); desab = []; }
 async function chargerServeur() {
   if (!SV) { SV = await import("./serveur.js?v=" + VER); SV.langue(LANGUE === "en" ? "en" : "fr");
     SV.surCompte(async u => { CL.u = u;
-      try { if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; CL.sansFiche = false; CL.nais = ""; } }
+      try { if (u) { stocker("clubCompte", "1"); await rafraichir(); proposerRestauration(); sauvegardeAuto(); } else { CL.clubs = []; CL.attente = []; CL.sansFiche = false; CL.nais = ""; if (lire("clubSemaine")) stocker("clubSemaine", "{}"); } }   // déconnecté : plus de séances du coach dans Ma semaine
       finally { if (ecranCourant === "clubs") rendu(); majCarteClubs(); } }); }   // l'écran s'affiche même si une lecture a échoué
   return SV;
 }
@@ -245,9 +245,10 @@ async function renduRejoindre(C) {
   const inv = await SV.lireInvitation(c, k).catch(() => null);
   if (!inv) { C.innerHTML = `<p class="vide">⚠️ ${L("Ce lien d’invitation n’est plus valable. Demande un nouveau lien à ton coach.", "This invite link is no longer valid. Ask your coach for a new link.")}</p><button class="toggle" id="rjRet">${L("Retour", "Back")}</button>`; $("rjRet").onclick = () => { rejoindre = null; rendu(); }; return; }
   C.innerHTML = `<div class="carnet cl-invit"><span class="cl-blason" style="--c:${couleurPseudo(inv.nom)}">${echap(inv.nom.slice(0, 2).toUpperCase())}</span><h2>${echap(inv.nom)}</h2><p>${L("Tu es invité à rejoindre ce club. Le coach validera ta demande ; ton pseudo", "You are invited to join this club. The coach will approve your request; your username")} <b>${echap(CL.u.pseudo)}</b> ${L("lui sera montré.", "will be shown to them.")}</p>
+    <p class="sh-aide">🔒 ${L("Une fois membre, ton effort ressenti du jour (sur 10) et les séances du club que tu fais sont partagés avec le staff, pour adapter les entraînements. Tu peux l’arrêter dans l’onglet Club.", "Once a member, your perceived effort of the day (out of 10) and the club workouts you do are shared with the staff, to adapt training. You can stop it in the Club tab.")}</p>
     <button class="primary" id="rjOk">${L("Demander à rejoindre", "Ask to join")}</button><button class="lien-discret" id="rjNon">${L("Annuler", "Cancel")}</button></div>`;
   $("rjNon").onclick = () => { rejoindre = null; rendu(); };
-  $("rjOk").onclick = async () => { $("rjOk").disabled = true; try { await SV.demander(c, k, CL.u.pseudo, inv.nom, CL.nais); rejoindre = null; await rafraichir(); rendu(); } catch (x) { $("rjOk").disabled = false; $("rjOk").textContent = msgErr(x); } };
+  $("rjOk").onclick = async () => { $("rjOk").disabled = true; stocker("partageVu_" + c, "1"); try { await SV.demander(c, k, CL.u.pseudo, inv.nom, CL.nais); rejoindre = null; await rafraichir(); rendu(); } catch (x) { $("rjOk").disabled = false; $("rjOk").textContent = msgErr(x); } };
 }
 
 /* --- Un club : onglets Séances · Chat · Membres · Réglages --- */
@@ -289,6 +290,10 @@ function ongSeances(Z, cb) {
   Z.innerHTML = `${staff() ? '<div id="clDemarrer"></div>' : ""}${staff() ? `<button class="primary cl-publier" id="spNouv">＋ ${L("Publier une séance", "Post a workout")}</button>` : ""}<div id="prevZone"></div><div id="spListe"><p class="vide">…</p></div>`;
   if (staff()) { $("spNouv").onclick = () => feuillePublier(); guideClub(cb, et); desab.push(SV.ecouterMembres(cb.id, x => { et.m = x.length; guideClub(cb, et); })); }
   prevCarte($("prevZone"), cb);
+  // membres arrivés avant le partage des retours : une information à lire avant tout envoi, avec le choix de ne pas partager
+  if (cb.role !== "coach" && !lire("partageVu_" + cb.id)) { $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet ms-propose" id="ptInfo"><b>🔒 ${L("Nouveau : ton suivi partagé avec le staff", "New: your progress shared with the staff")}</b><p class="sh-aide">${L("Ton effort ressenti du jour (sur 10) et les séances du club que tu fais aident ton coach à adapter les entraînements. Rien d’autre n’est envoyé ; tes gênes seulement si tu donnes ton accord (onglet Club). Gardé 8 semaines.", "Your perceived effort of the day (out of 10) and the club workouts you do help your coach adapt training. Nothing else is sent; your discomfort only if you consent (Club tab). Kept for 8 weeks.")}</p><div class="partage-btns"><button class="primary" id="ptOk">${L("D’accord", "OK")}</button><button class="toggle contour" id="ptNon">${L("Ne pas partager", "Don’t share")}</button></div></div>`);
+    $("ptOk").onclick = () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); synchroSemaineClubs().catch(() => {}); };
+    $("ptNon").onclick = async () => { stocker("partageVu_" + cb.id, "1"); $("ptInfo").remove(); await SV.reglerPartage(cb.id, { partage: false }).catch(() => {}); cb.partage = false; }; }
   const filtres = sectionsDe(cb).length && mesSections(cb).length ? [["*", L("Tout", "All")], ["", L("Club", "Club")], ...mesSections(cb).map(id => [id, nomSec(cb, id)])] : [];
   if (!filtres.some(f => f[0] === CL.filtre)) CL.filtre = "*";
   if (sectionsDe(cb).length && !staff() && !mesSections(cb).length && (cb.mesDem || []).length) $("prevZone").insertAdjacentHTML("beforebegin", `<div class="carnet cl-invite-sec"><p>⏳ ${L("Demande envoyée pour ", "Request sent for ")}${cb.mesDem.map(id => echap(nomSec(cb, id))).join(", ")}${L(" : le coach doit la valider.", ": the coach has to approve it.")}</p></div>`);
@@ -351,7 +356,7 @@ function feuillePublier() {
 // fin d'une séance lancée depuis un club : cochée automatiquement (appelé par celebrer, js/progres.js)
 // le serveur peut ne pas être chargé (séance reprise après redémarrage de l'appli…) : on le charge et on attend la connexion du compte (5 s au plus)
 async function serveurPret() { try { await chargerServeur(); for (let i = 0; i < 20 && CL.u === undefined; i++) await new Promise(r => setTimeout(r, 250)); } catch (e) {} return !!(SV && CL.u); }
-async function clubSeanceFinie(r) { if (r && r.club && lire("clubCompte") && await serveurPret()) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true, r.club.sec).catch(() => {}); }
+async function clubSeanceFinie(r) { if (r && r.club) noterFaitCache(r.club.c, r.club.s, true); if (r && r.club && lire("clubCompte") && await serveurPret()) SV.marquerFait(r.club.c, r.club.s, CL.u.pseudo, true, r.club.sec).catch(() => {}); }
 
 /* Chat : pseudo en couleur, réponses citées, réactions, suppression, signalement ; le staff modère */
 const REAC = ["👍", "❤️", "💪", "🔥", "😂"];
@@ -476,14 +481,14 @@ function reglagesSections(Z, cb) {   // staff : ajouter, renommer ou supprimer u
 function ongReglages(Z, cb) {
   Z.innerHTML = `${cb.desc ? `<p class="cl-desc">${echap(cb.desc)}</p>` : ""}${staff() ? `<h2 class="sec">${L("Inviter des membres", "Invite members")}</h2><div class="carnet cl-inv"><div id="rgQr" class="cl-qr"></div><p class="sh-aide">${L("Montre ce QR code ou envoie le lien. Chaque demande arrive dans l’onglet Membres, à valider.", "Show this QR code or send the link. Each request arrives in the Members tab for approval.")}</p><input id="rgLien" readonly>
       <div class="partage-btns"><button class="toggle" id="rgPart">${L("Partager le lien", "Share the link")}</button><button class="toggle contour" id="rgNeuf">${L("Nouveau lien", "New link")}</button></div></div>
-    <div id="rgSig"></div><div id="rgSections"></div><h2 class="sec">${L("Infos du club", "Club info")}</h2><div class="carnet cl-form"><label class="champ"><span>${L("Nom", "Name")}</span><input id="rgNom" maxlength="40" value="${echap(cb.nom)}"></label><label class="champ"><span>${L("Sport", "Sport")}</span><input id="rgSport" maxlength="30" value="${echap(cb.sport)}"></label><label class="champ"><span>${L("Description", "Description")}</span><textarea id="rgDesc" class="choixVoix" rows="2" maxlength="300">${echap(cb.desc)}</textarea></label><button class="toggle" id="rgSauve">${L("Enregistrer", "Save")}</button></div>` : ""}
+    <div id="rgSig"></div><div id="rgPartage"></div><div id="rgPlanning"></div><div id="rgSections"></div><h2 class="sec">${L("Infos du club", "Club info")}</h2><div class="carnet cl-form"><label class="champ"><span>${L("Nom", "Name")}</span><input id="rgNom" maxlength="40" value="${echap(cb.nom)}"></label><label class="champ"><span>${L("Sport", "Sport")}</span><input id="rgSport" maxlength="30" value="${echap(cb.sport)}"></label><label class="champ"><span>${L("Description", "Description")}</span><textarea id="rgDesc" class="choixVoix" rows="2" maxlength="300">${echap(cb.desc)}</textarea></label><button class="toggle" id="rgSauve">${L("Enregistrer", "Save")}</button></div>` : ""}
     <div id="rgPrev"></div>${cb.role === "coach" ? `<button class="toggle contour cl-danger" id="rgSuppr">${L("Supprimer le club", "Delete the club")}</button><p class="sh-aide">${L("Supprime le club, ses séances et tous ses messages, pour tous les membres.", "Deletes the club, its workouts and all its messages, for every member.")}</p>` : `<button class="toggle contour cl-danger" id="rgQuit">${L("Quitter le club", "Leave the club")}</button>`}`;
   if ($("rgQuit")) $("rgQuit").onclick = () => { CL.onglet = "membres"; rendu(); setTimeout(() => $("mbQuit").click(), 300); };
   if ($("rgSuppr")) $("rgSuppr").onclick = async () => { const b = $("rgSuppr"); if (!b.dataset.conf) { b.dataset.conf = 1; return b.textContent = L("Confirmer la suppression définitive", "Confirm permanent deletion"); }
     b.disabled = true; b.textContent = L("Suppression…", "Deleting…"); try { await SV.supprimerClub(cb.id); await rafraichir(); CL.vue = "liste"; rendu(); } catch (x) { b.textContent = msgErr(x); } };
-  prevReglages($("rgPrev"), cb);
+  prevReglages($("rgPrev"), cb); reglagesPartage($("rgPartage"), cb);
   if (!staff()) return;
-  reglagesSections($("rgSections"), cb);
+  reglagesPlanning($("rgPlanning"), cb); reglagesSections($("rgSections"), cb);
   const lien = k => `${location.origin}${location.pathname}?club=${cb.id}&code=${k}`;
   const montrer = async k => { $("rgLien").value = lien(k); $("rgQr").innerHTML = await qrSvg(lien(k)).catch(() => ""); };
   SV.invitation(cb.id).then(k => k ? montrer(k) : SV.nouvelleInvitation(cb.id, cb.nom).then(montrer));
@@ -494,6 +499,97 @@ function ongReglages(Z, cb) {
   desab.push(SV.ecouterSignalements(cb.id, l => { $("rgSig").innerHTML = l.length ? `<h2 class="sec">⚑ ${L("Messages signalés", "Reported messages")} · ${l.length}</h2><ul class="list">${l.map(r => `<li><div><b>${echap(r.auteur)}${r.sal ? " · " + echap(nomSec(cb, r.sal)) : ""}</b><small>${echap(r.extrait)}</small></div><button class="toggle contour cl-danger" data-del="${r.m}" data-sal="${r.sal || ""}" data-r="${r.id}">🗑</button><button class="toggle contour" data-ok="${r.id}">${L("Garder", "Keep")}</button></li>`).join("")}</ul>` : "";
     $("rgSig").onclick = async e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.del) return choisirMotif(L("Retirer ce message", "Remove this message"), async k => { await SV.effacerMessage(cb.id, b.dataset.del, k, b.dataset.sal).catch(() => {}); await SV.classerSignalement(cb.id, b.dataset.r).catch(() => {}); }); await SV.classerSignalement(cb.id, b.dataset.ok).catch(() => {}); }; }));
 }
+/* --- Planning du club (staff) : jours, type de chaque séance et durée, pour tout le club ou une section ; repris dans Ma semaine des membres --- */
+const DUREES_PL = [60, 75, 90, 120];
+// planning relu et nettoyé (écrit par un coach : on ne garde que des valeurs connues de l'appli)
+function nettoiePlan(p) {
+  if (!p || !SP[p.sp] || !Array.isArray(p.jours)) return null; const Ty = typesClub(p.sp), jours = [...new Set(p.jours.map(Number).filter(d => d >= 0 && d <= 6))].sort();
+  return { sp: p.sp, jours, types: Object.fromEntries(jours.map(d => [d, Ty[(p.types || {})[d]] ? p.types[d] : Object.keys(Ty)[0]])), min: DUREES_PL.includes(+p.min) ? +p.min : 90 };
+}
+const plansDe = cb => ["club", ...mesSections(cb)].map(k => nettoiePlan((cb.planning || {})[k])).filter(p => p && p.jours.length);
+function reglagesPlanning(Z, cb) {
+  const SC = sectionsDe(cb), cible = SC.some(x => x.id === CL.plCible) ? CL.plCible : "club", P = cb.planning || {};
+  const brouillon = CL.plBrouillon && CL.plBrouillon.c === cb.id && CL.plBrouillon.k === cible ? CL.plBrouillon.p : nettoiePlan(P[cible]) || { sp: (typeof sportClub === "function" && SP[sportClub(cb)] && sportClub(cb)) || "boxe", jours: [], types: {}, min: 90 };
+  const p = CL.plBrouillon = { c: cb.id, k: cible, p: brouillon }, b = p.p, Ty = typesClub(b.sp), ch = (a, l, on) => `<div class="chips">${l.map(([k, t]) => `<button class="toggle" data-pl="${a}" data-v="${k}" aria-pressed="${on(k)}">${t}</button>`).join("")}</div>`;
+  Z.innerHTML = `<h2 class="sec">📅 ${L("Planning du club", "Club schedule")}</h2><div class="carnet cl-form cl-planning"><p class="sh-aide">${L("Les jours et le type de chaque entraînement. Tes membres le reçoivent dans Ma semaine : leurs séances perso se placent autour, sans refaire ce que le club travaille.", "The days and type of each training. Your members get it in My week: their own sessions fit around it, without repeating what the club trains.")}</p>
+    ${SC.length ? `<span class="champ-titre">${L("Pour", "For")}</span>${ch("cible", [["club", L("Tout le club", "Whole club")], ...SC.map(x => [x.id, echap(x.nom)])], k => k === cible)}` : ""}
+    <span class="champ-titre">${L("Sport", "Sport")}</span>${ch("sp", Object.keys(SP).map(sp => [sp, L(...SP[sp].nom)]), k => k === b.sp)}
+    <span class="champ-titre">${L("Jours d’entraînement", "Training days")}</span>${ch("j", JOURS_SP.map(([f, e], d) => [d, L(f, e)]), k => b.jours.includes(+k))}
+    ${b.jours.map(d => `<div class="bx-type"><b>${L(...JOURS_SP[d])}</b>${ch("t" + d, Object.entries(Ty).map(([k, T]) => [k, L(T[0], T[1])]), k => k === b.types[d])}</div>`).join("")}
+    <span class="champ-titre">${L("Durée d’une séance", "Session length")}</span>${ch("min", DUREES_PL.map(m => [m, m % 60 ? `${Math.floor(m / 60)} h ${m % 60}` : `${m / 60} h`]), k => +k === b.min)}
+    <div class="partage-btns"><button class="primary" id="plSauve">${L("Publier le planning", "Publish the schedule")}</button>${P[cible] ? `<button class="toggle contour" id="plRetire">${L("Retirer", "Remove")}</button>` : ""}</div><p class="sh-aide" id="plEtat"></p></div>`;
+  Z.onclick = e => { const t = e.target.closest("[data-pl]"); if (!t) return; const a = t.dataset.pl, v = t.dataset.v;
+    if (a === "cible") { CL.plCible = v; CL.plBrouillon = null; }
+    else if (a === "sp") { b.sp = v; b.types = {}; }
+    else if (a === "j") b.jours = b.jours.includes(+v) ? b.jours.filter(x => x !== +v) : [...b.jours, +v].sort();
+    else if (a === "min") b.min = +v; else b.types[a.slice(1)] = v;
+    Object.assign(b, nettoiePlan(b) || {}); reglagesPlanning(Z, cb); };
+  const ecrire = async (v, msg) => { const N = { ...P }; if (v) N[cible] = v; else delete N[cible];
+    try { await SV.modifierPlanning(cb.id, N); cb.planning = N; CL.plBrouillon = null; reglagesPlanning(Z, cb); $("plEtat").textContent = "✓ " + msg; } catch (x) { $("plEtat").textContent = msgErr(x); } };
+  $("plSauve").onclick = () => b.jours.length ? ecrire(nettoiePlan(b), L("Publié : tes membres le verront dans Ma semaine.", "Published: your members will see it in My week.")) : ($("plEtat").textContent = L("Choisis au moins un jour.", "Pick at least one day."));
+  if ($("plRetire")) $("plRetire").onclick = () => ecrire(null, L("Planning retiré.", "Schedule removed."));
+}
+/* --- Ce que je partage avec le staff (chaque membre, pour ce club) ---
+   Effort et séances faites : partagés par défaut, c'est le suivi que le club propose ; on peut l'arrêter à tout moment (tout est alors effacé du serveur).
+   Gêne et douleur : donnée de santé, seulement avec un accord explicite (case décochée par défaut), dès 15 ans ; retirer l'accord efface ce qui a été envoyé. */
+function reglagesPartage(Z, cb) {
+  if (cb.role === "coach") { Z.innerHTML = ""; return; }
+  stocker("partageVu_" + cb.id, "1");
+  const m15 = monAge() !== null && monAge() < 15;
+  Z.innerHTML = `<h2 class="sec">🔒 ${L("Ce que voit le staff", "What the staff sees")}</h2><div class="carnet cl-form">
+    <label class="cl-case"><input type="checkbox" id="ptOn" ${cb.partage ? "checked" : ""}><span><b>${L("Partager mon suivi avec le staff", "Share my progress with the staff")}</b><small>${L("Les séances du club que tu fais et ton effort ressenti du jour (sur 10), pour que ton coach adapte les entraînements. Rien d’autre : ni ton historique complet, ni tes réponses du matin. Gardé 8 semaines.", "The club workouts you do and your perceived effort of the day (out of 10), so your coach can adapt training. Nothing else: not your full history, not your morning answers. Kept for 8 weeks.")}</small></span></label>
+    ${m15 ? `<p class="sh-aide">${L("Gênes et douleurs : non partagées avant 15 ans. Parles-en directement à ton coach.", "Discomfort and pain: not shared under 15. Tell your coach directly.")}</p>`
+      : `<label class="cl-case"><input type="checkbox" id="ptDl" ${cb.dl ? "checked" : ""} ${cb.partage ? "" : "disabled"}><span><b>${L("Partager aussi mes gênes et douleurs", "Also share my discomfort and pain")}</b><small>${L("Facultatif. Le niveau de gêne et les zones notés dans ta batterie du matin, pour que ton coach évite ce qui te fait mal. C’est une donnée de santé : elle n’est envoyée qu’avec ton accord, que tu peux retirer ici (ce qui a été envoyé est alors effacé).", "Optional. The discomfort level and areas noted in your morning battery, so your coach avoids what hurts. This is health data: it is only sent with your consent, which you can withdraw here (what was sent is then deleted).")}</small></span></label>`}
+    <p class="sh-aide" id="ptEtat"></p></div>`;
+  const regler = async (v, msg) => { try { await SV.reglerPartage(cb.id, v); Object.assign(cb, v);
+      if (v.partage === false || v.dl === false) { await SV.mesRetoursEffacer(cb.id); stocker("retoursEnv", JSON.stringify({ ...lireJSON("retoursEnv", {}), [cb.id]: {} })); }
+      if (v.partage === false && cb.dl) { await SV.reglerPartage(cb.id, { dl: false }); cb.dl = false; }
+      reglagesPartage(Z, cb); $("ptEtat").textContent = "✓ " + msg; synchroSemaineClubs().catch(() => {}); } catch (x) { $("ptEtat").textContent = msgErr(x); } };
+  $("ptOn").onchange = e => regler({ partage: e.target.checked }, e.target.checked ? L("Ton suivi est partagé avec le staff.", "Your progress is shared with the staff.") : L("Partage arrêté : ce que tu avais envoyé est effacé.", "Sharing stopped: what you had sent is deleted."));
+  if ($("ptDl")) $("ptDl").onchange = e => regler({ dl: e.target.checked }, e.target.checked ? L("Accord donné : ta gêne du matin sera partagée.", "Consent given: your morning discomfort will be shared.") : L("Accord retiré : ce qui avait été envoyé est effacé.", "Consent withdrawn: what was sent is deleted."));
+}
+/* --- Synchronisation avec Ma semaine (à chaque passage sur l'accueil, connecté) ---
+   Garde sur ce téléphone (« clubSemaine ») les séances du coach de la semaine et mes coches, pour Ma semaine même hors ligne ;
+   applique le planning du club (sauf si j'ai réglé ce sport autrement : Ma semaine propose alors de l'appliquer) ; envoie mes retours du jour au staff. */
+async function synchroSemaineClubs(force = 1) {
+  const L0 = jourCle(lundi()), D0 = decaler(L0, 6), auj = jourCle(), Q = lireJSON("clubSemaine", {}), propose = [], clubs = [];
+  if (!CL.u || !CL.clubs.length || (!force && Q.lundi === L0 && Date.now() - (Q.maj || 0) < 6e5) || !(await serveurPret())) return;   // depuis l'accueil : 10 min entre deux synchronisations (lectures du forfait gratuit)
+  for (const cb of CL.clubs) {
+    const secs = [...mesSections(cb), "u_" + CL.u.uid], ses = await SV.semaineSeances(cb.id, L0, D0, secs).catch(() => null), f = ses ? await SV.mesFaits(cb.id, ses).catch(() => ({})) : {};
+    clubs.push({ id: cb.id, nom: cb.nom, seances: (ses || ((Q.clubs || []).find(x => x.id === cb.id) || {}).seances || []).map(s => ({ id: s.id, sec: s.sec || "", titre: String(s.titre).slice(0, 60), date: s.date, base: s.base || "", ids: s.ids || null, prog: s.prog || "" })), faits: ses ? f : ((Q.clubs || []).find(x => x.id === cb.id) || {}).faits || {} });
+    // planning : par sport, jours réunis (club + mes sections)
+    const parSp = {}; plansDe(cb).forEach(p => { const x = parSp[p.sp] || (parSp[p.sp] = { jours: [], types: {}, min: p.min }); p.jours.forEach(d => { if (!x.jours.includes(d)) { x.jours.push(d); x.types[d] = p.types[d]; } }); });
+    Object.entries(parSp).forEach(([sp, x]) => { x.jours.sort(); const sig = JSON.stringify(x), P = spPref(sp);
+      if (P.clubSig === sig) return;
+      if (!P.jours.length || P.club === cb.id) appliquerPlanningClub(cb.id, sp, x);
+      else if ((Q.ignore || {})[cb.id + sp] !== sig) propose.push({ c: cb.id, nom: cb.nom, sp, ...x, sig }); });
+    if (cb.partage && lire("partageVu_" + cb.id)) await envoyerRetours(cb, auj).catch(() => {});   // rien n'est envoyé avant que le membre ait vu l'information
+  }
+  stocker("clubSemaine", JSON.stringify({ lundi: L0, maj: Date.now(), clubs, propose, ignore: Q.ignore || {} }));
+  if (typeof carteSuivi === "function") carteSuivi();
+}
+// planning du club repris dans les réglages du sport (une seule source pour Ma semaine et l'écran du sport) ; le sport apparaît dans Ma semaine
+function appliquerPlanningClub(c, sp, x) {
+  spGarder(sp, { ...spPref(sp), jours: x.jours, types: { ...(spPref(sp).types || {}), ...x.types }, clubMin: x.min, club: c, clubSig: JSON.stringify({ jours: x.jours, types: x.types, min: x.min }) });
+  const P = lirePlanning() || {}; if (!(P.clubs || []).includes(sp)) stocker("planning", JSON.stringify({ ...P, clubs: [...(P.clubs || []), sp] }));
+}
+// retours des 7 derniers jours : effort le plus haut du jour (séances de l'appli et clubs notés), et la gêne du matin avec l'accord ; seulement ce qui a changé
+async function envoyerRetours(cb, auj) {
+  const E = lireJSON("retoursEnv", {}), deja = E[cb.id] || {}, h = lireHist(), C = lireClubs(), F = typeof lireForme === "function" ? lireForme() : {}, dlOk = cb.dl && !(monAge() !== null && monAge() < 15);
+  for (let i = 0; i < 7; i++) { const j = decaler(auj, -i), efs = [...h.filter(e => e.j === j && e.ef !== undefined).map(e => +e.ef), ...Object.values(C[j] && !C[j].sp ? C[j] : C[j] ? { x: C[j] } : {}).filter(n => n.t !== "non").map(n => +n.ef || 0)];
+    const fm = F[j] || {}, v = efs.length ? { ef: Math.max(0, Math.min(10, Math.round(Math.max(...efs)))), ...(dlOk && fm.dl ? { dl: Math.min(2, +fm.dl || 0), zn: (fm.z || []).slice(0, 8) } : {}) } : null, sig = v ? JSON.stringify(v) : "";
+    if (sig === (deja[j] || "")) continue;
+    if (v) await SV.envoyerRetour(cb.id, CL.u.pseudo, j, v); else await SV.retirerRetour(cb.id, j);
+    deja[j] = sig; }
+  E[cb.id] = Object.fromEntries(Object.entries(deja).filter(([j]) => j >= decaler(auj, -10))); stocker("retoursEnv", JSON.stringify(E));
+}
+// depuis Ma semaine : lancer une séance du coach, ou la cocher (faite sans l'appli)
+function lancerSeanceCoach(c, s) {
+  if (s.prog) return PROGRAMMES.some(p => p[0] === s.prog) && ouvrirProg(s.prog);
+  CL.c = c; const k = routineClub(s); if (!k) return alert(L("Mets l’appli à jour pour ouvrir cette séance.", "Update the app to open this workout.")); ouvrirRoutine(k);
+}
+function noterFaitCache(c, s, oui) { const Q = lireJSON("clubSemaine", {}), x = (Q.clubs || []).find(y => y.id === c); if (x) { x.faits = { ...x.faits, [s]: oui }; stocker("clubSemaine", JSON.stringify(Q)); } }
+async function cocherSeanceCoach(c, s, oui) { noterFaitCache(c, s.id, oui); if (await serveurPret()) await SV.marquerFait(c, s.id, CL.u.pseudo, oui, s.sec).catch(() => {}); }
 // QR code dessiné sur place (bibliothèque libre « qrcode-generator », hébergée avec l'appli et chargée seulement ici)
 async function qrSvg(t) {
   if (!window.qrcode) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/qrcode.js?v=" + VER; s.onload = ok; s.onerror = ko; document.head.append(s); });
@@ -510,6 +606,7 @@ async function majCarteClubs() {
   CL.der = Object.fromEntries(info.flatMap(x => [[x.c.id, x.m], ...x.ms]));
   Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances", depuisAccueil: true }) : ouvrirClubs({ vue: "liste", depuisAccueil: false });
+  synchroSemaineClubs(0).catch(() => {});
 }
 $("formeCarte").insertAdjacentHTML("beforebegin", `<div class="semaine-carte club-une" id="clubCarte"></div>`);
 // lien d'invitation ouvert (…?club=…&code=…) : on va droit aux clubs, après connexion si besoin

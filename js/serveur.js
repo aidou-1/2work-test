@@ -11,7 +11,7 @@ const d = (...p) => X.doc(db, ...p), col = (...p) => X.collection(db, ...p), moi
 const B = (c, sal) => sal ? ["clubs", c, "salons", sal] : ["clubs", c];
 const lireDoc = async (...p) => { try { const s = await X.getDoc(d(...p)); return s.exists() ? { id: s.id, ...s.data() } : null; } catch (e) { if (e.code === "permission-denied") return null; throw e; } };
 // durée de conservation : champ « exp » lu par les règles d'effacement automatique (TTL) de Firestore
-const exp = jours => X.Timestamp.fromMillis(Date.now() + jours * 864e5), DUREES = { messages: 365, faits: 90, prev: 56, signalements: 180, demandes: 90, exclus: 90 };
+const exp = jours => X.Timestamp.fromMillis(Date.now() + jours * 864e5), DUREES = { messages: 365, faits: 90, prev: 56, retours: 56, signalements: 180, demandes: 90, exclus: 90 };
 const code = () => Array.from(crypto.getRandomValues(new Uint8Array(9)), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
 export const PSEUDO_OK = /^[A-Za-z0-9_.-]{3,20}$/;
 
@@ -64,7 +64,7 @@ export async function mesClubs() {
   for (const id of clubs) { const cl = await lireDoc("clubs", id), m = cl && await lireDoc("clubs", id, "membres", uid);
     const sa = cl && m && m.muet ? await lireDoc("clubs", id, "sanctions", uid) : null;
     if (cl && m && !!(await lireDoc("clubs", id, "mineurs", uid).catch(() => null)) !== m15) await (m15 ? X.setDoc : X.deleteDoc)(d("clubs", id, "mineurs", uid), ...(m15 ? [{}] : [])).catch(() => {});   // badge « -15 » tenu à jour : membres d'avant, 15 ans passés
-    if (cl && m) nc.push({ ...cl, role: m.role, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
+    if (cl && m) nc.push({ ...cl, role: m.role, partage: m.partage !== false, dl: !!m.dl, muet: !!m.muet, motif: (sa && sa.motif) || m.motif || "", mesSec: m.sections || [], mesDem: m.secDem || [] });
     else { const ex = await lireDoc("clubs", id, "exclus", uid); if (ex) nr.push({ id, nom: ex.nom, motif: ex.motif }); } }   // exclu (avec son motif) ou club supprimé : retiré de la liste
   if (nc.length !== c.clubs.length || na.length !== c.attente.length) await X.updateDoc(d("comptes", uid), { clubs: nc.map(x => x.id), attente: na.map(x => x.id) });
   return { clubs: nc, attente: na, retraits: nr, nais: c.naissance || "", sansFiche: false };
@@ -90,6 +90,7 @@ export async function purgerAnciens(c, estCoach) {
   const avant = j => X.Timestamp.fromMillis(Date.now() - j * 864e5), jourAvant = j => new Date(Date.now() - j * 864e5).toISOString().slice(0, 10),
     vieux = async (chemin, champ, lim, n = 100) => ((await X.getDocs(X.query(col(...chemin), X.where(champ, "<", lim), X.limit(n))).catch(() => null)) || { docs: [] }).docs;
   for (const [k, j] of [["signalements", DUREES.signalements], ["demandes", DUREES.demandes], ["exclus", DUREES.exclus]]) for (const x of await vieux(["clubs", c, k], "t", avant(j))) await X.deleteDoc(x.ref).catch(() => {});
+  if (estCoach) for (const x of await vieux(["clubs", c, "retours"], "j", jourAvant(DUREES.retours), 200)) await X.deleteDoc(x.ref).catch(() => {});   // retours de plus de 8 semaines (si l'effacement automatique du serveur n'est pas réglé)
   const cl = await lireDoc("clubs", c), mbs = await X.getDocs(col("clubs", c, "membres")).catch(() => null), mb = mbs && new Set(mbs.docs.map(x => x.id)),
     sals = ["", ...((cl && cl.sections) || []).map(x => x.id), ...[...(mb || [])].map(u => "u_" + u)];
   const mi = (await X.getDocs(col("clubs", c, "mineurs")).catch(() => null)) || { docs: [] };   // fiches « -15 » restées après un départ (anciennes versions)
@@ -107,7 +108,7 @@ export async function purgerAnciens(c, estCoach) {
 export async function supprimerClub(c) {   // le coach efface tout le contenu, puis le club, puis sa propre fiche de membre
   await purgerPrev(c); for (const x of ((await lireDoc("clubs", c)) || {}).sections || []) await supprimerSection(c, x.id);
   for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) await supprimerSection(c, "u_" + x.id);   // séances personnelles
-  for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem", "sanctions", "mineurs"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
+  for (const s of ["messages", "signalements", "invits", "demandes", "exclus", "prevSem", "sanctions", "mineurs", "retours"]) for (const x of (await X.getDocs(col("clubs", c, s))).docs) await X.deleteDoc(x.ref);
   for (const x of (await X.getDocs(col("clubs", c, "seances"))).docs) { for (const f of (await X.getDocs(col("clubs", c, "seances", x.id, "faits"))).docs) await X.deleteDoc(f.ref); await X.deleteDoc(x.ref); }
   for (const x of (await X.getDocs(col("clubs", c, "membres"))).docs) if (x.id !== moi()) await X.deleteDoc(x.ref);
   await X.deleteDoc(d("clubs", c)); await X.deleteDoc(d("clubs", c, "membres", moi()));
@@ -142,7 +143,7 @@ export async function exclure(c, uid, motif, nom) {   // le membre exclu garde u
   for (const sal of ["", ...((cl && cl.sections) || []).map(x => x.id)]) { const se = await X.getDocs(col(...B(c, sal), "seances")).catch(() => null); for (const x of se ? se.docs : []) await X.deleteDoc(d(...B(c, sal), "seances", x.id, "faits", uid)).catch(() => {}); }
   await X.deleteDoc(d("clubs", c, "sanctions", uid)).catch(() => {}); await supprimerSection(c, "u_" + uid).catch(() => {});
   await X.deleteDoc(d("clubs", c, "membres", uid)); await X.deleteDoc(d("clubs", c, "mineurs", uid)).catch(() => {});
-  await purgerPrev(c, uid).catch(() => {});
+  await purgerPrev(c, uid).catch(() => {}); await retoursEffacer(c, uid).catch(() => {});
 }
 async function mesTracesEffacer(c, anonyme) {   // mes messages (club et sections) vidés, mes coches, mes séances personnelles et fiches de prévention effacées
   const cl = await lireDoc("clubs", c), sals = ["", ...((cl && cl.sections) || []).map(x => x.id)];
@@ -153,7 +154,7 @@ async function mesTracesEffacer(c, anonyme) {   // mes messages (club et section
     const se = await X.getDocs(col(...B(c, sal), "seances")).catch(() => null);
     for (const x of se ? se.docs : []) await X.deleteDoc(d(...B(c, sal), "seances", x.id, "faits", moi())).catch(() => {});
   }
-  await mesPrevEffacer(c); await X.deleteDoc(d("clubs", c, "sanctions", moi())).catch(() => {});
+  await mesPrevEffacer(c); await retoursEffacer(c, moi()).catch(() => {}); await X.deleteDoc(d("clubs", c, "sanctions", moi())).catch(() => {});
 }
 export async function quitter(c, anonyme) { await mesTracesEffacer(c, anonyme); await X.deleteDoc(d("clubs", c, "membres", moi())); await X.deleteDoc(d("clubs", c, "mineurs", moi())).catch(() => {}); await X.updateDoc(d("comptes", moi()), { clubs: X.arrayRemove(c) }).catch(() => {}); }
 
@@ -172,6 +173,7 @@ export async function exporterCompte() {
         for (const s of ((await X.getDocs(col(...B(c, sal), "seances")).catch(() => null)) || { docs: [] }).docs) { const f = await lireDoc(...B(c, sal), "seances", s.id, "faits", uid).catch(() => null); if (f) x.seancesFaites.push({ section: sal, seance: s.data().titre, date: s.data().date, ...f }); }
       }
       const p = await X.getDocs(X.query(col("clubs", c, "prev"), X.where("uid", "==", uid))).catch(() => null); x.prevention = p ? vers(p) : [];
+      const rt = await X.getDocs(X.query(col("clubs", c, "retours"), X.where("uid", "==", uid))).catch(() => null); x.retoursAuStaff = rt ? vers(rt) : [];
       x.badgeMoins15 = !!(await lireDoc("clubs", c, "mineurs", uid).catch(() => null)); }
     clubs.push(x);
   }
@@ -179,6 +181,19 @@ export async function exporterCompte() {
   return plat({ format: "2 WORK · données du compte", version: 1, exporte: new Date().toISOString(), email: u && u.email, compte: cpt, profil: pr,
     sauvegardeEnLigne: sv ? { octets: sv.z ? sv.z.toUint8Array().length : 0, elements: sv.n, date: sv.t } : null, clubs });
 }
+
+/* --- Planning du club et retours de la semaine ---
+   planning : { "club" (tout le club) ou id de section : { sp: sport de l'appli, jours: [0 = lundi … 6], types: { jour: type de séance du sport }, min: durée } }, tenu par le staff.
+   retours/<jour>_<uid> : { uid, pseudo, j, ef: effort le plus haut du jour sur 10, dl: gêne 0-2 et zn: zones (seulement avec l'accord du membre), t, exp }.
+   Le membre règle sur sa fiche : partage (false = ne rien envoyer, true par défaut) et dl (accord pour la gêne, décoché par défaut). */
+export const modifierPlanning = (c, p) => X.updateDoc(d("clubs", c), { planning: p });
+export const reglerPartage = (c, v) => X.updateDoc(d("clubs", c, "membres", moi()), v);   // v : { partage } ou { dl }
+export async function semaineSeances(c, lundi, dim, secs) { return (await prochaines(c, lundi, secs)).filter(s => s.date <= dim); }
+export const envoyerRetour = (c, pseudo, j, v) => X.setDoc(d("clubs", c, "retours", j + "_" + moi()), { uid: moi(), pseudo, j, ...v, t: X.serverTimestamp(), exp: exp(DUREES.retours) });
+export const retirerRetour = (c, j) => X.deleteDoc(d("clubs", c, "retours", j + "_" + moi())).catch(() => {});
+export async function retoursDepuis(c, j) { const q = await X.getDocs(X.query(col("clubs", c, "retours"), X.where("j", ">=", j))).catch(() => null); return q ? vers(q) : []; }   // staff
+async function retoursEffacer(c, uid) { const q = await X.getDocs(X.query(col("clubs", c, "retours"), X.where("uid", "==", uid))).catch(() => null); for (const x of q ? q.docs : []) await X.deleteDoc(x.ref).catch(() => {}); }
+export const mesRetoursEffacer = c => retoursEffacer(c, moi());
 
 /* --- Lecture en direct : membres, demandes, séances, messages --- */
 export const ecouterMineurs = (c, cb) => X.onSnapshot(col("clubs", c, "mineurs"), s => cb(new Set(s.docs.map(x => x.id))), () => cb(new Set()));   // staff seul

@@ -72,6 +72,20 @@ function prevReglages(Z, cb) {
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("pvSauve").textContent = "✓ " + L("Enregistré", "Saved"); } catch (x) { $("pvSauve").textContent = msgErr(x); } };
 }
 
+/* --- Retours des 7 derniers jours (staff) : effort ressenti de chaque membre, gêne s'il a donné son accord, et alertes ---
+   Alerte charge : effort de 8 ou plus au moins 3 jours sur 7. Alerte gêne : forte un jour, ou présente au moins 2 jours. */
+function blocRetours(mb, rts) {
+  const par = m => rts.filter(r => r.uid === m.id).sort((a, b) => a.j < b.j ? -1 : 1), zn = l => [...new Set(l.flatMap(r => r.zn || []))].map(z => typeof ZONES_FM !== "undefined" && ZONES_FM[z] ? L(ZONES_FM[z][0], ZONES_FM[z][1]).toLowerCase() : z).join(", ");
+  const l = mb.filter(m => m.role !== "coach").map(m => { const r = par(m), efs = r.map(x => x.ef), dls = r.filter(x => x.dl);
+    return { m, r, moy: efs.length ? Math.round(efs.reduce((a, b) => a + b, 0) / efs.length * 10) / 10 : null, dur: efs.filter(v => v >= 8).length, dl: dls, alerte: efs.filter(v => v >= 8).length >= 3 || dls.some(x => x.dl === 2) || dls.length >= 2 }; });
+  if (!l.length) return "";
+  const al = l.filter(x => x.alerte), ligne = x => `<li><div><b style="color:${couleurPseudo(x.m.pseudo)}">${echap(x.m.pseudo)}</b>${x.m.partage === false ? `<small>${L("Ne partage pas son suivi", "Does not share their progress")}</small>`
+    : x.r.length ? `<span class="cl-jours">${[...Array(7)].map((_, i) => { const j = decaler(jourCle(), i - 6), y = x.r.find(r => r.j === j); return `<i class="${y ? y.ef >= 8 ? "dur" : "ok" : ""}" title="${j}">${y ? y.ef : "·"}</i>`; }).join("")}</span><small>${L("Effort moyen", "Average effort")} ${String(x.moy).replace(".", L(",", "."))}/10${x.dur ? ` · ${x.dur} ${L("jour(s) à 8 ou plus", "day(s) at 8+")}` : ""}${x.dl.length ? ` · ⚠️ ${L("gêne", "discomfort")} ${x.dl.length} ${L("jour(s)", "day(s)")}${zn(x.dl) ? " (" + zn(x.dl) + ")" : ""}` : ""}</small>`
+    : `<small>${L("Rien de noté cette semaine", "Nothing logged this week")}</small>`}</div></li>`;
+  return `<h2 class="sec">${L("Retours · 7 derniers jours", "Feedback · last 7 days")}</h2>
+    ${al.length ? `<div class="carnet cl-alerte"><b>⚠️ ${L("À surveiller", "To watch")}</b><p>${al.map(x => `<span class="cl-qui">${echap(x.m.pseudo)}</span>`).join(" ")}</p><p class="sh-aide">${L("Effort très haut plusieurs jours, ou gêne signalée : allège sa prochaine séance et parle avec lui. Une douleur qui dure se montre à un professionnel de santé.", "Very high effort several days, or discomfort reported: lighten their next session and talk with them. Lasting pain should be seen by a health professional.")}</p></div>` : ""}
+    <ul class="list cl-assid">${l.map(ligne).join("")}</ul><p class="sh-aide">${L("Effort le plus haut de chaque jour, sur 10, envoyé par le membre (séances de l’appli et clubs notés). La gêne n’apparaît que pour ceux qui ont donné leur accord.", "Highest effort of each day, out of 10, sent by the member (app workouts and logged clubs). Discomfort only shows for those who consented.")}</p>`;
+}
 /* --- Onglet Suivi (staff) --- */
 async function ongSuivi(Z, cb) {
   Z.innerHTML = `<p class="vide">…</p>`;
@@ -80,6 +94,7 @@ async function ongSuivi(Z, cb) {
   const [mbT, sesT] = await Promise.all([unePhoto(f => SV.ecouterMembres(cb.id, f)), unePhoto(f => ecouterSeancesClub(cb, f))]);
   const dans = (m, s) => !s.sec || (m.sections || []).includes(s.sec),   // une séance de section ne compte que pour ses membres
     mb = fs === "*" ? mbT : mbT.filter(m => (m.sections || []).includes(fs)), ses = fs === "*" ? sesT : sesT.filter(s => !s.sec || s.sec === fs);
+  const d7 = decaler(auj, -6), rts = await SV.retoursDepuis(cb.id, d7).catch(() => []);
   const passe = ses.filter(s => s.date <= auj && s.date >= d28), faits = await SV.faitsDe(cb.id, passe),
     agg = p ? await SV.prevSemaines(cb.id, sems) : {}, noms = p && p.vue === "noms" ? await SV.prevNoms(cb.id, sems[0]) : null;
   if (CL.onglet !== "suivi" || !Z.isConnected) return;   // onglet quitté pendant le chargement
@@ -93,6 +108,7 @@ async function ongSuivi(Z, cb) {
     ${dec.length ? `<h2 class="sec">${L("À relancer", "To nudge")}</h2><div class="carnet"><p class="sh-aide">${L("Aucune séance du club cochée depuis 2 semaines.", "No club workout ticked for 2 weeks.")}</p><p>${dec.map(x => `<span class="cl-qui">${echap(x.m.pseudo)}</span>`).join(" ")}</p><button class="toggle" id="suRelance">💬 ${L("Écrire un message de relance", "Write a nudge message")}</button></div>` : ""}
     ${p && fs === "*" ? `<h2 class="sec">🛡️ ${L("Prévention", "Prevention")} · ${L(`objectif ${p.obj}×/semaine`, `goal ${p.obj}×/week`)}</h2><div class="carnet cl-sem">${sems.map(s => { const a = agg[s] || { n: 0, j: 0 }; return `<div><small>${L("Sem. du", "Week of")} ${court(s)}</small>${barre(a.j, mb.length)}<small>${a.j}/${mb.length} ${L("joueurs", "players")} · ${a.n} ${L("séances", "sessions")}</small></div>`; }).join("")}
       ${noms ? "" : `<p class="sh-aide">${L("Vue « total de l’équipe » : le détail par joueur n’est pas visible (réglage dans l’onglet Club).", "“Team total” view: per-player detail is hidden (setting in the Club tab).")}</p>`}</div>` : ""}
+    ${blocRetours(mb, rts)}
     <h2 class="sec">${L("Assiduité · 4 semaines", "Attendance · 4 weeks")}</h2><ul class="list cl-assid">${l.map(x => `<li><div><b style="color:${couleurPseudo(x.m.pseudo)}">${echap(x.m.pseudo)}</b>${barre(x.ok, x.dues)}<small>${x.dues ? `${x.ok}/${x.dues} ${L("séances", "workouts")} · ${pctTxt(x.ok, x.dues)}` : L("Aucune séance depuis son arrivée", "No workout since joining")}${noms ? ` · 🛡️ ${x.pvSem}/${p.obj} ${L("cette semaine", "this week")}, ${x.pv4} ${L("en 4 sem.", "in 4 wks")}` : ""}</small></div></li>`).join("")}</ul>
     ${top.length ? `<h2 class="sec">${L("Séances les plus suivies", "Most followed workouts")}</h2><ul class="list">${top.map(([s, n, t]) => `<li><div><b>${echap(s.titre)}</b><small>${s.sec ? echap(nomSec(cb, s.sec)) + " · " : ""}${dateLisible(s.date)}</small></div><span class="duree">${n}/${t}</span></li>`).join("")}</ul>` : `<p class="vide">${L("Publie des séances pour voir l’assiduité de ton équipe.", "Post workouts to see your team’s attendance.")}</p>`}`;
   if ($("suSec")) $("suSec").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { CL.suiviSec = b.dataset.f; rendu(); } };
