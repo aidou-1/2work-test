@@ -3,7 +3,9 @@
    prog: programme intégré ou "", types: ce que l'on veut travailler (TYPES_PERSO), choix: { jour: "prog" | "sport:<sp>" | "types" | "plan" },
    off: { "AAAA-MM-JJ": 1 } séances retirées à la main cette semaine, remp: { "AAAA-MM-JJ": "type:<clé>" | "sp:<sport>:<code>" } séance choisie à la main pour ce jour,
    ajout: { "AAAA-MM-JJ": [même format que remp] } séances ajoutées en plus, valide: jour de la dernière validation,
-   allege: lundi d'une semaine allégée (choisie dans le bilan), bilanVu: lundi de la semaine dont le bilan a été lu }. off, remp et ajout ne gardent que la semaine en cours.
+   allege: lundi d'une semaine allégée (choisie dans le bilan), bilanVu: lundi de la semaine dont le bilan a été lu,
+   fait: { "AAAA-MM-JJ": 1 } séances validées à la main (faites sans l'appli), dep: { jour passé non fait: jour où la séance est déplacée } }.
+   off, remp, ajout, fait et dep ne gardent que la semaine en cours.
    Les jours, types, contenus et durée des clubs restent dans les réglages de chaque sport (spPref : jours, types, contenus, clubMin) : une seule source avec l'écran du sport.
    Un programme intégré saute les séances que le club couvre déjà (cardio, renfo…) quand elles sont générales, et les garde en version courte quand elles sont
    propres à un autre sport (prépa ski avec un club de boxe). Sa mobilité et sa récupération sont remplacées par la mobilité placée automatiquement.
@@ -11,7 +13,7 @@
 const SPEC_PROG = { ski: "ski", cardioBoxe: "boxe" };   // programmes propres à un sport
 // ce qu'une séance de programme travaille, d'après son type et la zone de son retour au calme
 const tagsProg = (type, rac) => ({ fract: ["cardio"], cardio: ["cardio"], hiit: ["cardio"], gainage: ["gainage"], force: rac === "haut" ? ["haut"] : rac === "bas" ? ["jambes"] : ["haut", "jambes"] }[type] || []);
-const lirePlan = () => ({ jours: [], dispo: [], heure: "18:00", clubs: [], prog: "", types: [], choix: {}, off: {}, remp: {}, ajout: {}, ...(lirePlanning() || {}) });
+const lirePlan = () => ({ jours: [], dispo: [], heure: "18:00", clubs: [], prog: "", types: [], choix: {}, off: {}, remp: {}, ajout: {}, fait: {}, dep: {}, ...(lirePlanning() || {}) });
 // ce que l'on veut travailler en perso : [clé, FR, EN, contenu de club qui le couvre déjà, dur]
 const TYPES_PERSO = [["cardio", "Cardio / fractionné", "Cardio / intervals", ["cardio"], 1], ["haut", "Renfo haut", "Upper body", ["haut"], 1], ["jambes", "Renfo jambes", "Legs", ["jambes"], 1],
   ["complet", "Renfo complet", "Full body", ["haut", "jambes"], 1], ["gainage", "Gainage", "Core", ["gainage"], 0], ["mobilite", "Mobilité", "Mobility", ["mobilite"], 0],
@@ -98,7 +100,8 @@ function semaineComplete(P = lirePlan()) {
       if (file.length) file.push(...file.splice(i, 1));
       s = objType(k, sports, niv); dernier = s.dur ? 1 : 0; if (allege && s.dur) note = L("semaine allégée : fais un tour de moins", "lighter week: do one round less"); else if (leger && s.dur) note = L("pas de type léger dans ta liste : vas-y à effort modéré", "no light type in your list: keep the effort moderate");
     }
-    if (!s) { c = "plan"; s = tpl(modele[kp++ % modele.length].replace("@", spR), niv); }
+    // le jour de récupération active du plan reste facultatif : il ne compte pas dans le suivi
+    if (!s) { c = "plan"; const m = modele[kp++ % modele.length].replace("@", spR); s = tpl(m, niv); if (m === "C:repos") s.facultatif = 1; }
     J[d].perso = { src: c, s, note };
   });
   const objChoix = v => { const [k, a, b] = v.split(":"); return k === "type" ? objType(a, sports, niv) : SP[a] && SP[a].S[b] ? objSport(a, b) : null; }, charge = (x, s) => x.clubs.some(c => c.dur) && s.dur ? " · " + L("club dur ce jour-là : attention à la charge", "hard club day: watch the load") : "";
@@ -107,11 +110,21 @@ function semaineComplete(P = lirePlan()) {
     // séances ajoutées en plus de celle du jour
     x.extras = ((P.ajout || {})[x.j] || []).map(v => { const s = objChoix(v); return s && { v, s, note: charge(x, s) }; }).filter(Boolean);
   });
+  // séance d'un jour passé non faite, déplacée depuis « À rattraper » : elle s'ajoute au jour choisi (après les ajouts, pour garder leurs numéros)
+  J.slice(0, 7).forEach(x => { const y = J.find(z => z.d < 7 && z.j === (P.dep || {})[x.j]), s = x.perso && x.perso.s;
+    if (y && s && !s.passe) { x.dep = y.j; y.extras.push({ s, dep: x.j, note: " · " + L("rattrapage du ", "catch-up from ") + JOURS_LONGS()[x.d] + charge(y, s) }); } });
   // séance faite en avance : une séance prévue plus loin dans la semaine, déjà faite un autre jour, est cochée et son jour reste libre.
   // Chaque séance faite ne compte qu'une fois : d'abord pour son propre jour, puis pour le prochain jour qui prévoit la même séance.
-  const egal = (e, s) => s.cle ? e.k === s.cle : !!s.t && e.t === s.t, libres = lireHist().filter(e => e.j >= J[0].j && e.j <= J[6].j);
-  J.slice(0, 7).forEach(x => { const s = x.perso && x.perso.s, i = s ? libres.findIndex(e => e.j === x.j && egal(e, s)) : -1; if (i >= 0) libres.splice(i, 1); });
+  const egal = (e, s) => s.cle ? e.k === s.cle : !!s.t && e.t === s.t, libres = lireHist().filter(e => e.j >= J[0].j && e.j <= J[6].j), semH = [...libres];
+  J.slice(0, 7).forEach(x => { const s = x.perso && x.perso.s, i = s ? libres.findIndex(e => e.j === x.j && egal(e, s)) : -1; if (i >= 0) { libres.splice(i, 1); x.vraie = 1; } });
+  // séance d'un jour passé rattrapée plus tard (relancée ou déplacée) : cochée à son jour d'origine, avant de compter les séances faites en avance ;
+  // la séance de rattrapage ne coche pas le jour où elle a été faite
+  const rattr = new Set(), auj0 = jourSemaine();
+  J.slice(0, 7).forEach(x => { const s = x.perso && x.perso.s, i = s && !x.vraie && x.d < auj0 ? libres.findIndex(e => e.j > x.j && egal(e, s)) : -1; if (i >= 0) { const e = libres.splice(i, 1)[0]; rattr.add(e); x.rattrape = e.j; x.fait = 1; } });
+  J.forEach(x => { if (!x.vraie && !x.rattrape) x.fait = semH.some(e => e.j === x.j && !rattr.has(e)); });
   J.slice(0, 7).forEach(x => { const s = x.perso && x.perso.s, i = s && !x.fait ? libres.findIndex(e => e.j < x.j && egal(e, s)) : -1; if (i >= 0) x.avance = libres.splice(i, 1)[0].j; });
+  // faite : avec l'appli ce jour-là, en avance, rattrapée, ou validée à la main
+  J.forEach(x => { x.coche = !!(P.fait || {})[x.j]; x.ok = x.fait || !!x.avance || x.coche; });
   // mobilité automatique : lendemain d'un effort dur ou jour coincé entre deux, et 10 min avant chaque club
   const dur = d => d >= 0 && (clubDur(d) || (J[d].perso && J[d].perso.s && J[d].perso.s.dur && !J[d].avance) || (J[d].extras || []).some(e => e.s.dur));
   for (let d = 0; d < 7; d++) {
@@ -130,6 +143,18 @@ function semaineComplete(P = lirePlan()) {
 // compatibilité : [{ j, s }] des jours perso, comme l'ancien planning (accueil, rappels, agenda)
 // rappels : semaine type pour l'agenda et les rappels répétés, sans les choix ponctuels ni les compléments légers des jours de club
 function semaine(rappels) { const P = lirePlanning(); if (!P || (!P.jours.length && !modeComplet(lirePlan()))) return []; return semaineComplete(lirePlan()).jours.filter(x => x.perso && x.perso.s && !x.perso.s.passe && !(!rappels && x.avance) && !(rappels && ["choix", "leger"].includes(x.perso.src))).map(x => ({ j: x.d, s: x.perso.s })); }
+
+/* Suivi : séances perso (sans les compléments légers des jours de club) et séances de club de la semaine.
+   faites / prevues ; retard : jours passés non faits et non déplacés (à rattraper) ; suite : encore à faire aujourd'hui et après (d : jour où elle aura lieu). */
+function suiviSemaine(W = semaineComplete()) {
+  const auj = jourSemaine(), l = [];
+  W.jours.forEach(x => { if (x.perso && x.perso.s && x.perso.src !== "leger" && !x.perso.s.facultatif) l.push({ x, s: x.perso.s, ok: x.ok }); x.clubs.forEach(c => l.push({ x, c, ok: c.note })); });
+  const reste = l.filter(e => !e.ok);
+  return { prevues: l.length, faites: l.length - reste.length, retard: reste.filter(e => e.x.d < auj && !e.x.dep), suite: reste.filter(e => e.x.d >= auj || e.x.dep).map(e => ({ ...e, d: e.x.dep ? (new Date(e.x.dep + "T12:00").getDay() + 6) % 7 : e.x.d })).sort((a, b) => a.d - b.d) };
+}
+const nomJourCle = j => JOURS_LONGS()[(new Date(j + "T12:00").getDay() + 6) % 7];
+const barreSuivi = U => `<span class="ms-barre" role="progressbar" aria-valuemin="0" aria-valuemax="${U.prevues}" aria-valuenow="${U.faites}" aria-label="${L("Séances faites", "Sessions done")}"><i style="width:${U.prevues ? Math.round(U.faites / U.prevues * 100) : 0}%"></i></span>`;
+const nomSuivi = e => e.c ? L(...SP[e.c.sp].nom) + " · " + L(...e.c.nom) : e.s.t;
 
 /* --- L'écran Ma semaine : 4 étapes, puis la semaine calculée --- */
 const MS_OUVERTS = new Set();   // clubs dépliés : ils le restent quand l'écran se redessine
@@ -187,16 +212,26 @@ function listeSemaine() {
   const P = lirePlan(), W = semaineComplete(P), auj = jourSemaine(), Z = $("plSemaine");
   if (!W.jours.some(x => x.clubs.length || x.perso)) { Z.innerHTML = `<p class="vide">${L("Ajoute un club ou touche les jours où tu veux t’entraîner.", "Add a club or tap the days you want to train.")}</p>`; return; }
   const et = l => l.length > 1 ? l.slice(0, -1).join(", ") + L(" et ", " and ") + l[l.length - 1] : l[0] || "", jp = W.jours.filter(x => x.perso).map(x => JOURS_LONGS()[x.d]);   // jours de séance perso réels (sans les jours de club)
-  Z.innerHTML = `${jp.length ? `<p class="pl-plan">📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(jp)} à ${P.heure}`, `${et(jp)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}</p>` : ""}
-    <h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste ms-liste">${W.jours.map(x => { const S = x.perso ? x.perso.s : x.mob ? x.mob.s : null, lance = S && S.go && !x.fait && !x.avance && x.d >= auj;
+  const U = suiviSemaine(W), suite = U.suite.map(e => JOURS_LONGS()[e.d].slice(0, 3) + ". " + nomSuivi(e));
+  // une séance pas faite : lancer, déplacer, valider (faite sans l'appli) ou abandonner ; un club : le noter
+  const rattr = e => `<li style="--c:${e.c ? "var(--brand)" : e.s.c}"><span><b>${JOURS_LONGS()[e.x.d]} · ${nomSuivi(e)}</b><small>${e.c ? L("Séance de club pas encore notée", "Club session not logged yet") : e.s.passe ? L("Le programme reprend là où tu en es", "The programme picks up where you are") : L("Prévue mais pas faite", "Planned but not done")}</small></span><span class="ms-liens">${e.c
+    ? `<button class="toggle" data-note="${e.c.sp}" data-j="${e.x.j}">${L("Noter", "Log")}</button>`
+    : (e.s.go && !e.s.passe ? `<button class="toggle" data-rgo="${e.x.d}">▶ ${L("Lancer", "Start")}</button><button class="ms-retirer" data-dep="${e.x.d}">${L("Déplacer", "Move")}</button>` : "") + `<button class="ms-retirer" data-coche="${e.x.j}">✓ ${L("Je l’ai faite", "I did it")}</button>` + (e.s.passe ? "" : `<button class="ms-retirer" data-off="${e.x.j}">${L("Abandonner", "Drop it")}</button>`)}</span></li>`;
+  const etat = x => !x.perso || x.perso.src === "leger" || x.perso.s.facultatif ? "" : x.rattrape ? " · ✓ " + L("rattrapée le ", "caught up on ") + nomJourCle(x.rattrape) : x.coche && !x.fait && !x.avance ? " · ✓ " + L("validée par toi", "confirmed by you") : !x.ok && x.dep ? " · " + L("déplacée au ", "moved to ") + nomJourCle(x.dep) : !x.ok && x.d < auj ? " · ⚠️ " + L("pas faite", "not done") : "";
+  const liensSuivi = (x, S) => !x.perso ? "" : (!x.ok && x.d <= auj && !x.dep ? `<button class="ms-retirer" data-coche="${x.j}">✓ ${L("Je l’ai faite", "I did it")}</button>` : "") + (x.coche ? `<button class="ms-retirer" data-decoche="${x.j}">${L("Annuler la validation", "Undo")}</button>` : "") + (x.ok && !x.avance && S.go && !S.passe && x.d <= auj ? `<button class="ms-retirer" data-re="${x.d}">↻ ${L("Refaire", "Do again")}</button>` : "");
+  const suivi = U.prevues ? `<div class="carnet ms-suivi"><h3>✅ ${L("Suivi de la semaine", "Week tracker")}</h3><p class="ms-compte"><b>${U.faites} / ${U.prevues}</b> ${L("séances faites", "sessions done")}</p>${barreSuivi(U)}
+    <small>${suite.length ? L("Encore à faire : ", "Still to do: ") + suite.join(" · ") : U.retard.length ? "" : "🎉 " + L("Tout est fait cette semaine, bravo !", "Everything is done this week, well done!")}</small>
+    ${U.retard.length ? `<h4>⚠️ ${L("À rattraper", "To catch up")}</h4><ul class="ms-rattr">${U.retard.map(rattr).join("")}</ul>` : ""}</div>` : "";
+  Z.innerHTML = `${jp.length ? `<p class="pl-plan">📌 <b>${L("Mon plan", "My plan")}</b> : ${L(`le ${et(jp)} à ${P.heure}`, `${et(jp)} at ${P.heure}`)}${P.lieu ? ", " + echap(P.lieu) : ""}. ${L("Imprévu ? <b>Plan B</b> : 7 minutes de Quick start, plutôt que rien.", "Something came up? <b>Plan B</b>: 7 minutes of Quick start, rather than nothing.")}</p>` : ""}${suivi}
+    <h2 class="sec">${L("Cette semaine", "This week")}</h2><ul class="list semaine-liste ms-liste">${W.jours.map(x => { const S = x.perso ? x.perso.s : x.mob ? x.mob.s : null, lance = S && S.go && !x.ok && x.d >= auj;
       const futur = x.d >= auj, ajouter = futur ? `<button class="ms-retirer" data-add="${x.d}">+ ${L("Ajouter", "Add")}</button>` : "", retirable = S && !x.fait && x.d >= auj, changer = !x.fait && x.d >= auj ? `<button class="ms-retirer" data-chg="${x.d}">${L("Changer", "Change")}</button>` : "";
       return `<li class="${x.d === auj ? "auj" : ""}${S || x.clubs.length ? "" : " repos"}${x.dispo ? " dispo" : ""}" style="--c:${S ? S.c : x.clubs.length ? "var(--brand)" : "transparent"}">${x.d >= auj && !x.fait ? `<button class="jr ms-jr" data-chg="${x.d}" aria-label="${L("Choisir l’entraînement du ", "Choose the workout for ") + JOURS_LONGS()[x.d]}">` : `<span class="jr">`}${JOURS_LONGS()[x.d].slice(0, 3)}<small>${x.dt.getDate()}</small>${x.d >= auj && !x.fait ? "</button>" : "</span>"}<div>
         ${x.clubs.map(c => `<button class="ms-club-b" data-note="${c.sp}" data-j="${x.j}" aria-label="${L("Noter la séance de club", "Log the club session")}">${L(...SP[c.sp].nom)} · ${L(...c.nom)}${c.note ? " ✓" : ""}</button>`).join("")}
         ${x.retire && x.d >= auj ? `<b>${L("Séance retirée", "Session removed")}</b><small>${L("Tu as allégé ta semaine.", "You lightened your week.")}</small><span class="ms-liens"><button class="ms-retirer" data-on="${x.j}">↺ ${L("Remettre", "Put back")}</button>${changer}</span>`
         : S && x.avance ? `<b>${S.t}</b><small>${L("Déjà faite le ", "Already done on ") + JOURS_LONGS()[(new Date(x.avance + "T12:00").getDay() + 6) % 7]} ✓ · ${L("ce jour reste libre", "this day stays free")}</small>`
-        : S ? `<b>${x.mob ? "🧘 " : ""}${S.t}</b><small>${x.mob ? x.mob.r : S.s}${x.perso && x.perso.note ? " · " + x.perso.note : ""}</small><span class="ms-liens">${changer}${ajouter}${retirable ? `<button class="ms-retirer" data-off="${x.j}">${L("Retirer", "Remove")}</button>` : ""}</span>` : x.clubs.length ? (x.avant && x.d >= auj ? `<button class="ms-avant" data-avant="${x.d}">🧘 ${L("10 min de mobilité avant le club", "10 min of mobility before the club")}</button>` : "") + (changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : "") : `<b>${L("Repos", "Rest")}</b><small>${L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small>${changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : ""}`}
-        ${x.extras.map((e, i) => `<div class="ms-extra" style="--c:${e.s.c}"><span><b>+ ${e.s.t}</b><small>${e.s.s} · ${L("ajoutée par toi", "added by you")}${e.note}</small></span>${futur ? `<button class="toggle" data-xgo="${x.d}:${i}" aria-label="${L("Lancer", "Start")}">▶</button><button class="ms-retirer" data-xdel="${x.j}:${i}" aria-label="${L("Enlever cette séance ajoutée", "Remove this added session")}">✕</button>` : ""}</div>`).join("")}
-      </div>${x.fait || x.avance ? `<span class="fait">✓</span>` : lance ? `<button class="toggle" data-go="${x.d}">${x.d === auj ? L("Lancer", "Start") : "▶"}</button>` : ""}</li>`; }).join("")}</ul>
+        : S ? `<b>${x.mob ? "🧘 " : ""}${S.t}</b><small>${x.mob ? x.mob.r : S.s}${x.perso && x.perso.note ? " · " + x.perso.note : ""}${etat(x)}</small><span class="ms-liens">${changer}${ajouter}${retirable ? `<button class="ms-retirer" data-off="${x.j}">${L("Retirer", "Remove")}</button>` : ""}${liensSuivi(x, S)}</span>` : x.clubs.length ? (x.avant && x.d >= auj ? `<button class="ms-avant" data-avant="${x.d}">🧘 ${L("10 min de mobilité avant le club", "10 min of mobility before the club")}</button>` : "") + (changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : "") : `<b>${L("Repos", "Rest")}</b><small>${L("Marche, vélo tranquille ou rien du tout : ça fait partie du plan.", "A walk, an easy ride or nothing at all: it is part of the plan.")}</small>${changer ? `<span class="ms-liens">${changer.replace(L("Changer", "Change"), "+ " + L("Ajouter une séance", "Add a session"))}</span>` : ""}`}
+        ${x.extras.map((e, i) => `<div class="ms-extra" style="--c:${e.s.c}"><span><b>+ ${e.s.t}</b><small>${e.s.s}${e.dep ? "" : " · " + L("ajoutée par toi", "added by you")}${e.note}</small></span>${e.dep && W.jours.find(z => z.j === e.dep).ok ? `<span class="fait">✓</span>` : futur ? `<button class="toggle" data-xgo="${x.d}:${i}" aria-label="${L("Lancer", "Start")}">▶</button><button class="ms-retirer" ${e.dep ? `data-xdep="${e.dep}"` : `data-xdel="${x.j}:${i}"`} aria-label="${L("Enlever cette séance ajoutée", "Remove this added session")}">✕</button>` : ""}</div>`).join("")}
+      </div>${x.ok ? `<span class="fait">✓</span>` : lance ? `<button class="toggle" data-go="${x.d}">${x.d === auj ? L("Lancer", "Start") : "▶"}</button>` : ""}</li>`; }).join("")}</ul>
     ${W.notes.length ? `<div class="carnet ms-notes"><h3>🔀 ${L("Ce qui a été adapté", "What was adapted")}</h3><ul class="prog-obj">${W.notes.map(n => `<li>${n}</li>`).join("")}</ul></div>` : ""}
     <button class="primary" id="msValider">✓ ${L("Valider ma semaine", "Confirm my week")}</button>
     ${W.sports.length ? `<p class="sh-aide">${L("Touche une séance de club pour noter ce que tu as vraiment fait (ou qu’elle n’a pas eu lieu) : la semaine et ta batterie s’adaptent.", "Tap a club session to log what you actually did (or that it didn’t happen): your week and battery adapt.")}</p>` : ""}
@@ -214,6 +249,15 @@ function listeSemaine() {
   Z.querySelectorAll("[data-xdel]").forEach(b => b.onclick = () => { const [j, i] = b.dataset.xdel.split(":"); garderAjout(j, l => l.filter((_, k) => k !== +i)); });
   Z.querySelectorAll("[data-xgo]").forEach(b => b.onclick = () => { const [d, i] = b.dataset.xgo.split(":").map(Number); lancer(W.jours[d].extras[i].s); });
   Z.querySelectorAll("[data-off]").forEach(b => b.onclick = () => garderOff(b.dataset.off, 1));
+  // suivi : valider à la main, relancer, refaire ou déplacer une séance (semaine en cours seulement)
+  const majSuivi = (f, msg) => { const Q = lirePlan(); f(Q); stocker("planning", JSON.stringify(Q)); listeSemaine(); if (msg) bulleMs(msg); };
+  Z.querySelectorAll("[data-coche]").forEach(b => b.onclick = () => majSuivi(Q => Q.fait = semaineSeule({ ...Q.fait, [b.dataset.coche]: 1 }), L("Séance validée : bien joué !", "Session confirmed: well done!")));
+  Z.querySelectorAll("[data-decoche]").forEach(b => b.onclick = () => majSuivi(Q => Q.fait = semaineSeule({ ...Q.fait, [b.dataset.decoche]: 0 })));
+  Z.querySelectorAll("[data-xdep]").forEach(b => b.onclick = () => majSuivi(Q => Q.dep = semaineSeule({ ...Q.dep, [b.dataset.xdep]: "" })));
+  Z.querySelectorAll("[data-rgo], [data-re]").forEach(b => b.onclick = () => lancer(W.jours[+(b.dataset.rgo || b.dataset.re)].perso.s));
+  Z.querySelectorAll("[data-dep]").forEach(b => b.onclick = () => { const x = W.jours[+b.dataset.dep];
+    ouvrirFeuilleInfo(L("Déplacer la séance du ", "Move the session from ") + JOURS_LONGS()[x.d], `<p class="sh-aide">${x.perso.s.t}</p><div class="ms-choix">${W.jours.filter(y => y.d >= auj).map(y => `<button class="jr-opt" style="--c:${x.perso.s.c}" data-dj="${y.j}"><span><b>${JOURS_LONGS()[y.d]}${y.d === auj ? " · " + L("aujourd’hui", "today") : ""}</b><small>${y.perso && y.perso.s ? L("en plus de : ", "on top of: ") + y.perso.s.t : y.clubs.length ? L("jour de club : attention à la charge", "club day: watch the load") : L("jour libre", "free day")}</small></span><i aria-hidden="true">›</i></button>`).join("")}</div>`);
+    document.querySelectorAll("[data-dj]").forEach(c => c.onclick = () => { fermerFeuille(); majSuivi(Q => Q.dep = semaineSeule({ ...Q.dep, [x.j]: c.dataset.dj }), L("Séance déplacée au ", "Session moved to ") + nomJourCle(c.dataset.dj)); }); });
   Z.querySelectorAll("[data-on]").forEach(b => b.onclick = () => garderOff(b.dataset.on, 0));
   $("msValider").onclick = () => { const Q = lirePlan(); Q.valide = jourCle(); stocker("planning", JSON.stringify(Q)); if (typeof majRappelSW === "function") majRappelSW();
     retour(() => ecran("menu", () => scrollTo(0, 0))); bulleMs(L("Semaine validée : l’accueil, les rappels et ta batterie suivent ce plan.", "Week confirmed: home, reminders and your battery follow this plan.")); };
@@ -267,3 +311,16 @@ function carteJourComplet(Z) {
   return true;
 }
 $("semaineCarte").insertAdjacentHTML("beforebegin", `<div class="semaine-carte bilan-carte" id="bilanCarte" hidden></div>`);
+$("semaineCarte").insertAdjacentHTML("afterend", `<div class="semaine-carte" id="suiviCarte" hidden></div>`);
+// carte de l'accueil : où en est la semaine, ce qui reste et ce qui est à rattraper ; elle ouvre Ma semaine
+function carteSuivi() {
+  const Z = $("suiviCarte"); if (!Z) return; const P = lirePlanning(), U = P && (P.jours.length || modeComplet(lirePlan())) ? suiviSemaine() : null;
+  if (!U || !U.prevues) { Z.hidden = true; return; }
+  const pro = U.suite.find(e => !e.c && e.d > jourSemaine()) || U.suite.find(e => e.d > jourSemaine());
+  Z.hidden = false;
+  Z.innerHTML = `<button class="sc-corps" id="suiviOuvrir"><span class="sc-ico">${U.retard.length ? "⚠️" : U.faites === U.prevues ? "🎉" : "📅"}</span><span><strong>${L("Ma semaine", "My week")} · ${U.faites} / ${U.prevues} ${L("faites", "done")}</strong>${barreSuivi(U)}<small>${U.retard.length
+    ? `${U.retard.length} ${U.retard.length > 1 ? L("séances à rattraper", "sessions to catch up") : L("séance à rattraper", "session to catch up")} : ${U.retard.map(e => JOURS_LONGS()[e.x.d]).join(", ")}`
+    : U.faites === U.prevues ? L("Tout est fait cette semaine, bravo !", "Everything is done this week, well done!")
+    : `${L("Il te reste ", "")}${U.suite.length} ${U.suite.length > 1 ? L("séances", "sessions left") : L("séance", "session left")}${pro ? " · " + L("prochaine : ", "next: ") + JOURS_LONGS()[pro.d] + ", " + nomSuivi(pro) : ""}`}</small></span></button>`;
+  $("suiviOuvrir").onclick = () => ouvrirPlanning("menu");
+}
