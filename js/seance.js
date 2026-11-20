@@ -830,13 +830,14 @@ function afficher() {
   $("count").textContent = e.lab ? e.lab : e.bn ? e.bn + (e.tt > 1 ? L(" · tour {t}/{n}", " · round {t}/{n}").replace("{t}", e.t).replace("{n}", e.tt) : "") + " · " + (index + 1) + "/" + liste.length : e.series ? T("Exercice {a} sur {b} · série {c} sur {d}", { a: Math.floor(index / e.series) + 1, b: liste.length / e.series, c: e.serie, d: e.series }) : T("Exercice {a} sur {b}", { a: index + 1, b: liste.length });
   $("name").textContent = e.nom; typeEx(e);
   $("time").style.color = "";
-  parler(annonce(e, liste[index - 1]));
+  // première fois qu'on fait cet exercice : le nom puis l'explication complète, d'une seule traite et sans pause (une 2e phrase couperait le nom) ;
+  // les consignes déjà dites ne reviennent pas pendant l'exercice ; pas en écran éteint (la piste est déjà enregistrée)
+  const vus = lireJSON("exVus", {}), premiere = !vus[e.id] && !e.autreCote && !(e.serie > 1) && !(e.t > 1) && e.duree >= 10 && !guideJoue() && voixActive && consignes(e.id).length === 3;
+  if (premiere) { stocker("exVus", JSON.stringify({ ...vus, [e.id]: 1 })); planConseils = {}; bulleMs(L("Première fois : écoute l’explication, la séance continue.", "First time: listen to the explanation, the workout keeps going.")); }
+  parler(annonce(e, liste[index - 1]) + (premiere ? ". " + consignes(e.id).join(" ") : ""));
   $("desc").innerHTML = etapesEx(e) + (consignes(e.id).length === 3 ? `<button class="lien explique" id="explique">🔊 ${L("Explique-moi", "Explain it to me")}</button>` : "");
   $("zones").textContent = e.muscles;
   if ($("explique")) $("explique").onclick = () => expliquer(e);
-  // première fois qu'on fait cet exercice : explication complète à la voix, séance en pause le temps de l'écouter (pas en écran éteint : la piste est déjà enregistrée)
-  const vus = lireJSON("exVus", {});
-  if (!vus[e.id] && !e.autreCote && !(e.serie > 1) && !(e.t > 1) && e.duree >= 10 && !guideJoue() && voixActive && consignes(e.id).length === 3) { stocker("exVus", JSON.stringify({ ...vus, [e.id]: 1 })); setTimeout(() => liste[index] === e && expliquer(e, 1), 1200); }
   media(e); if (typeof volExo === "function") volExo(e);
   const sv = liste.slice(index + 1).find(x => x.id !== e.id);   // aperçu du prochain mouvement différent ; un appui y passe
   $("ensuite").innerHTML = sv ? `${vignette(sv.id)}<span><small>${L("Ensuite", "Up next")}</small><b>${sv.nom}</b></span>` : "";
@@ -853,11 +854,11 @@ function afficher() {
 /* « Explique-moi » : pause, placement + mouvement + point de vigilance lus en entier et surlignés, puis reprise automatique
    (un appui sur « Reprendre » ou « On y va » reprend tout de suite) */
 let expliqueFin = null;
-function expliquer(e, premiere) {
+function expliquer(e) {
   const c = consignes(e.id); if (c.length < 3) return;
   const tournait = !enPause; if (tournait) pause(); clearTimeout(expliqueFin);
   const t = c.join(" ");   // seulement les consignes : elles sont enregistrées avec la voix 2 WORK (une phrase en plus passerait par la voix du téléphone)
-  parler(t); $("desc").classList.add("explication"); if (premiere) bulleMs(L("Première fois : écoute l’explication, la séance repart toute seule.", "First time: listen to the explanation, the workout restarts on its own."));
+  parler(t); $("desc").classList.add("explication");
   if (!$("expliqueOk")) $("desc").insertAdjacentHTML("beforeend", `<button class="primary" id="expliqueOk">${L("On y va", "Let’s go")}</button>`);
   const fin = () => { clearTimeout(expliqueFin); $("desc").classList.remove("explication"); if ($("expliqueOk")) $("expliqueOk").remove(); if (tournait && enPause && liste[index] === e && ecranCourant === "session") pause(); };
   $("expliqueOk").onclick = fin;
