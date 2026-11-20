@@ -828,8 +828,12 @@ function afficher() {
   $("name").textContent = e.nom; typeEx(e);
   $("time").style.color = "";
   parler(annonce(e, liste[index - 1]));
-  $("desc").innerHTML = etapesEx(e);
+  $("desc").innerHTML = etapesEx(e) + (consignes(e.id).length === 3 ? `<button class="lien explique" id="explique">🔊 ${L("Explique-moi", "Explain it to me")}</button>` : "");
   $("zones").textContent = e.muscles;
+  if ($("explique")) $("explique").onclick = () => expliquer(e);
+  // première fois qu'on fait cet exercice : explication complète à la voix, séance en pause le temps de l'écouter (pas en écran éteint : la piste est déjà enregistrée)
+  const vus = lireJSON("exVus", {});
+  if (!vus[e.id] && !e.autreCote && !(e.serie > 1) && !(e.t > 1) && e.duree >= 10 && !guideJoue() && voixActive && consignes(e.id).length === 3) { stocker("exVus", JSON.stringify({ ...vus, [e.id]: 1 })); setTimeout(() => liste[index] === e && expliquer(e, 1), 1200); }
   media(e); if (typeof volExo === "function") volExo(e);
   const sv = liste.slice(index + 1).find(x => x.id !== e.id);   // aperçu du prochain mouvement différent ; un appui y passe
   $("ensuite").innerHTML = sv ? `${vignette(sv.id)}<span><small>${L("Ensuite", "Up next")}</small><b>${sv.nom}</b></span>` : "";
@@ -843,6 +847,19 @@ function afficher() {
   $("pause").textContent = T(enPause ? "Reprendre" : "Pause");
 }
 
+/* « Explique-moi » : pause, placement + mouvement + point de vigilance lus en entier et surlignés, puis reprise automatique
+   (un appui sur « Reprendre » ou « On y va » reprend tout de suite) */
+let expliqueFin = null;
+function expliquer(e, premiere) {
+  const c = consignes(e.id); if (c.length < 3) return;
+  if (!enPause) pause(); clearTimeout(expliqueFin);
+  const t = (premiere ? L("Première fois : écoute bien. ", "First time: listen carefully. ") : "") + c.join(" ");
+  parler(t); $("desc").classList.add("explication");
+  if (!$("expliqueOk")) $("desc").insertAdjacentHTML("beforeend", `<button class="primary" id="expliqueOk">${L("On y va", "Let’s go")}</button>`);
+  const fin = () => { clearTimeout(expliqueFin); $("desc").classList.remove("explication"); if ($("expliqueOk")) $("expliqueOk").remove(); if (enPause && liste[index] === e) pause(); };
+  $("expliqueOk").onclick = fin;
+  expliqueFin = setTimeout(fin, 1500 + t.length * 70);   // environ 14 caractères par seconde à la voix
+}
 function majTemps() {
   $("time").textContent = reste;
   const e = liste[index];
