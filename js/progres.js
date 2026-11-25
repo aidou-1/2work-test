@@ -193,7 +193,7 @@ function celebrer() {   // renvoie false si la séance est écourtée (moins de 
   setTimeout(() => $("fBilan").querySelectorAll("b").forEach(b => compteur(b, +b.dataset.v)), 800);
   $("fTrophees").innerHTML = blocGain() + neufs.map((t, k) => `<div class="nouveau-trophee" style="--k:${k}">${medaille(t, "n")}<div><small>${L("Nouveau badge", "New badge")}</small><b>${L(t[1], t[2])}</b><span>${L(t[3], t[4])}</span></div></div>`).join("");
   if (fc.n) $("fSub").textContent += " ❤️ " + L(`${Math.round(fc.somme / fc.n)} bpm en moyenne, ${fc.max} au maximum.`, `${Math.round(fc.somme / fc.n)} bpm on average, ${fc.max} max.`);
-  $("fRessenti").innerHTML = blocRessenti(); brancherRessenti(); brancherEffort();
+  $("fRessenti").innerHTML = blocRessenti() + blocProchaine(); brancherRessenti(); brancherEffort(); brancherProchaine();
   $("fCharges").innerHTML = formCharges(); brancherCharges();
   $("fPartage").innerHTML = blocPartage(); brancherPartage();
   if ((h.length <= 3 || (h.length % 10 === 0 && h.length < 3000)) && typeof installee === "function" && !installee() && /^https?:/.test(location.protocol)) {   // premières séances (puis toutes les 10) : le bon moment pour proposer l'installation

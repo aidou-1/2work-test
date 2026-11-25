@@ -630,7 +630,7 @@ function blocsRepetes(plan) {
 }
 const ajustCle = () => routineCle + "|" + (routine.titreFr || routine.titre || "");
 const ajustDe = () => lireJSON("ajustSeances", {})[ajustCle()] || {};
-const nbModifs = c => Object.keys(c).filter(k => k[0] !== "_").length + (c._sans || []).length + Object.values(c._ex || {}).reduce((t, l) => t + l.length, 0);
+const nbModifs = c => Object.keys(c).filter(k => k[0] !== "_").length + (c._niv ? 1 : 0) + (c._sans || []).length + Object.values(c._ex || {}).reduce((t, l) => t + l.length, 0);
 // Retraits : blocs entiers puis exercices d'un bloc (dans chaque tour). Le repos d'un exercice retiré passe au précédent du même bloc ;
 // les numéros « 3/8 » des étiquettes sont recalculés sur ce qui reste.
 function planRetraits(plan, choix) {
@@ -648,7 +648,25 @@ function planRetraits(plan, choix) {
     return out.map(({ _u, ...e }) => { if (out.length < tot) ["bn", "lab"].forEach(c => { const m = e[c] && fr.exec(e[c]); if (!m) return; const l = [...rangs[c + m[1]]].sort((a, b) => a - b); e[c] = e[c].replace(fr, `$1${l.indexOf(+m[2]) + 1}/${l.length}`); }); return e; });
   });
 }
-function planAjuste(plan, choix) {
+/* Difficulté des exercices (« _niv » de −2 à +2, réglée en fin de séance ou dans Modifier) : chaque cran passe à la variante plus dure
+   (ou plus simple) de la même famille, au poids du corps et sans saut ajouté (moins de risque de blessure) ; sans variante, l'effort dure 10 s de plus
+   (ou de moins, 15 s minimum). Échauffement, retour au calme, cardio long et séries de salle ne changent pas. */
+const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", "squat", "squatUni"], ["pont", "pontuni"], ["ours", "planche", "planchetouch"],
+  ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"]];
+const varianteEx = (id, sens) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v]) return v; } return null; };
+const FIXE_NIV = /calme|cool|étire|stretch|respir/i;
+function planNiveau(plan, niv) {
+  if (!niv) return plan;
+  const s = Math.sign(niv);
+  return plan.map(q => {
+    if (q.series || q.d >= 90 || ECHAUF.test(cleBloc(q.bn)) || FIXE_NIV.test(cleBloc(q.bn))) return q;
+    let id = q.id, d = q.d;
+    for (let k = 0; k < Math.abs(niv); k++) { const v = varianteEx(id, s); v ? id = v : d = Math.max(15, d + 10 * s); }
+    return id === q.id && d === q.d ? q : { ...q, id, d };
+  });
+}
+function planAjuste(plan, choix) { return planNiveau(planVolume(plan, choix), choix._niv); }
+function planVolume(plan, choix) {
   plan = planRetraits(plan, choix);
   if (!Object.keys(choix).some(k => k[0] !== "_")) return plan;
   const rx = (a, b, der) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)` + (der ? `(?!.*\\d\\s*/\\s*\\d)` : ""));
@@ -663,6 +681,18 @@ function planAjuste(plan, choix) {
     return out;
   });
 }
+const nivTxt = n => n ? L(["beaucoup plus simples", "plus simples", "", "plus durs", "beaucoup plus durs"][n + 2], ["much easier", "easier", "", "harder", "much harder"][n + 2]) : L("comme proposés", "as suggested");
+// ce que change la difficulté : « Dead bug → Gainage dos rond », ou « Planche latérale : 50 s »
+function changementsNiv(plan, niv) {
+  const a = planNiveau(plan, niv), vu = new Set(), nom = id => (EXERCICES[id] || {}).nom || id;
+  return plan.flatMap((q, i) => { const b = a[i], k = q.id + ">" + b.id + b.d; if (b === q || vu.has(k)) return []; vu.add(k); return [b.id !== q.id ? nom(q.id) + " → " + nom(b.id) : nom(q.id) + " : " + duTxt(b.d)]; });
+}
+// enregistre le choix de la séance en cours (vide = séance proposée)
+function stockerAjust(c) {
+  if (c._sans && !c._sans.length) delete c._sans; if (!c._niv) delete c._niv;
+  if (c._ex) { Object.keys(c._ex).forEach(k => c._ex[k].length || delete c._ex[k]); if (!Object.keys(c._ex).length) delete c._ex; }
+  const t = lireJSON("ajustSeances", {}); Object.keys(c).length ? t[ajustCle()] = c : delete t[ajustCle()]; stocker("ajustSeances", JSON.stringify(t));
+}
 let ajustOuvert = false, ajustDetail = "";
 function majAjust(blocs, choix) {
   const R = $("ajustRow"), P = $("ajustPanel"), sans = new Set(choix._sans || []), exR = choix._ex || {};
@@ -670,11 +700,12 @@ function majAjust(blocs, choix) {
   R.classList.toggle("hidden", !l.length); P.classList.toggle("hidden", !l.length || !ajustOuvert); $("ajustBtn").setAttribute("aria-expanded", ajustOuvert);
   if (!l.length) return;
   const resume = [...[...sans].map(k => L("sans ", "no ") + k.toLowerCase()), ...l.filter(g => !sans.has(g.k) && choix[g.k] && choix[g.k] !== g.n).map(g => `${g.k} × ${choix[g.k]}`),
-    ...Object.entries(exR).filter(([k, v]) => v.length && !sans.has(k)).map(([k, v]) => `${k} − ${v.length}`)];
+    ...Object.entries(exR).filter(([k, v]) => v.length && !sans.has(k)).map(([k, v]) => `${k} − ${v.length}`), ...(choix._niv ? [L("exercices ", "exercises ") + nivTxt(choix._niv)] : [])];
   $("ajustInfo").textContent = modif ? L("Modifiée : ", "Edited: ") + resume.join(" · ") : L("Retire l’échauffement ou des exercices, ajuste répétitions, séries et tours", "Remove the warm-up or exercises, adjust reps, sets and rounds");
   const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.k)).length;
   const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.k)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.k));
   P.innerHTML = (ech.length ? `<button class="toggle ${echTous ? "contour" : ""}" id="ajustEch">${echTous ? L("↺ Remettre l’échauffement", "↺ Put the warm-up back") : L("Déjà échauffé : retirer l’échauffement", "Already warm: remove the warm-up")}</button>` : "")
+    + (sa0 => sa0 ? "" : `<div class="aj-ligne"><div><b>${L("Difficulté des exercices", "Exercise difficulty")}</b><small>${nivTxt(choix._niv || 0)}${choix._niv ? " · " + changementsNiv(routine.plan, choix._niv).slice(0, 3).join(" · ") : " · " + L("variante plus dure ou effort plus long", "harder variation or longer effort")}</small></div><div class="stepper"><button data-niv="-1" ${(choix._niv || 0) <= -2 ? "disabled" : ""} aria-label="${L("Exercices plus simples", "Easier exercises")}">−</button><output>${(choix._niv > 0 ? "+" : "") + (choix._niv || 0)}</output><button data-niv="1" ${(choix._niv || 0) >= 2 ? "disabled" : ""} aria-label="${L("Exercices plus durs", "Harder exercises")}">+</button></div></div>`)(mode === "salle" || routine.gym)
     + l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.k);
       const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.k] || [], ouvert = ajustDetail === g.k && !off;
       return `<div class="aj-ligne${off ? " aj-off" : ""}"><div><b>${g.k}</b><small>${off ? L("Retiré de la séance", "Removed from the workout") : (g.p === 1 ? dur(e.d) + (e.r ? " · " + L("repos ", "rest ") + dur(e.r) : "") : L(`${uniques.length - retires.length} exercices`, `${uniques.length - retires.length} exercises`) + (g.n > 1 ? L(" par tour", " per round") : "")) + (g.n > 1 ? ` · ${L("proposé", "suggested")} : ${g.n}` : "")}</small></div>
@@ -683,10 +714,10 @@ function majAjust(blocs, choix) {
         + (ouvert ? `<ul class="aj-ex">${uniques.map(id => { const r = retires.includes(id), dernier = !r && uniques.length - retires.length <= 1;
           return `<li class="${r ? "aj-off" : ""}">${vignette(id)}<span>${(EXERCICES[id] || {}).nom || id}</span><button class="aj-mini" data-exb="${i}" data-ex="${id}" ${dernier ? "disabled" : ""} aria-label="${(r ? L("Remettre ", "Put back ") : L("Retirer ", "Remove ")) + ((EXERCICES[id] || {}).nom || id)}">${r ? "↺" : "×"}</button></li>`; }).join("")}</ul>` : ""); }).join("")
     + (modif ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Si tu enchaînes deux séances, retire l’échauffement de la seconde. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. If you do two workouts back to back, remove the warm-up from the second. More volume isn’t always better: keep every effort high quality.")}</p>`;
-  const garder = c => { if (c._sans && !c._sans.length) delete c._sans; if (c._ex) { Object.keys(c._ex).forEach(k => c._ex[k].length || delete c._ex[k]); if (!Object.keys(c._ex).length) delete c._ex; }
-    const t = lireJSON("ajustSeances", {}); Object.keys(c).length ? t[ajustCle()] = c : delete t[ajustCle()]; stocker("ajustSeances", JSON.stringify(t)); ouvrirApercu(routineCle); };
+  const garder = c => { stockerAjust(c); ouvrirApercu(routineCle); };
   const copie = () => ({ ...choix, _sans: [...(choix._sans || [])], _ex: Object.fromEntries(Object.entries(exR).map(([k, v]) => [k, [...v]])) });
   P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(), v = (c[g.k] || g.n) + +b.dataset.d; v === g.n ? delete c[g.k] : c[g.k] = v; garder(c); });
+  P.querySelectorAll("[data-niv]").forEach(b => b.onclick = () => garder({ ...copie(), _niv: Math.max(-2, Math.min(2, (choix._niv || 0) + +b.dataset.niv)) }));
   P.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { const g = l[+b.dataset.off], c = copie(); c._sans = sans.has(g.k) ? c._sans.filter(k => k !== g.k) : [...c._sans, g.k]; garder(c); });
   P.querySelectorAll("[data-det]").forEach(b => b.onclick = () => { const k = l[+b.dataset.det].k; ajustDetail = ajustDetail === k ? "" : k; majAjust(blocs, choix); });
   P.querySelectorAll("[data-exb]").forEach(b => b.onclick = () => { const g = l[+b.dataset.exb], c = copie(), r = c._ex[g.k] || [], id = b.dataset.ex; c._ex[g.k] = r.includes(id) ? r.filter(x => x !== id) : [...r, id]; garder(c); });
@@ -694,6 +725,34 @@ function majAjust(blocs, choix) {
   if ($("ajustDef")) $("ajustDef").onclick = () => garder({});
 }
 $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepetes(routine.plan), ajustDe()); };
+
+/* --- Fin de séance « Pour la prochaine fois » (à côté du ressenti) : moins ou plus de séries et de tours, exercices plus simples ou plus durs.
+   Même choix que « Modifier la séance » (« ajustSeances »), donc retrouvé et modifiable avant le prochain lancement ; annulable tout de suite.
+   Pas pour la reprise après blessure (progression encadrée) ni la respiration. Échauffement et retour au calme ne bougent pas. */
+const blocsVolume = () => blocsRepetes(routine.plan).filter(g => g.n >= 2 && !ECHAUF.test(g.k) && !FIXE_NIV.test(g.k));
+function blocProchaine() {
+  if (!routine.plan || routine.reprise || mode === "souffle") return "";
+  const vol = blocsVolume().length, niv = mode !== "salle" && !routine.gym;
+  if (!vol && !niv) return "";
+  return `<div class="carnet ressenti prochaine" id="prBloc"><h3>🎯 ${L("Pour la prochaine fois", "For next time")}</h3><p class="sh-aide">${L("Adapte cette séance à ta forme : elle sera prête la prochaine fois que tu la lances (modifiable avec ✏️ Modifier).", "Fit this workout to your level: it will be ready next time you start it (still editable with ✏️ Edit).")}</p>
+    ${vol ? `<div class="pr-ligne"><span>${L("Séries et tours", "Sets and rounds")}</span><div class="pr-btns"><button class="toggle contour" data-prv="-1">➖ ${L("Moins", "Fewer")}</button><button class="toggle contour" data-prv="1">➕ ${L("Plus", "More")}</button></div></div>` : ""}
+    ${niv ? `<div class="pr-ligne"><span>${L("Exercices", "Exercises")}</span><div class="pr-btns"><button class="toggle contour" data-prn="-1">🪶 ${L("Plus simples", "Easier")}</button><button class="toggle contour" data-prn="1">🔥 ${L("Plus durs", "Harder")}</button></div></div>` : ""}
+    <div id="prRes" aria-live="polite"></div></div>`;
+}
+function brancherProchaine() {
+  if (!$("prBloc")) return;
+  const avant = ajustDe(), G = blocsVolume();
+  const maj = c => {
+    stockerAjust(c); const n = nbModifs(c) !== nbModifs(avant) || JSON.stringify(c) !== JSON.stringify(avant);
+    const v = G.filter(g => c[g.k] && c[g.k] !== g.n).map(g => `${g.k} × ${c[g.k]} ${L("au lieu de", "instead of")} ${g.n}`), d = c._niv ? changementsNiv(routine.plan, c._niv) : [];
+    $("prRes").innerHTML = n ? `<p class="sh-ok">✓ ${L("Prochaine fois", "Next time")} : ${[...v, ...(c._niv ? [L("exercices ", "exercises ") + nivTxt(c._niv)] : [])].join(" · ") || L("séance proposée", "suggested workout")}</p>${d.length ? `<p class="sh-aide">${d.slice(0, 4).join(" · ")}${d.length > 4 ? " …" : ""}</p>` : c._niv ? `<p class="sh-aide">${L("Déjà au bout des variantes : la séance reste la même.", "Already at the last variation: the workout stays the same.")}</p>` : ""}<button class="lien" id="prAnnul">${L("Annuler", "Undo")}</button>` : "";
+    if ($("prAnnul")) $("prAnnul").onclick = () => { stockerAjust(JSON.parse(JSON.stringify(avant))); $("prRes").innerHTML = `<p class="sh-aide">↩︎ ${L("Séance gardée telle quelle.", "Workout kept as it was.")}</p>`; };
+  };
+  const cour = () => JSON.parse(JSON.stringify(ajustDe()));
+  document.querySelectorAll("[data-prv]").forEach(b => b.onclick = () => { const c = cour(), d = +b.dataset.prv;
+    G.forEach(g => { if ((c._sans || []).includes(g.k)) return; const v = Math.max(1, Math.min(40, Math.max(g.n * 2, g.n + 4), (c[g.k] || g.n) + d)); v === g.n ? delete c[g.k] : c[g.k] = v; }); maj(c); });
+  document.querySelectorAll("[data-prn]").forEach(b => b.onclick = () => { const c = cour(); c._niv = Math.max(-2, Math.min(2, (c._niv || 0) + +b.dataset.prn)); maj(c); });
+}
 
 let sansAuj = new Set();   // exercices retirés pour aujourd'hui (douleur) : hors de la liste jouée, jamais retirés de la séance enregistrée
 function ouvrirApercu(cle) {
