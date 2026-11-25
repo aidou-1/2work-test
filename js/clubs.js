@@ -608,12 +608,12 @@ async function qrSvg(t) {
 /* --- Carte de l'accueil : prochaine séance du club et messages non lus --- */
 async function majCarteClubs() {
   const Z = $("clubCarte"); if (!Z) return;
-  const vide = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${L("Clubs", "Clubs")}</strong><small>${L("Rejoins le club de ton coach ou crée le tien", "Join your coach’s club or create your own")}</small></span></button>`;
+  const vide = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">${icoC("groupe", "#A493FF")}</span><span><strong>${L("Clubs", "Clubs")}</strong><small>${L("Rejoins le club de ton coach ou crée le tien", "Join your coach’s club or create your own")}</small></span></button>`;
   if (!lire("clubCompte") || !CL.u) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); if (lire("clubCompte") && CL.u === undefined) chargerServeur().catch(() => {}); return; }
   if (!CL.clubs.length) { Z.innerHTML = vide; $("clubGo").onclick = () => ouvrirClubs(); return; }
   const auj = jourCle(), info = await Promise.all(CL.clubs.slice(0, 3).map(async c => ({ c, p: (await SV.prochaines(c.id, auj, [...mesSections(c), ...(CL.u ? ["u_" + CL.u.uid] : [])]))[0], m: await SV.dernierMessage(c.id), ms: await Promise.all(mesSections(c).map(async sal => [c.id + "_" + sal, await SV.dernierMessage(c.id, sal)])) })));
   CL.der = Object.fromEntries(info.flatMap(x => [[x.c.id, x.m], ...x.ms]));
-  Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">👥</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
+  Z.innerHTML = `<button class="sc-corps" style="--c:#2563EB" id="clubGo"><span class="sc-ico">${icoC("groupe", "#A493FF")}</span><span><strong>${info.map(x => echap(x.c.nom) + (nonLu(x.c.id) ? ' <i class="cl-point"></i>' : "")).join(" · ")}</strong><small>${info.filter(x => x.p).map(x => `${dateLisible(x.p.date)} : ${echap(x.p.titre)}`).join(" · ") || L("Pas de séance prévue", "No workout planned")}</small></span></button>`;
   $("clubGo").onclick = () => CL.clubs.length === 1 ? ouvrirClubs({ vue: "club", c: CL.clubs[0].id, onglet: nonLu(CL.clubs[0].id) ? "chat" : "seances", depuisAccueil: true }) : ouvrirClubs({ vue: "liste", depuisAccueil: false });
   synchroSemaineClubs(0).catch(() => {});
 }

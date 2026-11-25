@@ -4,11 +4,13 @@ function stocker(k, v) { try { localStorage.setItem(k, v); return true; } catch 
 const VER = (() => { try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; } })();   // numéro de version (outils/version.py), pour les fichiers chargés plus tard
 const propre = t => String(t).replace(/[<>]/g, "");
 /* Icônes d'interface : un seul jeu au trait (même dessin que la barre de navigation), à la place des emojis */
-const ICONES = { reprise: '<path d="M5 4v16l9-8z"/><path d="M17 5v14M21 5v14"/>', agenda: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>', lecture: '<path d="M7 4v16l13-8z"/>', eclair: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+const ICONES = { batterie: '<path d="M10 14v-4M22 14v-4M6 14v-4"/><rect x="2" y="6" width="16" height="12" rx="2"/>', coeur: '<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>', pansement: '<path d="M10 10.01h.01M10 14.01h.01M14 10.01h.01M14 14.01h.01M18 6v12M6 6v12"/><rect x="2" y="6" width="20" height="12" rx="2"/>', pousse: '<path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4M5 21h14"/>', groupe: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3.128a4 4 0 0 1 0 7.744M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>', reprise: '<path d="M5 4v16l9-8z"/><path d="M17 5v14M21 5v14"/>', agenda: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>', lecture: '<path d="M7 4v16l13-8z"/>', eclair: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   bulle: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', cloche: '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>', flamme: '<path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-2 1-3.500 2-4.500 0 2 1 3 2 3 0-4 1-6.500 2-9.500z"/>',
   cible: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>', pile: '<rect x="3" y="8" width="16" height="9" rx="2"/><path d="M22 11v3M7 11v3M11 11v3"/>', haltere: '<path d="M3 9v6M7 6v12M17 6v12M21 9v6M7 12h10"/>',
   course: '<circle cx="14" cy="5" r="2"/><path d="m7 21 3-6 3 2v4M10 15l1-5 4 2 3 1M11 10 8 9l-2 3"/>', loupe: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', envoi: '<path d="M21 3 3 10l7 3 3 7z"/><path d="m10 13 5-5"/>' };
-const ico = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[n]}</svg>`;   // un nom saisi ou restauré ne peut jamais injecter de balise dans la page
+const ico = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[n]}</svg>`;
+// icône en couleur dans une pastille de verre teintée (remplace les emojis : garde de la couleur, dessin net et homogène)
+const icoC = (n, c) => `<span class="ico-c" style="--ic:${c}">${ico(n)}</span>`;   // un nom saisi ou restauré ne peut jamais injecter de balise dans la page
 let LANGUE = "fr";
 try { LANGUE = localStorage.getItem("langue") || "fr"; } catch (e) {}
 document.documentElement.lang = LANGUE;

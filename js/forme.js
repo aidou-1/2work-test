@@ -277,9 +277,9 @@ function majForme() {
   const r = lireForme()[jourCle()] || {}, zs = r.dl ? r.z || [] : [], P0 = B && palier(B.conseil), cr = B && pointAttendu(B.r);
   Z.classList.add("forme-bloc");
   Z.innerHTML = `<div class="fb-tete"><strong>${L("Ma forme", "My fitness")}</strong>${cr ? `<button class="toggle" id="fmPt">📍 ${L("Faire le point", "Check in")}</button>` : ""}</div><div class="fb-tuiles">
-    <button class="fb-t" id="fmOuvrir" style="--c:${B ? P0[6] : "var(--brand)"}">${B ? icoBatterie(B.v) : `<span class="fb-i">🔋</span>`}<b>${B ? B.v + " %" : L("À remplir", "To fill in")}</b><small>${B ? L(P0[2], P0[3]) : L("30 s le matin", "30 s each morning")}</small></button>
-    <button class="fb-t" id="fbDl" style="--c:${r.dl === 2 ? "var(--rouge)" : r.dl ? "var(--ambre)" : "var(--feu-vert)"}"><span class="fb-i">${r.dl ? "🩹" : "💚"}</span><b>${!B ? L("Douleur", "Pain") : r.dl === 2 ? L("Douleur", "Pain") : r.dl ? L("Gêne", "Discomfort") : L("Aucune", "None")}</b><small>${zs.length ? zs.map(nomZone).join(", ") : B ? L("carte du corps", "body map") : L("au questionnaire", "in the check-in")}</small></button>
-    <button class="fb-t" id="fbSem"><span class="fb-i">📅</span><b id="fbSemV">${L("Ma semaine", "My week")}</b><small id="fbSemS"></small></button></div>`;
+    <button class="fb-t" id="fmOuvrir" style="--c:${B ? P0[6] : "var(--brand)"}">${B ? icoBatterie(B.v) : icoC("batterie", "#5FD47A")}<b>${B ? B.v + " %" : L("À remplir", "To fill in")}</b><small>${B ? L(P0[2], P0[3]) : L("30 s le matin", "30 s each morning")}</small></button>
+    <button class="fb-t" id="fbDl" style="--c:${r.dl === 2 ? "var(--rouge)" : r.dl ? "var(--ambre)" : "var(--feu-vert)"}">${r.dl ? icoC("pansement", "#FFAA55") : icoC("coeur", "#FF6F8E")}<b>${!B ? L("Douleur", "Pain") : r.dl === 2 ? L("Douleur", "Pain") : r.dl ? L("Gêne", "Discomfort") : L("Aucune", "None")}</b><small>${zs.length ? zs.map(nomZone).join(", ") : B ? L("carte du corps", "body map") : L("au questionnaire", "in the check-in")}</small></button>
+    <button class="fb-t" id="fbSem">${icoC("agenda", "#6FB8FF")}<b id="fbSemV">${L("Ma semaine", "My week")}</b><small id="fbSemS"></small></button></div>`;
   $("fmOuvrir").onclick = () => B ? detailForme() : questionnaire();
   $("fbDl").onclick = () => B ? feuilleDouleur() : questionnaire();
   if ($("fmPt")) $("fmPt").onclick = () => pointJour();

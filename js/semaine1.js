@@ -71,7 +71,7 @@ function majS1() {
   if (Z.classList.contains("hidden")) return;
   const pts = f => `<div class="bv-points s1-points">${[1, 2, 3, 4, 5, 6, 7].map(i => `<i class="${f.includes(i) ? "on" : ""}"></i>`).join("")}</div>`;
   if (!s) {
-    Z.innerHTML = `<div class="quick-corps"><strong>🌱 ${L("Ta première semaine", "Your first week")}</strong><small>${L("7 séances courtes (6 à 20 min environ), construites pour ton sport et ton matériel. Une par jour si tu peux ; un jour sauté, on reprend simplement où tu en étais.", "7 short workouts (about 6 to 20 min), built for your sport and equipment. One a day if you can; skip a day and you simply pick up where you left off.")}</small>
+    Z.innerHTML = `<div class="quick-corps"><strong>${icoC("pousse", "#4FD69C")} ${L("Ta première semaine", "Your first week")}</strong><small>${L("7 séances courtes (6 à 20 min environ), construites pour ton sport et ton matériel. Une par jour si tu peux ; un jour sauté, on reprend simplement où tu en étais.", "7 short workouts (about 6 to 20 min), built for your sport and equipment. One a day if you can; skip a day and you simply pick up where you left off.")}</small>
       <div class="partage-btns"><button class="toggle" id="s1Go">${L("Commencer · jour 1", "Start · day 1")}</button><button class="toggle contour" id="s1Non">${L("Non merci", "No thanks")}</button></div></div>`;
     $("s1Go").onclick = s1Commencer; $("s1Non").onclick = () => { stocker("s1Off", "1"); majS1(); }; return;
   }
@@ -81,7 +81,7 @@ function majS1() {
     $("s1Prog").onclick = () => ouvrirProgs(); $("s1Sp").onclick = () => vueSCats(); $("s1Cl").onclick = () => ouvrirClubs(); $("s1Fin").onclick = () => { s1Garder({ ...s, fin: 1 }); majS1(); }; return;
   }
   const n = s1Prochain(s), x = s1Jour(n), fait = s.j === jourCle();
-  Z.innerHTML = `<div class="quick-corps"><strong>🌱 ${L("Ta première semaine", "Your first week")} · ${L("jour", "day")} ${n}/7</strong>${pts(s.f)}
+  Z.innerHTML = `<div class="quick-corps"><strong>${icoC("pousse", "#4FD69C")} ${L("Ta première semaine", "Your first week")} · ${L("jour", "day")} ${n}/7</strong>${pts(s.f)}
     <small>${fait ? "✓ " + L("Séance du jour faite. Reviens demain pour la suivante, ou continue si tu as de l’énergie.", "Today’s workout done. Come back tomorrow for the next one, or keep going if you have energy.") : L(...S1_BUT[n - 1])}</small>
     <button class="choice s1-seance" style="--c:${x.c}" id="s1Go"><strong>${x.t}</strong><span>${x.s}</span></button>
     <button class="lien-discret" id="s1Stop">${L("Arrêter la première semaine", "Stop the first week")}</button></div>`;
