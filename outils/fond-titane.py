@@ -57,7 +57,8 @@ for _ in range(500):
     x = cx + (rng.random() - .5) * 2 * np.tan(.40) * (y := rng.random() * HZ * .97) ; point(x, y, .6, rng.random() * .5)
 
 # --- astre à anneau (droite)
-PX, PY, R = W * .80, H * .24, W * .105
+# astre placé dans la zone libre de l'accueil (entre le titre et le bouton ⓘ), sinon le verre flouté des cartes le cache
+PX, PY, R = W * .585, H * .135, W * .058
 tilt = np.radians(-16); ct, st = np.cos(tilt), np.sin(tilt)
 u = ((X - PX) * ct + (Y - PY) * st) / R; v = (-(X - PX) * st + (Y - PY) * ct) / R   # repère de l'astre
 d2 = (X - PX) ** 2 + (Y - PY) ** 2; dedans = d2 < R * R
