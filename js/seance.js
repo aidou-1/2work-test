@@ -269,7 +269,7 @@ let tPret, tMin = null, ecranCourant = "accueil", sensRetour = false, genEcran =
 const mouvementReduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /* Change d'écran. "avant" : modifications du DOM à faire dans la même transition (ex. changer de liste).
    Pour revenir en arrière, appeler retour(() => ...) : la transition part dans l'autre sens. */
-// point touché en dernier : centre du dévoilement et des ondes du style Verre liquide (--tx, --ty)
+// point touché en dernier : centre du dévoilement et des ondes du style Titane (--tx, --ty)
 addEventListener("pointerdown", e => { const r = document.documentElement.style; r.setProperty("--tx", e.clientX + "px"); r.setProperty("--ty", e.clientY + "px"); }, { capture: true, passive: true });
 function ecran(nom, avant) {
   if (nom !== "pret") clearInterval(tPret);
@@ -279,7 +279,7 @@ function ecran(nom, avant) {
   const g = ++genEcran;   // un écran demandé entre-temps l'emporte (sinon une transition en retard couperait le chrono)
   const maj = () => { if (avant) avant(); if (g === genEcran) afficherEcran(nom); };
   if (!change || mouvementReduit() || sansAnim) return maj();
-  if (["liquide", "titane"].includes(document.documentElement.dataset.style)) { const o = $("ondes"); o.classList.remove("joue"); void o.offsetWidth; o.classList.add("joue"); clearTimeout(o.t); o.t = setTimeout(() => o.classList.remove("joue"), 1300); }   // ondes à la surface depuis le doigt
+  if (document.documentElement.dataset.style === "titane") { const o = $("ondes"); o.classList.remove("joue"); void o.offsetWidth; o.classList.add("joue"); clearTimeout(o.t); o.t = setTimeout(() => o.classList.remove("joue"), 1300); }   // ondes à la surface depuis le doigt
   document.documentElement.dataset.sens = ecranCourant === "accueil" ? "splash" : sens;   // sortie de l'écran de démarrage : le menu s'ouvre en cercle depuis le logo
   if (document.startViewTransition) return document.startViewTransition(maj).ready.catch(() => {});   // une transition interrompue par la suivante n'est pas une erreur
   maj();

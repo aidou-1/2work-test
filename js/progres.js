@@ -630,7 +630,7 @@ let theme = "clair";   // par défaut : clair (Fonderie clair)
 try { theme = localStorage.getItem("theme") || "clair"; } catch (e) {}
 const sombreSys = matchMedia("(prefers-color-scheme: dark)");
 function appliquerTheme() {
-  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || ["liquide", "titane"].includes(document.documentElement.dataset.style);   // Verre liquide et Titane : toujours sombres (OLED)
+  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || document.documentElement.dataset.style === "titane";   // Titane : toujours sombre (OLED)
   document.documentElement.dataset.theme = d ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || (d ? "#0C0A09" : "#FBF6F1");   // barre du téléphone à la couleur du fond du style
   [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).setAttribute("aria-pressed", theme === t));
@@ -639,10 +639,12 @@ function appliquerTheme() {
 [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).onclick = () => { theme = t; stocker("theme", t); appliquerTheme(); });
 sombreSys.addEventListener && sombreSys.addEventListener("change", () => theme === "auto" && appliquerTheme());
 appliquerTheme();
-// style de l'appli (Fonderie par défaut, Atelier papier, Classique = d'origine) et style du minuteur ; appliqués aussi avant l'affichage (index.html)
+// style de l'appli (Titane par défaut, Fonderie, Atelier papier, Socle) et style du minuteur ; appliqués aussi avant l'affichage (index.html)
+// les styles retirés (Verre liquide, Classique) passent à Titane
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
   $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
+try { if (["liquide", "actuel"].includes(localStorage.getItem("style"))) stocker("style", "titane"); } catch (e) {}
 choixRg("rgStyle", "style", "style", "titane", "st");
 // effet verre : activé par défaut, appliqué aussi avant l'affichage (index.html)
 const majVerre = () => { const v = "verre" in document.documentElement.dataset; $("verreBtn").textContent = T(v ? "Activé" : "Coupé"); $("verreBtn").setAttribute("aria-pressed", v); };
