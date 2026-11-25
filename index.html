@@ -1005,7 +1005,7 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 .ondes b { position: absolute; left: var(--tx, 50%); top: var(--ty, 60%); width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 2px solid rgba(255,210,168,.9); box-shadow: 0 0 18px rgba(255,122,26,.8), inset 0 0 12px rgba(255,255,255,.5); opacity: 0; animation: onde .9s cubic-bezier(.2, .7, .3, 1) forwards; }
 .ondes b:nth-child(2) { animation-delay: .12s; border-color: rgba(255,255,255,.7); } .ondes b:nth-child(3) { animation-delay: .24s; border-width: 1px; }
 @keyframes onde { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(16); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .eau i, .eau b, .eau s, .eau::before, .eau .defile span, :root:is([data-style="liquide"], [data-style="titane"]) :is(.primary, .controls .main)::after, :root:is([data-style="liquide"], [data-style="titane"]) :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte, .primary, .toggle, .controls button, .ajouter, .nav button) { animation: none !important; } .ondes { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .eau i, .eau b, .eau s, .eau .astre, .eau::before, .eau .defile span, :root:is([data-style="liquide"], [data-style="titane"]) :is(.primary, .controls .main)::after, :root:is([data-style="liquide"], [data-style="titane"]) :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte, .primary, .toggle, .controls button, .ajouter, .nav button) { animation: none !important; } .ondes { display: none !important; } }
 #rgStyle :is([data-st="liquide"], [data-st="titane"]) { grid-column: 1 / -1; }
 /* ===== Titane (Réglages → Style) : le Verre liquide sur une scène de nuit, sol qui reflète et lumière argentée à l'horizon ;
    gouttes en métal liquide argenté, un seul accent vert acide (anneau du chrono, textes d'accent). Toujours sombre, comme le Verre liquide. ===== */
@@ -1025,7 +1025,13 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 :root[data-style="titane"] .eau i:nth-child(3) { background: radial-gradient(closest-side, rgba(150,160,180,.20), rgba(150,160,180,.06) 50%, transparent); }
 :root[data-style="titane"] .eau i:nth-child(4) { background: radial-gradient(closest-side, rgba(240,232,218,.14), transparent 60%); }
 :root[data-style="titane"] .eau b { inset: 57% 0 0; background: repeating-linear-gradient(180deg, rgba(255,255,255,.03) 0 1px, transparent 1px 6px); border-top: 1px solid rgba(240,232,218,.55); box-shadow: 0 0 22px 1px rgba(240,232,218,.30); mix-blend-mode: normal; animation: houle 7s ease-in-out infinite alternate; transform-origin: 50% 0; }
-.eau s, .eau .defile { display: none; }
+.eau s, .eau .defile, .eau .astre { display: none; }
+/* astre à anneau sur la droite : sphère sombre éclairée en haut à gauche ; l'anneau : moitié haute (::before) cachée là où la sphère la couvre, moitié basse (::after) devant */
+:root[data-style="titane"] .eau .astre { display: block; position: absolute; right: -18vw; top: 14%; width: 58vw; height: 58vw; max-width: 340px; max-height: 340px; border-radius: 50%; background: radial-gradient(circle at 32% 26%, #2E2A25 0%, #141210 36%, #080707 70%, #040303 100%); box-shadow: inset 14px 12px 26px -12px rgba(244,230,204,.45), inset -20px -24px 40px rgba(0,0,0,.7), 0 0 80px rgba(232,220,195,.07); animation: astre 36s ease-in-out infinite alternate; }
+:root[data-style="titane"] .eau .astre::before, :root[data-style="titane"] .eau .astre::after { content: ""; position: absolute; left: -55%; right: -55%; top: 36%; bottom: 36%; border-radius: 50%; rotate: -16deg; background: radial-gradient(closest-side, transparent 66%, rgba(236,224,200,.42) 67.5%, rgba(236,224,200,.10) 71%, rgba(236,224,200,.30) 74%, transparent 76%, rgba(236,224,200,.16) 80%, rgba(236,224,200,.34) 84%, transparent 86%, rgba(236,224,200,.12) 92%, transparent 95%); }
+:root[data-style="titane"] .eau .astre::before { clip-path: inset(0 0 50% 0); -webkit-mask-image: radial-gradient(circle min(29vw, 170px) at 50% 50%, transparent 99%, #000 100%); mask-image: radial-gradient(circle min(29vw, 170px) at 50% 50%, transparent 99%, #000 100%); }
+:root[data-style="titane"] .eau .astre::after { clip-path: inset(50% 0 0 0); }
+@keyframes astre { from { transform: translate(0, 0); } to { transform: translate(-10px, 14px); } }
 /* cube : la face avant est l'élément, le dessus et le côté sont ses pseudo-éléments, tous pailletés d'étoiles */
 :root[data-style="titane"] .eau s { display: block; position: absolute; left: var(--x); top: var(--y); width: var(--t); height: var(--t); transform-style: preserve-3d; opacity: calc(1 - var(--f) / 6); animation: cube var(--d) ease-in-out infinite alternate; animation-delay: calc(var(--d) * -.37); rotate: z var(--r); }
 :root[data-style="titane"] .eau s, :root[data-style="titane"] .eau s::before, :root[data-style="titane"] .eau s::after { background: radial-gradient(1px 1px at 23% 31%, rgba(255,250,240,.9), transparent), radial-gradient(1.5px 1.5px at 71% 64%, rgba(255,250,240,.7), transparent), radial-gradient(1px 1px at 46% 87%, rgba(255,250,240,.55), transparent), radial-gradient(1px 1px at 88% 12%, rgba(255,250,240,.6), transparent), #0B0A09; background-size: 29px 37px, 41px 31px, 23px 47px, 53px 43px, auto; box-shadow: inset 0 0 0 1px rgba(240,232,218,.16), inset 0 0 12px rgba(0,0,0,.8); }
@@ -1085,7 +1091,7 @@ button:active:not(:disabled) { transform: none; }
 try { const t = localStorage.getItem("theme") || "clair"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; const s = localStorage.getItem("style") || "liquide", m = localStorage.getItem("minuteur") || "chiffres"; if (s !== "actuel") document.documentElement.dataset.style = s; if (s === "liquide" || s === "titane") document.documentElement.dataset.theme = "dark"; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; if (localStorage.getItem("verre") !== "0") document.documentElement.dataset.verre = ""; } catch (e) {}</script>
 </head>
 <body>
-<div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div><div class="eau" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b><s style="--x:8%;--y:14%;--t:34px;--d:46s;--f:2px;--r:20deg"></s><s style="--x:74%;--y:9%;--t:22px;--d:58s;--f:3px;--r:-35deg"></s><s style="--x:58%;--y:30%;--t:46px;--d:40s;--f:0px;--r:40deg"></s><s style="--x:18%;--y:44%;--t:26px;--d:52s;--f:1px;--r:-15deg"></s><s style="--x:86%;--y:48%;--t:58px;--d:44s;--f:0px;--r:25deg"></s><s style="--x:34%;--y:70%;--t:64px;--d:50s;--f:1px;--r:-40deg"></s><s style="--x:70%;--y:78%;--t:40px;--d:62s;--f:2px;--r:10deg"></s><s style="--x:4%;--y:82%;--t:30px;--d:56s;--f:4px;--r:-25deg"></s><p class="defile"><span>CARDIO <em></em> FORCE <em></em> FOCUS <em></em> SPORT <em></em> CARDIO <em></em> FORCE <em></em> FOCUS <em></em> SPORT <em></em> </span></p></div><div class="ondes" id="ondes" aria-hidden="true"><b></b><b></b><b></b></div>
+<div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div><div class="eau" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b><s style="--x:8%;--y:14%;--t:34px;--d:46s;--f:2px;--r:20deg"></s><s style="--x:74%;--y:9%;--t:22px;--d:58s;--f:3px;--r:-35deg"></s><s style="--x:58%;--y:30%;--t:46px;--d:40s;--f:0px;--r:40deg"></s><s style="--x:18%;--y:44%;--t:26px;--d:52s;--f:1px;--r:-15deg"></s><s style="--x:86%;--y:48%;--t:58px;--d:44s;--f:0px;--r:25deg"></s><s style="--x:34%;--y:70%;--t:64px;--d:50s;--f:1px;--r:-40deg"></s><s style="--x:70%;--y:78%;--t:40px;--d:62s;--f:2px;--r:10deg"></s><s style="--x:4%;--y:82%;--t:30px;--d:56s;--f:4px;--r:-25deg"></s><u class="astre"></u><p class="defile"><span>CARDIO <em></em> FORCE <em></em> FOCUS <em></em> SPORT <em></em> CARDIO <em></em> FORCE <em></em> FOCUS <em></em> SPORT <em></em> </span></p></div><div class="ondes" id="ondes" aria-hidden="true"><b></b><b></b><b></b></div>
 <p id="voixSecours" class="voix-secours hidden" role="status"></p>
 <button id="quitBtn" class="quit hidden" aria-label="Quitter et retourner au menu d’accueil">✕ Menu</button>
 <main>
@@ -1418,43 +1424,43 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-25d"></script>
-<script src="js/donnees.js?v=2026-11-25d"></script>
-<script src="js/seance.js?v=2026-11-25d"></script>
-<script src="js/progres.js?v=2026-11-25d"></script>
-<script src="js/catalogue.js?v=2026-11-25d"></script>
-<script src="js/profil.js?v=2026-11-25d"></script>
-<script src="js/anatomie.js?v=2026-11-25d"></script>
-<script src="js/evenements.js?v=2026-11-25d"></script>
-<script src="js/outils.js?v=2026-11-25d"></script>
-<script src="js/cardio.js?v=2026-11-25d"></script>
-<script src="js/chronos.js?v=2026-11-25d"></script>
-<script src="js/sports.js?v=2026-11-25d"></script>
-<script src="js/sport.js?v=2026-11-25d"></script>
-<script src="js/boxe.js?v=2026-11-25d"></script>
-<script src="js/foot.js?v=2026-11-25d"></script>
-<script src="js/course.js?v=2026-11-25d"></script>
-<script src="js/trail.js?v=2026-11-25d"></script>
-<script src="js/athle.js?v=2026-11-25d"></script>
-<script src="js/basket.js?v=2026-11-25d"></script>
-<script src="js/tennis.js?v=2026-11-25d"></script>
-<script src="js/padel.js?v=2026-11-25d"></script>
-<script src="js/handball.js?v=2026-11-25d"></script>
-<script src="js/volley.js?v=2026-11-25d"></script>
-<script src="js/cyclisme.js?v=2026-11-25d"></script>
-<script src="js/natation.js?v=2026-11-25d"></script>
-<script src="js/escalade.js?v=2026-11-25d"></script>
-<script src="js/ski.js?v=2026-11-25d"></script>
-<script src="js/surf.js?v=2026-11-25d"></script>
-<script src="js/pilates.js?v=2026-11-25d"></script>
-<script src="js/jeu.js?v=2026-11-25d"></script>
-<script src="js/moi.js?v=2026-11-25d"></script>
-<script src="js/forme.js?v=2026-11-25d"></script>
-<script src="js/masemaine.js?v=2026-11-25d"></script>
-<script src="js/apercus.js?v=2026-11-25d"></script>
-<script src="js/guide.js?v=2026-11-25d"></script>
-<script src="js/clubs.js?v=2026-11-25d"></script>
-<script src="js/coach.js?v=2026-11-25d"></script>
-<script src="js/semaine1.js?v=2026-11-25d"></script>
+<script src="consignes.js?v=2026-11-25e"></script>
+<script src="js/donnees.js?v=2026-11-25e"></script>
+<script src="js/seance.js?v=2026-11-25e"></script>
+<script src="js/progres.js?v=2026-11-25e"></script>
+<script src="js/catalogue.js?v=2026-11-25e"></script>
+<script src="js/profil.js?v=2026-11-25e"></script>
+<script src="js/anatomie.js?v=2026-11-25e"></script>
+<script src="js/evenements.js?v=2026-11-25e"></script>
+<script src="js/outils.js?v=2026-11-25e"></script>
+<script src="js/cardio.js?v=2026-11-25e"></script>
+<script src="js/chronos.js?v=2026-11-25e"></script>
+<script src="js/sports.js?v=2026-11-25e"></script>
+<script src="js/sport.js?v=2026-11-25e"></script>
+<script src="js/boxe.js?v=2026-11-25e"></script>
+<script src="js/foot.js?v=2026-11-25e"></script>
+<script src="js/course.js?v=2026-11-25e"></script>
+<script src="js/trail.js?v=2026-11-25e"></script>
+<script src="js/athle.js?v=2026-11-25e"></script>
+<script src="js/basket.js?v=2026-11-25e"></script>
+<script src="js/tennis.js?v=2026-11-25e"></script>
+<script src="js/padel.js?v=2026-11-25e"></script>
+<script src="js/handball.js?v=2026-11-25e"></script>
+<script src="js/volley.js?v=2026-11-25e"></script>
+<script src="js/cyclisme.js?v=2026-11-25e"></script>
+<script src="js/natation.js?v=2026-11-25e"></script>
+<script src="js/escalade.js?v=2026-11-25e"></script>
+<script src="js/ski.js?v=2026-11-25e"></script>
+<script src="js/surf.js?v=2026-11-25e"></script>
+<script src="js/pilates.js?v=2026-11-25e"></script>
+<script src="js/jeu.js?v=2026-11-25e"></script>
+<script src="js/moi.js?v=2026-11-25e"></script>
+<script src="js/forme.js?v=2026-11-25e"></script>
+<script src="js/masemaine.js?v=2026-11-25e"></script>
+<script src="js/apercus.js?v=2026-11-25e"></script>
+<script src="js/guide.js?v=2026-11-25e"></script>
+<script src="js/clubs.js?v=2026-11-25e"></script>
+<script src="js/coach.js?v=2026-11-25e"></script>
+<script src="js/semaine1.js?v=2026-11-25e"></script>
 </body>
 </html>
