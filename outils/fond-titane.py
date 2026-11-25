@@ -1,5 +1,6 @@
-"""Fond Titane de 2 WORK : scène de nuit détaillée (nébuleuse, étoiles, faisceau, astre à anneau, horizon, sol réfléchissant)."""
-import numpy as np
+"""Fond Titane de 2 WORK : scène de nuit détaillée (nébuleuse, étoiles, faisceau, horizon, sol réfléchissant) ;
+l'astre à anneau est une image à part (fonds/astre.webp), placée par le CSS pour rester visible sur téléphone comme sur ordinateur.."""
+import numpy as np, pathlib
 from PIL import Image, ImageFilter
 W, H = 1080, 2340
 HZ = int(H * .56)                      # horizon, aligné sur la ligne CSS (background-position: center 56%)
@@ -56,41 +57,6 @@ ciel += np.clip(etoiles, 0, 1.4)[..., None] * np.array([235, 228, 214])
 for _ in range(500):
     x = cx + (rng.random() - .5) * 2 * np.tan(.40) * (y := rng.random() * HZ * .97) ; point(x, y, .6, rng.random() * .5)
 
-# --- astre à anneau (droite)
-# astre placé dans la zone libre de l'accueil (entre le titre et le bouton ⓘ), sinon le verre flouté des cartes le cache
-PX, PY, R = W * .585, H * .135, W * .058
-tilt = np.radians(-16); ct, st = np.cos(tilt), np.sin(tilt)
-u = ((X - PX) * ct + (Y - PY) * st) / R; v = (-(X - PX) * st + (Y - PY) * ct) / R   # repère de l'astre
-d2 = (X - PX) ** 2 + (Y - PY) ** 2; dedans = d2 < R * R
-nz = np.sqrt(np.clip(1 - d2 / R / R, 0, 1)); nx, ny = (X - PX) / R, (Y - PY) / R
-Ld = np.array([-.62, -.52, .58]); Ld /= np.linalg.norm(Ld)
-lamb = np.clip(nx * Ld[0] + ny * Ld[1] + nz * Ld[2], 0, 1)
-bn = bruit(5, 8, .5, graine=3)
-bandes = .78 + .22 * np.sin(v * 14 + 3 * bn) + .08 * np.sin(v * 41 + 5 * bn)
-inc = .24                                                   # aplatissement de l'anneau (inclinaison)
-rr = np.sqrt(u ** 2 + (v / inc) ** 2)                      # rayon dans le plan de l'anneau
-ombre_anneau = np.exp(-((v - .22) / .07) ** 2) * (rr > 0)  # ombre de l'anneau projetée sur la sphère
-coul_astre = np.array([150, 132, 108]) * (lamb ** 1.2 * bandes * (1 - .55 * ombre_anneau))[..., None] + np.array([10, 9, 8])
-rim = np.clip(1 - nz, 0, 1) ** 3 * np.clip(-nx * .7 - ny * .7, 0, 1)
-coul_astre += (rim * 120)[..., None] * np.array([1, .93, .82])
-ciel = np.where(dedans[..., None], coul_astre, ciel)
-# anneau : bandes fines, division sombre, stries radiales ; caché derrière la sphère pour la moitié arrière
-prof = np.zeros_like(rr)
-for a, b, k in ((1.28, 1.52, .35), (1.55, 1.92, .85), (1.99, 2.35, .6), (2.4, 2.48, .25)):
-    prof += k * np.clip((rr - a) / .02, 0, 1) * np.clip((b - rr) / .02, 0, 1)
-fines = .75 + .25 * np.sin(rr * 260) * np.sin(rr * 71)
-prof *= fines
-arriere = v < 0
-cache = arriere & dedans
-# ombre de la sphère sur l'anneau : derrière elle, du côté opposé à la lumière (en haut à droite)
-ombre_planete = arriere & (np.abs(u - .35) < .95) & (u > -.2)
-alpha = np.clip(prof, 0, 1) * (~cache) * .8
-alpha *= np.where(ombre_planete, .3, 1)
-anneau = np.array([222, 206, 178]) * (.55 + .45 * np.clip(-u * .4 + .6, 0, 1))[..., None]
-ciel = ciel * (1 - alpha[..., None]) + anneau * alpha[..., None]
-halo = np.exp(-np.clip(np.sqrt(d2) / R - 1, 0, None) * 6) * (~dedans)
-ciel += (halo * 18)[..., None] * np.array([1, .95, .85])
-
 # --- horizon : lueur large et ligne fine brillante
 dh = np.abs(Y - HZ)
 ciel += (np.exp(-dh / 90) * 28 * np.exp(-((X - W / 2) / (W * .7)) ** 2))[..., None] * np.array([1, .95, .85])
@@ -124,3 +90,37 @@ img += rng.normal(0, 3.2, (H, W, 1))
 Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save("/tmp/titane.png")
 Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(__import__("pathlib").Path(__file__).resolve().parent.parent / "fonds" / "titane.webp", quality=82, method=6)
 print("ok")
+
+# --- astre à anneau : image détourée à part
+S = 640; R = S * .19
+Y, X = np.mgrid[0:S, 0:S].astype(np.float32); PX = PY = S / 2
+tilt = np.radians(-16); ct, st = np.cos(tilt), np.sin(tilt)
+u = ((X - PX) * ct + (Y - PY) * st) / R; v = (-(X - PX) * st + (Y - PY) * ct) / R   # repère de l'astre
+d2 = (X - PX) ** 2 + (Y - PY) ** 2; dedans = d2 < R * R
+nz = np.sqrt(np.clip(1 - d2 / R / R, 0, 1)); nx, ny = (X - PX) / R, (Y - PY) / R
+Ld = np.array([-.62, -.52, .58]); Ld /= np.linalg.norm(Ld)
+lamb = np.clip(nx * Ld[0] + ny * Ld[1] + nz * Ld[2], 0, 1)
+bn = bruit(5, 8, .5, w=S, h=S, graine=3)
+bandes = .78 + .22 * np.sin(v * 14 + 3 * bn) + .08 * np.sin(v * 41 + 5 * bn)
+inc = .24                                                   # aplatissement de l'anneau (inclinaison)
+rr = np.sqrt(u ** 2 + (v / inc) ** 2)                      # rayon dans le plan de l'anneau
+ombre_anneau = np.exp(-((v - .22) / .07) ** 2)             # ombre de l'anneau projetée sur la sphère
+c = np.array([150, 132, 108]) * (lamb ** 1.2 * bandes * (1 - .55 * ombre_anneau))[..., None] + np.array([10, 9, 8])
+rim = np.clip(1 - nz, 0, 1) ** 3 * np.clip(-nx * .7 - ny * .7, 0, 1)
+c += (rim * 120)[..., None] * np.array([1, .93, .82])
+prof = np.zeros_like(rr)
+for a0, b0, k in ((1.28, 1.52, .35), (1.55, 1.92, .85), (1.99, 2.35, .6), (2.4, 2.48, .25)):
+    prof += k * np.clip((rr - a0) / .02, 0, 1) * np.clip((b0 - rr) / .02, 0, 1)
+prof *= .75 + .25 * np.sin(rr * 260) * np.sin(rr * 71)
+arriere = v < 0
+ombre_planete = arriere & (np.abs(u - .35) < .95) & (u > -.2)   # ombre de la sphère sur l'anneau, côté opposé à la lumière
+aa = np.clip(prof, 0, 1) * ~(arriere & dedans) * .8 * np.where(ombre_planete, .3, 1)
+an = np.array([222, 206, 178]) * (.55 + .45 * np.clip(-u * .4 + .6, 0, 1))[..., None]
+alpha = np.clip(dedans + aa, 0, 1)
+rgb = np.where(dedans[..., None], c, an)
+rgb = np.where(dedans[..., None] & (aa > 0)[..., None], c * (1 - aa[..., None]) + an * aa[..., None], rgb)
+halo = np.exp(-np.clip(np.sqrt(d2) / R - 1, 0, None) * 5) * ~dedans * .25
+alpha = np.clip(alpha + halo, 0, 1); rgb = np.where((halo > alpha - 1e-6)[..., None] & ~dedans[..., None] & (aa == 0)[..., None], np.array([232, 220, 196.]), rgb)
+im = Image.fromarray(np.dstack([np.clip(rgb, 0, 255), alpha * 255]).astype(np.uint8), "RGBA").resize((S // 2, S // 2), Image.LANCZOS)
+im.crop(im.getbbox()).save(pathlib.Path(__file__).resolve().parent.parent / "fonds" / "astre.webp", quality=88)
+print("astre ok")

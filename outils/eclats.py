@@ -1,7 +1,8 @@
 """Éclats d'obsidienne du style Titane, rendus en 3D par lancer de rayons (numpy) :
-polyèdres irréguliers (intersection de plans), verre noir brillant qui reflète la scène (faisceau chaud au-dessus, horizon),
+roches irrégulières (enveloppe convexe de points tirés sur un ellipsoïde cabossé : nombreuses facettes, aucune forme de cube), surface rugueuse, verre noir brillant qui reflète la scène (faisceau chaud au-dessus, horizon),
 fissures d'énergie blanche (arêtes de Voronoï 3D) qui émettent de la lumière. Sortie : images détourées fonds/eclat1..6.webp."""
 import numpy as np, pathlib
+from scipy.spatial import ConvexHull
 from PIL import Image, ImageFilter
 N, SS = 220, 2                                   # taille finale, sur-échantillonnage (bords lisses)
 M = N * SS
@@ -22,12 +23,13 @@ def environnement(d):
 
 for k in range(6):
     r = np.random.default_rng(100 + k)
-    # forme : boîte aux proportions variées, coins tranchés par des plans aléatoires (éclat cassé)
-    taille = r.uniform(.55, 1.0, 3); taille[r.integers(3)] *= r.uniform(.45, .8)
-    plans = [(np.eye(3)[i] * s, taille[i]) for i in range(3) for s in (1, -1)]
-    for _ in range(r.integers(4, 8)):
-        n = r.normal(size=3); n /= np.linalg.norm(n); plans.append((n, r.uniform(.55, .85) * np.abs(n) @ taille + .05))
-    Nn = np.array([p[0] for p in plans]); D = np.array([p[1] for p in plans])
+    # forme : roche irrégulière = enveloppe convexe de points sur un ellipsoïde allongé et cabossé
+    axes = r.uniform(.55, 1.0, 3); axes[r.integers(3)] *= r.uniform(1.2, 1.7)
+    pts = r.normal(size=(r.integers(22, 40), 3)); pts /= np.linalg.norm(pts, axis=1)[:, None]
+    pts *= axes * r.uniform(.72, 1.0, (len(pts), 1))
+    hull = ConvexHull(pts)
+    Nn = hull.equations[:, :3]; D = -hull.equations[:, 3]
+    taille = axes
     R = rot(*r.uniform(0, np.pi * 2, 3))
     Nn = Nn @ R.T
     sc = 1.15 * np.max(taille)
@@ -44,20 +46,22 @@ for k in range(6):
     idx = np.argmax(np.where(den[None, None] < 0, t, -np.inf), -1)
     nrm = Nn[idx]; p = o + entre[..., None] * d
     # éclairage : verre noir très brillant (Fresnel), faible diffus chaud venu du faisceau, arêtes accrochées
+    bosse = np.stack([np.sin(p[..., 1] * 23 + p[..., 2] * 17), np.sin(p[..., 2] * 19 + p[..., 0] * 29), np.sin(p[..., 0] * 21 + p[..., 1] * 13)], -1)
+    nrm = nrm + .07 * bosse; nrm /= np.linalg.norm(nrm, axis=-1)[..., None]
     vd = -d; cosv = np.clip((nrm * vd).sum(-1), 0, 1)
     fres = .04 + .96 * (1 - cosv) ** 5
     refl = d - 2 * (nrm * d).sum(-1)[..., None] * nrm
-    rugo = 1 + .015 * np.sin(p[..., 0] * 9 + p[..., 1] * 7) * np.sin(p[..., 2] * 8)
-    spec = environnement(refl * rugo[..., None])
+    rugo = 1
+    spec = environnement(refl)
     L = np.array([0, -1, -.35]); L /= np.linalg.norm(L)
     diff = np.clip((nrm * L).sum(-1), 0, 1)
     coul = spec * (fres * 1.6 + .12)[..., None] + (diff * 10)[..., None] * np.array([1, .92, .85]) + np.array([7, 6, 10])
     # fissures d'énergie : arêtes de Voronoï 3D à la surface, une partie seulement chargée
-    g = r.uniform(-1.2, 1.2, (14, 3)) * taille
+    g = r.uniform(-1.2, 1.2, (9, 3)) * taille
     dist = np.sort(np.linalg.norm(p[..., None, :] - g[None, None], axis=-1), -1)
     bord = (dist[..., 1] - dist[..., 0]) / sc
-    actif = np.sin(p @ r.normal(size=3) * 3 + k) > -.2
-    veine = (np.exp(-bord / .006) + .35 * np.exp(-bord / .03)) * actif
+    actif = np.sin(p @ r.normal(size=3) * 3 + k) > .15
+    veine = (np.exp(-bord / .004) + .3 * np.exp(-bord / .025)) * actif
     em = np.where(touche, veine, 0)
     # arêtes du polyèdre légèrement lumineuses (lumière qui fuit des fissures internes)
     coul += (em * 255)[..., None] * np.array([.95, .95, 1])
