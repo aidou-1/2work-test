@@ -948,14 +948,14 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
    cartes en verre épais (arêtes lumineuses, reflet, ombre profonde), actions en gouttes d'orange liquide, chrono en anneau de verre.
    Toujours sombre (écran OLED : le noir pur économise la batterie). Transitions : l'écran suivant se dévoile en cercle depuis le doigt,
    avec des ondes à la surface ; les cartes remontent comme sorties de l'eau. Sans animation si le téléphone en demande moins. ===== */
-:root[data-style="liquide"] { --brand: #FF7A1A; --bg: #000; --surface: #15161B; --soft: rgba(255,255,255,.10); --ligne: rgba(255,255,255,.14); --ink: #FFF; --muted: #C9CDD6; --accent-txt: #FFAE6B; --voile: 0,0,0;
+:root:is([data-style="liquide"], [data-style="titane"]) { --brand: #FF7A1A; --bg: #000; --surface: #15161B; --soft: rgba(255,255,255,.10); --ligne: rgba(255,255,255,.14); --ink: #FFF; --muted: #C9CDD6; --accent-txt: #FFAE6B; --voile: 0,0,0;
   --goutte: radial-gradient(120% 95% at 30% 12%, #FFE3C7 0%, #FFAE6B 20%, #FF7A1A 46%, #D9480F 100%);
   --goutte-ombre: inset 0 3px 2px rgba(255,255,255,.85), inset 0 -8px 16px rgba(110,25,0,.55), inset 0 0 0 1px rgba(255,220,190,.6), 0 14px 34px -6px rgba(255,122,26,.7), 0 0 60px -10px rgba(255,122,26,.5);
   --epais-verre: inset 0 1.5px 0 rgba(255,255,255,.8), inset 1.5px 0 0 rgba(255,255,255,.3), inset 0 -2px 0 rgba(255,255,255,.16), inset 0 -22px 36px -18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.14), 0 30px 50px -18px rgba(0,0,0,.9), 0 8px 18px -8px rgba(0,0,0,.6); }
-:root[data-style="liquide"] body, :root[data-style="liquide"][data-verre] body { background: #000; }
-:root[data-style="liquide"] .fond, :root[data-style="liquide"] body::before { display: none; }
+:root:is([data-style="liquide"], [data-style="titane"]) body, :root:is([data-style="liquide"], [data-style="titane"])[data-verre] body { background: #000; }
+:root:is([data-style="liquide"], [data-style="titane"]) .fond, :root:is([data-style="liquide"], [data-style="titane"]) body::before { display: none; }
 .eau { display: none; }
-:root[data-style="liquide"] .eau { display: block; position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+:root:is([data-style="liquide"], [data-style="titane"]) .eau { display: block; position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .eau i { position: absolute; border-radius: 50%; will-change: transform; animation: glisse 22s ease-in-out infinite; translate: calc(var(--mx, 0) * -30px) calc(var(--my, 0) * -30px); transition: translate .5s ease-out; }
 .eau i:nth-child(1) { width: 120vw; height: 120vw; left: -45vw; top: 8vh; background: radial-gradient(closest-side, rgba(255,106,0,.85), rgba(255,106,0,.35) 45%, transparent); }
 .eau i:nth-child(2) { width: 110vw; height: 110vw; right: -50vw; top: 38vh; background: radial-gradient(closest-side, rgba(139,92,246,.75), rgba(139,92,246,.3) 45%, transparent); animation-duration: 27s; animation-delay: -9s; }
@@ -965,43 +965,56 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 @keyframes glisse { 0%, 100% { transform: translate(0, 0) scale(1); } 25% { transform: translate(14vw, -8vh) scale(1.12, .94); } 50% { transform: translate(-6vw, 10vh) scale(.94, 1.1); } 75% { transform: translate(-12vw, -4vh) scale(1.06); } }
 @keyframes reflets { to { transform: translate(8%, 6%) rotate(8deg); } }
 /* verre épais : plus de flou, plus de couleur, arêtes lumineuses et ombre profonde (s'ajoute à l'effet verre) */
-:root[data-style="liquide"][data-verre][data-theme] { --verre: rgba(255,255,255,.06); --verre-bord: rgba(255,255,255,.28); --verre-reflet: rgba(255,255,255,.9); --verre-flou: blur(28px) saturate(260%) brightness(1.25); }
-:root[data-style="liquide"][data-verre][data-theme] :is(.list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte:not(:has(.sc-corps, .quick-corps)), .choice, .prog-carte) {
+:root:is([data-style="liquide"], [data-style="titane"])[data-verre][data-theme] { --verre: rgba(255,255,255,.06); --verre-bord: rgba(255,255,255,.28); --verre-reflet: rgba(255,255,255,.9); --verre-flou: blur(28px) saturate(260%) brightness(1.25); }
+:root:is([data-style="liquide"], [data-style="titane"])[data-verre][data-theme] :is(.list, .reglage, .tuile, .kpi, .carte, .fiche, .carnet, .prog-info, .schema-carte, .ech-fiche, .sc-corps, .bilan div, .quick-corps, .semaine-carte:not(:has(.sc-corps, .quick-corps)), .choice, .prog-carte) {
   background: radial-gradient(70% 55% at var(--gx, 22%) var(--gy, 0%), rgba(255,255,255,.2), rgba(255,255,255,0) 60%), rgba(255,255,255,.06); border: 0; border-radius: 26px; box-shadow: var(--epais-verre); color: var(--ink); }
-:root[data-style="liquide"][data-verre][data-theme] :is(#menu .choice, .prog-carte) { background: radial-gradient(70% 60% at var(--gx, 22%) var(--gy, 0%), rgba(255,255,255,.24), rgba(255,255,255,0) 60%), color-mix(in srgb, var(--c, var(--brand)) 26%, transparent);
+:root:is([data-style="liquide"], [data-style="titane"])[data-verre][data-theme] :is(#menu .choice, .prog-carte) { background: radial-gradient(70% 60% at var(--gx, 22%) var(--gy, 0%), rgba(255,255,255,.24), rgba(255,255,255,0) 60%), color-mix(in srgb, var(--c, var(--brand)) 26%, transparent);
   box-shadow: var(--epais-verre), 0 18px 40px -16px color-mix(in srgb, var(--c, var(--brand)) 80%, transparent); }
-:root[data-style="liquide"][data-verre][data-theme] .nav { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04)); border: 0; box-shadow: var(--epais-verre); }
-:root[data-style="liquide"][data-theme] .nav button[aria-current="page"] { background: var(--goutte); color: #1A0A00; box-shadow: var(--goutte-ombre); transition: background .4s, transform .5s cubic-bezier(.2, 1.6, .35, 1); }
-:root[data-style="liquide"][data-theme] :is(.primary, .controls .main, .toggle:not([aria-pressed="false"]):not(.contour), .ajouter) { background: var(--goutte); color: #1A0A00; box-shadow: var(--goutte-ombre); border: 0; position: relative; overflow: hidden; }
-:root[data-style="liquide"][data-theme] :is(.primary, .controls .main)::after { content: ""; position: absolute; top: 8%; left: -40%; width: 40%; height: 46%; border-radius: 50%; background: rgba(255,255,255,.5); filter: blur(6px); animation: lueur-goutte 3.8s ease-in-out infinite; pointer-events: none; }
+:root:is([data-style="liquide"], [data-style="titane"])[data-verre][data-theme] .nav { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04)); border: 0; box-shadow: var(--epais-verre); }
+:root:is([data-style="liquide"], [data-style="titane"])[data-theme] .nav button[aria-current="page"] { background: var(--goutte); color: #1A0A00; box-shadow: var(--goutte-ombre); transition: background .4s, transform .5s cubic-bezier(.2, 1.6, .35, 1); }
+:root:is([data-style="liquide"], [data-style="titane"])[data-theme] :is(.primary, .controls .main, .toggle:not([aria-pressed="false"]):not(.contour), .ajouter) { background: var(--goutte); color: #1A0A00; box-shadow: var(--goutte-ombre); border: 0; position: relative; overflow: hidden; }
+:root:is([data-style="liquide"], [data-style="titane"])[data-theme] :is(.primary, .controls .main)::after { content: ""; position: absolute; top: 8%; left: -40%; width: 40%; height: 46%; border-radius: 50%; background: rgba(255,255,255,.5); filter: blur(6px); animation: lueur-goutte 3.8s ease-in-out infinite; pointer-events: none; }
 @keyframes lueur-goutte { 0%, 100% { left: -40%; } 50% { left: 100%; } }
-:root[data-style="liquide"][data-theme] :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main), .stepper button:not(.toggle)) { background: rgba(255,255,255,.07); color: var(--ink); border: 0; box-shadow: var(--epais-verre); }
-:root[data-style="liquide"] :is(.primary, .toggle, .controls button, .ajouter, .nav button):active { animation: gelee .55s cubic-bezier(.2, 1.6, .35, 1); }
+:root:is([data-style="liquide"], [data-style="titane"])[data-theme] :is(.toggle[aria-pressed="false"], .toggle.contour, .controls button:not(.main), .stepper button:not(.toggle)) { background: rgba(255,255,255,.07); color: var(--ink); border: 0; box-shadow: var(--epais-verre); }
+:root:is([data-style="liquide"], [data-style="titane"]) :is(.primary, .toggle, .controls button, .ajouter, .nav button):active { animation: gelee .55s cubic-bezier(.2, 1.6, .35, 1); }
 @keyframes gelee { 0% { transform: scale(1); } 30% { transform: scale(.9, .95); } 55% { transform: scale(1.05, .97); } 75% { transform: scale(.98, 1.03); } 100% { transform: scale(1); } }
-:root[data-style="liquide"] :is(h1, .end h2) { color: #FFF; text-shadow: 0 2px 24px rgba(255,122,26,.35); }
+:root:is([data-style="liquide"], [data-style="titane"]) :is(h1, .end h2) { color: #FFF; text-shadow: 0 2px 24px rgba(255,122,26,.35); }
 /* chrono : anneau de verre épais rempli d'orange liquide lumineux */
-:root[data-style="liquide"] .time { color: #FFF; text-shadow: 0 0 28px rgba(255,122,26,.55), 0 6px 22px rgba(0,0,0,.6); }
-:root[data-style="liquide"] #anneau { stroke: #FF8A2A; filter: drop-shadow(0 0 10px rgba(255,122,26,.9)) drop-shadow(0 0 2px #FFD2A8); }
-:root[data-style="liquide"] .anneau-t .piste { stroke: rgba(255,255,255,.12); filter: drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
-:root[data-style="liquide"] .media { border-radius: 26px; box-shadow: var(--epais-verre); }
+:root:is([data-style="liquide"], [data-style="titane"]) .time { color: #FFF; text-shadow: 0 0 28px rgba(255,122,26,.55), 0 6px 22px rgba(0,0,0,.6); }
+:root:is([data-style="liquide"], [data-style="titane"]) #anneau { stroke: #FF8A2A; filter: drop-shadow(0 0 10px rgba(255,122,26,.9)) drop-shadow(0 0 2px #FFD2A8); }
+:root:is([data-style="liquide"], [data-style="titane"]) .anneau-t .piste { stroke: rgba(255,255,255,.12); filter: drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
+:root:is([data-style="liquide"], [data-style="titane"]) .media { border-radius: 26px; box-shadow: var(--epais-verre); }
 /* les cartes remontent comme sorties de l'eau, l'une après l'autre */
 @keyframes remonte { 0% { opacity: 0; translate: 0 40px; scale: 1.04 .88; filter: blur(10px); } 55% { opacity: 1; translate: 0 -5px; scale: .98 1.03; filter: blur(0); } 78% { translate: 0 2px; scale: 1.01 .99; } 100% { translate: 0 0; scale: 1; } }
-:root[data-style="liquide"] :is(#menu, #preview, #progres, #progs, #outils, #moi, #reglages):not(.hidden) :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte) { animation: remonte .85s cubic-bezier(.2, .9, .25, 1.1) backwards; }
-:root[data-style="liquide"] :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(2) { animation-delay: .06s; }
-:root[data-style="liquide"] :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(3) { animation-delay: .12s; }
-:root[data-style="liquide"] :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(4) { animation-delay: .18s; }
-:root[data-style="liquide"] :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(n+5) { animation-delay: .24s; }
+:root:is([data-style="liquide"], [data-style="titane"]) :is(#menu, #preview, #progres, #progs, #outils, #moi, #reglages):not(.hidden) :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte) { animation: remonte .85s cubic-bezier(.2, .9, .25, 1.1) backwards; }
+:root:is([data-style="liquide"], [data-style="titane"]) :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(2) { animation-delay: .06s; }
+:root:is([data-style="liquide"], [data-style="titane"]) :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(3) { animation-delay: .12s; }
+:root:is([data-style="liquide"], [data-style="titane"]) :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(4) { animation-delay: .18s; }
+:root:is([data-style="liquide"], [data-style="titane"]) :not(.hidden) :is(.choice, .sc-corps, .semaine-carte, .tuile, .carte, .reglage, .list > li):nth-child(n+5) { animation-delay: .24s; }
 /* changement d'écran : le nouvel écran se dévoile en cercle depuis le doigt, des ondes s'étalent à la surface */
-:root[data-style="liquide"]::view-transition-old(root) { animation: none; }
-:root[data-style="liquide"]::view-transition-new(root) { animation: devoile .75s cubic-bezier(.3, .8, .2, 1) both; }
+:root:is([data-style="liquide"], [data-style="titane"])::view-transition-old(root) { animation: none; }
+:root:is([data-style="liquide"], [data-style="titane"])::view-transition-new(root) { animation: devoile .75s cubic-bezier(.3, .8, .2, 1) both; }
 @keyframes devoile { from { clip-path: circle(0 at var(--tx, 50%) var(--ty, 60%)); } to { clip-path: circle(150% at var(--tx, 50%) var(--ty, 60%)); } }
 .ondes { position: fixed; inset: 0; z-index: 400; pointer-events: none; display: none; }
-:root[data-style="liquide"] .ondes.joue { display: block; }
+:root:is([data-style="liquide"], [data-style="titane"]) .ondes.joue { display: block; }
 .ondes b { position: absolute; left: var(--tx, 50%); top: var(--ty, 60%); width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 2px solid rgba(255,210,168,.9); box-shadow: 0 0 18px rgba(255,122,26,.8), inset 0 0 12px rgba(255,255,255,.5); opacity: 0; animation: onde .9s cubic-bezier(.2, .7, .3, 1) forwards; }
 .ondes b:nth-child(2) { animation-delay: .12s; border-color: rgba(255,255,255,.7); } .ondes b:nth-child(3) { animation-delay: .24s; border-width: 1px; }
 @keyframes onde { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(16); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .eau i, .eau b, :root[data-style="liquide"] :is(.primary, .controls .main)::after, :root[data-style="liquide"] :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte, .primary, .toggle, .controls button, .ajouter, .nav button) { animation: none !important; } .ondes { display: none !important; } }
-#rgStyle [data-st="liquide"] { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .eau i, .eau b, :root:is([data-style="liquide"], [data-style="titane"]) :is(.primary, .controls .main)::after, :root:is([data-style="liquide"], [data-style="titane"]) :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte, .primary, .toggle, .controls button, .ajouter, .nav button) { animation: none !important; } .ondes { display: none !important; } }
+#rgStyle :is([data-st="liquide"], [data-st="titane"]) { grid-column: 1 / -1; }
+/* ===== Titane (Réglages → Style) : le Verre liquide sur une scène de nuit, sol qui reflète et lumière argentée à l'horizon ;
+   gouttes en métal liquide argenté, un seul accent vert acide (anneau du chrono, textes d'accent). Toujours sombre, comme le Verre liquide. ===== */
+:root[data-style="titane"] { --brand: #C9F26B; --bg: #050506; --surface: #141619; --muted: #AEB3BA; --accent-txt: #C9F26B;
+  --goutte: radial-gradient(120% 95% at 30% 12%, #FFFFFF 0%, #E6EBF0 22%, #AFB7C1 55%, #6C7480 100%);
+  --goutte-ombre: inset 0 3px 2px rgba(255,255,255,.9), inset 0 -8px 16px rgba(20,24,30,.5), inset 0 0 0 1px rgba(255,255,255,.55), 0 14px 34px -8px rgba(0,0,0,.8), 0 0 40px -14px rgba(220,230,240,.35); }
+:root[data-style="titane"] .eau { background: radial-gradient(70% 8% at 50% 56%, rgba(220,226,235,.16), transparent 70%), radial-gradient(1px 1px at 14% 20%, rgba(230,235,242,.5), transparent), radial-gradient(1px 1px at 76% 11%, rgba(230,235,242,.45), transparent), radial-gradient(1.5px 1.5px at 63% 33%, rgba(230,235,242,.5), transparent), radial-gradient(1px 1px at 31% 43%, rgba(230,235,242,.35), transparent), radial-gradient(1.5px 1.5px at 87% 41%, rgba(230,235,242,.45), transparent), radial-gradient(1px 1px at 48% 15%, rgba(230,235,242,.3), transparent), linear-gradient(180deg, #050506 0%, #0B0C0D 42%, #17191C 54%, #0A0B0C 59%, #030304 100%); }
+:root[data-style="titane"] .eau i { display: none; }
+:root[data-style="titane"] .eau b { inset: 57% 0 0; background: repeating-linear-gradient(180deg, rgba(255,255,255,.025) 0 1px, transparent 1px 5px); animation: none; mix-blend-mode: normal; }
+:root[data-style="titane"] :is(h1, .end h2) { text-shadow: 0 2px 24px rgba(220,230,240,.18); }
+:root[data-style="titane"] .time { text-shadow: 0 0 24px rgba(220,230,240,.25), 0 6px 22px rgba(0,0,0,.6); }
+:root[data-style="titane"] #anneau { stroke: #C9F26B; filter: drop-shadow(0 0 8px rgba(201,242,107,.7)); }
+:root[data-style="titane"] .niv-badge { background: radial-gradient(closest-side, #141619 78%, transparent 80%), conic-gradient(#C9F26B var(--p), rgba(255,255,255,.22) 0); box-shadow: 0 6px 16px -6px rgba(201,242,107,.5); }
+:root[data-style="titane"] .ondes b { border-color: rgba(235,240,246,.85); box-shadow: 0 0 16px rgba(220,230,240,.5), inset 0 0 12px rgba(255,255,255,.5); }
 
 .vol { position: relative; touch-action: pan-y; } .vol canvas { display: block; width: 100%; height: 100%; cursor: grab; outline-offset: -4px; }
 .vol-perso { height: min(400px, 52vh); margin: -6px -16px 12px; background: var(--scene); -webkit-mask-image: linear-gradient(#0000, #000 8%, #000 94%, #0000); mask-image: linear-gradient(#0000, #000 8%, #000 94%, #0000); }
@@ -1038,7 +1051,7 @@ button:active:not(:disabled) { transform: none; }
 .bx-gestes { padding: 0 !important; } .bx-prof .chips, .bx-regl .chips { flex-wrap: wrap; } .bx-gestes li { cursor: pointer; } .bx-prof > .toggle { width: 100%; margin-top: 8px; white-space: normal; height: auto; min-height: 40px; }
 </style>
 <script>/* thème appliqué avant l'affichage pour éviter un flash clair */
-try { const t = localStorage.getItem("theme") || "clair"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; const s = localStorage.getItem("style") || "liquide", m = localStorage.getItem("minuteur") || "chiffres"; if (s !== "actuel") document.documentElement.dataset.style = s; if (s === "liquide") document.documentElement.dataset.theme = "dark"; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; if (localStorage.getItem("verre") !== "0") document.documentElement.dataset.verre = ""; } catch (e) {}</script>
+try { const t = localStorage.getItem("theme") || "clair"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; const s = localStorage.getItem("style") || "liquide", m = localStorage.getItem("minuteur") || "chiffres"; if (s !== "actuel") document.documentElement.dataset.style = s; if (s === "liquide" || s === "titane") document.documentElement.dataset.theme = "dark"; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; if (localStorage.getItem("verre") !== "0") document.documentElement.dataset.verre = ""; } catch (e) {}</script>
 </head>
 <body>
 <div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div><div class="eau" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div><div class="ondes" id="ondes" aria-hidden="true"><b></b><b></b><b></b></div>
@@ -1247,7 +1260,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </div>
 <div class="reglage">
 <label>Style<small>L’allure de toute l’appli, en clair comme en sombre</small></label>
-<div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="liquide">Verre liquide</button><button class="toggle" data-st="socle">Socle</button><button class="toggle" data-st="actuel">Classique</button></div>
+<div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="liquide">Verre liquide</button><button class="toggle" data-st="titane">Titane</button><button class="toggle" data-st="socle">Socle</button><button class="toggle" data-st="actuel">Classique</button></div>
 </div>
 <div class="reglage">
 <label for="verreBtn">Effet verre<small>Cartes et barres translucides et floues, façon verre dépoli</small></label>
@@ -1374,43 +1387,43 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-25a"></script>
-<script src="js/donnees.js?v=2026-11-25a"></script>
-<script src="js/seance.js?v=2026-11-25a"></script>
-<script src="js/progres.js?v=2026-11-25a"></script>
-<script src="js/catalogue.js?v=2026-11-25a"></script>
-<script src="js/profil.js?v=2026-11-25a"></script>
-<script src="js/anatomie.js?v=2026-11-25a"></script>
-<script src="js/evenements.js?v=2026-11-25a"></script>
-<script src="js/outils.js?v=2026-11-25a"></script>
-<script src="js/cardio.js?v=2026-11-25a"></script>
-<script src="js/chronos.js?v=2026-11-25a"></script>
-<script src="js/sports.js?v=2026-11-25a"></script>
-<script src="js/sport.js?v=2026-11-25a"></script>
-<script src="js/boxe.js?v=2026-11-25a"></script>
-<script src="js/foot.js?v=2026-11-25a"></script>
-<script src="js/course.js?v=2026-11-25a"></script>
-<script src="js/trail.js?v=2026-11-25a"></script>
-<script src="js/athle.js?v=2026-11-25a"></script>
-<script src="js/basket.js?v=2026-11-25a"></script>
-<script src="js/tennis.js?v=2026-11-25a"></script>
-<script src="js/padel.js?v=2026-11-25a"></script>
-<script src="js/handball.js?v=2026-11-25a"></script>
-<script src="js/volley.js?v=2026-11-25a"></script>
-<script src="js/cyclisme.js?v=2026-11-25a"></script>
-<script src="js/natation.js?v=2026-11-25a"></script>
-<script src="js/escalade.js?v=2026-11-25a"></script>
-<script src="js/ski.js?v=2026-11-25a"></script>
-<script src="js/surf.js?v=2026-11-25a"></script>
-<script src="js/pilates.js?v=2026-11-25a"></script>
-<script src="js/jeu.js?v=2026-11-25a"></script>
-<script src="js/moi.js?v=2026-11-25a"></script>
-<script src="js/forme.js?v=2026-11-25a"></script>
-<script src="js/masemaine.js?v=2026-11-25a"></script>
-<script src="js/apercus.js?v=2026-11-25a"></script>
-<script src="js/guide.js?v=2026-11-25a"></script>
-<script src="js/clubs.js?v=2026-11-25a"></script>
-<script src="js/coach.js?v=2026-11-25a"></script>
-<script src="js/semaine1.js?v=2026-11-25a"></script>
+<script src="consignes.js?v=2026-11-25b"></script>
+<script src="js/donnees.js?v=2026-11-25b"></script>
+<script src="js/seance.js?v=2026-11-25b"></script>
+<script src="js/progres.js?v=2026-11-25b"></script>
+<script src="js/catalogue.js?v=2026-11-25b"></script>
+<script src="js/profil.js?v=2026-11-25b"></script>
+<script src="js/anatomie.js?v=2026-11-25b"></script>
+<script src="js/evenements.js?v=2026-11-25b"></script>
+<script src="js/outils.js?v=2026-11-25b"></script>
+<script src="js/cardio.js?v=2026-11-25b"></script>
+<script src="js/chronos.js?v=2026-11-25b"></script>
+<script src="js/sports.js?v=2026-11-25b"></script>
+<script src="js/sport.js?v=2026-11-25b"></script>
+<script src="js/boxe.js?v=2026-11-25b"></script>
+<script src="js/foot.js?v=2026-11-25b"></script>
+<script src="js/course.js?v=2026-11-25b"></script>
+<script src="js/trail.js?v=2026-11-25b"></script>
+<script src="js/athle.js?v=2026-11-25b"></script>
+<script src="js/basket.js?v=2026-11-25b"></script>
+<script src="js/tennis.js?v=2026-11-25b"></script>
+<script src="js/padel.js?v=2026-11-25b"></script>
+<script src="js/handball.js?v=2026-11-25b"></script>
+<script src="js/volley.js?v=2026-11-25b"></script>
+<script src="js/cyclisme.js?v=2026-11-25b"></script>
+<script src="js/natation.js?v=2026-11-25b"></script>
+<script src="js/escalade.js?v=2026-11-25b"></script>
+<script src="js/ski.js?v=2026-11-25b"></script>
+<script src="js/surf.js?v=2026-11-25b"></script>
+<script src="js/pilates.js?v=2026-11-25b"></script>
+<script src="js/jeu.js?v=2026-11-25b"></script>
+<script src="js/moi.js?v=2026-11-25b"></script>
+<script src="js/forme.js?v=2026-11-25b"></script>
+<script src="js/masemaine.js?v=2026-11-25b"></script>
+<script src="js/apercus.js?v=2026-11-25b"></script>
+<script src="js/guide.js?v=2026-11-25b"></script>
+<script src="js/clubs.js?v=2026-11-25b"></script>
+<script src="js/coach.js?v=2026-11-25b"></script>
+<script src="js/semaine1.js?v=2026-11-25b"></script>
 </body>
 </html>

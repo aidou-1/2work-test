@@ -630,7 +630,7 @@ let theme = "clair";   // par défaut : clair (Fonderie clair)
 try { theme = localStorage.getItem("theme") || "clair"; } catch (e) {}
 const sombreSys = matchMedia("(prefers-color-scheme: dark)");
 function appliquerTheme() {
-  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || document.documentElement.dataset.style === "liquide";   // Verre liquide : toujours sombre (OLED)
+  const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || ["liquide", "titane"].includes(document.documentElement.dataset.style);   // Verre liquide et Titane : toujours sombres (OLED)
   document.documentElement.dataset.theme = d ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || (d ? "#0C0A09" : "#FBF6F1");   // barre du téléphone à la couleur du fond du style
   [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).setAttribute("aria-pressed", theme === t));
