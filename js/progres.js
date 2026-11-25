@@ -643,7 +643,7 @@ appliquerTheme();
 const choixRg = (id, cle, attr, def, data) => { const maj = () => { let v = def; try { v = localStorage.getItem(cle) || def; } catch (e) {} v === def && attr === "minuteur" || v === "actuel" ? delete document.documentElement.dataset[attr] : document.documentElement.dataset[attr] = v;
     $(id).querySelectorAll(`[data-${data}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[data] === v)); };
   $(id).onclick = e => { const b = e.target.closest(`[data-${data}]`); if (b) { stocker(cle, b.dataset[data]); maj(); if (cle === "minuteur") delete $("time").dataset.v; else { appliquerTheme(); if (!enSocle()) { volFin(); window.volLiberer?.(); } } } }; maj(); };
-choixRg("rgStyle", "style", "style", "liquide", "st");
+choixRg("rgStyle", "style", "style", "titane", "st");
 // effet verre : activé par défaut, appliqué aussi avant l'affichage (index.html)
 const majVerre = () => { const v = "verre" in document.documentElement.dataset; $("verreBtn").textContent = T(v ? "Activé" : "Coupé"); $("verreBtn").setAttribute("aria-pressed", v); };
 $("verreBtn").onclick = () => { const v = !("verre" in document.documentElement.dataset); v ? document.documentElement.dataset.verre = "" : delete document.documentElement.dataset.verre; stocker("verre", v ? "1" : "0"); majVerre(); };
