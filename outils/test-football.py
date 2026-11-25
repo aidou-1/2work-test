@@ -8,7 +8,7 @@ class Muet(http.server.SimpleHTTPRequestHandler):
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Muet, directory=str(ROOT)))
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
+    browser = p.chromium.launch(args=['--no-sandbox'])
     for lang in ['fr', 'en']:
         for theme in ['light', 'dark']:
             c = browser.new_context(**p.devices['Pixel 7'], color_scheme=theme, reduced_motion='reduce', service_workers='block')
@@ -18,7 +18,7 @@ with sync_playwright() as p:
             # Isoler les fonctions sportives du compte Firebase facultatif.
             page.route('**/*', lambda r: r.fulfill(status=200, content_type='text/javascript', body='') if any(x in r.request.url for x in ['googleapis.com', 'gstatic.com']) else r.continue_())
             page.goto(f'http://127.0.0.1:{srv.server_port}/')
-            page.evaluate('''([lang,theme]) => { localStorage.clear(); stocker('langue',lang); stocker('theme',theme==='dark'?'sombre':'clair'); sessionStorage.setItem('guideInstall','1'); }''', [lang,theme])
+            page.evaluate('''([lang,theme]) => { localStorage.clear(); stocker('langue',lang); stocker('theme',theme==='dark'?'sombre':'clair'); stocker('style','socle'); sessionStorage.setItem('guideInstall','1'); }''', [lang,theme])
             page.reload()
             results = page.evaluate('''() => {
               const ok=(x,m)=>{if(!x)throw Error(m);}; let count=0,calendars=0;

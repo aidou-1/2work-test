@@ -654,18 +654,21 @@ function planRetraits(plan, choix) {
 const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", "squat", "squatUni"], ["pont", "pontuni"], ["ours", "planche", "planchetouch"],
   ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"]];
 const varianteEx = (id, sens) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v]) return v; } return null; };
-const FIXE_NIV = /calme|cool|étire|stretch|respir/i;
+const FIXE_NIV = /calme|cool|étire|stretch|respir|breath|souffle|apn|mise en route|températ|temperat|mobilis|douce|facile|easy|gentle/i;
+// pas de difficulté : salle (charges), reprise après blessure (progression encadrée), Tabata (protocole 20 s / 10 s),
+// échauffement, récupération et respiration (leur dosage est fixe)
+const nivPossible = () => !!(routine && routine.plan) && !routine.gym && !routine.reprise && !routine.blessure && !routine.tbt && !["salle", "echauffement", "calme", "souffle"].includes(mode);
 function planNiveau(plan, niv) {
   if (!niv) return plan;
   const s = Math.sign(niv);
   return plan.map(q => {
     if (q.series || q.d >= 90 || ECHAUF.test(cleBloc(q.bn)) || FIXE_NIV.test(cleBloc(q.bn))) return q;
     let id = q.id, d = q.d;
-    for (let k = 0; k < Math.abs(niv); k++) { const v = varianteEx(id, s); v ? id = v : d = Math.max(15, d + 10 * s); }
-    return id === q.id && d === q.d ? q : { ...q, id, d };
+    for (let k = 0; k < Math.abs(niv); k++) { const v = varianteEx(id, s); v ? id = v : d > 15 && (d = Math.max(15, d + 10 * s)); }
+    return id === q.id && d === q.d ? q : { ...q, id, d, presc: id === q.id ? q.presc : "" };
   });
 }
-function planAjuste(plan, choix) { return planNiveau(planVolume(plan, choix), choix._niv); }
+function planAjuste(plan, choix) { return planNiveau(planVolume(plan, choix), nivPossible() ? choix._niv : 0); }
 function planVolume(plan, choix) {
   plan = planRetraits(plan, choix);
   if (!Object.keys(choix).some(k => k[0] !== "_")) return plan;
@@ -705,7 +708,7 @@ function majAjust(blocs, choix) {
   const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.k)).length;
   const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.k)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.k));
   P.innerHTML = (ech.length ? `<button class="toggle ${echTous ? "contour" : ""}" id="ajustEch">${echTous ? L("↺ Remettre l’échauffement", "↺ Put the warm-up back") : L("Déjà échauffé : retirer l’échauffement", "Already warm: remove the warm-up")}</button>` : "")
-    + (sa0 => sa0 ? "" : `<div class="aj-ligne"><div><b>${L("Difficulté des exercices", "Exercise difficulty")}</b><small>${nivTxt(choix._niv || 0)}${choix._niv ? " · " + changementsNiv(routine.plan, choix._niv).slice(0, 3).join(" · ") : " · " + L("variante plus dure ou effort plus long", "harder variation or longer effort")}</small></div><div class="stepper"><button data-niv="-1" ${(choix._niv || 0) <= -2 ? "disabled" : ""} aria-label="${L("Exercices plus simples", "Easier exercises")}">−</button><output>${(choix._niv > 0 ? "+" : "") + (choix._niv || 0)}</output><button data-niv="1" ${(choix._niv || 0) >= 2 ? "disabled" : ""} aria-label="${L("Exercices plus durs", "Harder exercises")}">+</button></div></div>`)(mode === "salle" || routine.gym)
+    + (sa0 => sa0 ? "" : `<div class="aj-ligne"><div><b>${L("Difficulté des exercices", "Exercise difficulty")}</b><small>${nivTxt(choix._niv || 0)}${choix._niv ? " · " + changementsNiv(routine.plan, choix._niv).slice(0, 3).join(" · ") : " · " + L("variante plus dure ou effort plus long", "harder variation or longer effort")}</small></div><div class="stepper"><button data-niv="-1" ${(choix._niv || 0) <= -2 ? "disabled" : ""} aria-label="${L("Exercices plus simples", "Easier exercises")}">−</button><output>${(choix._niv > 0 ? "+" : "") + (choix._niv || 0)}</output><button data-niv="1" ${(choix._niv || 0) >= 2 ? "disabled" : ""} aria-label="${L("Exercices plus durs", "Harder exercises")}">+</button></div></div>`)(!nivPossible() || !changementsNiv(routine.plan, 1).length && !changementsNiv(routine.plan, -1).length)
     + l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.k);
       const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.k] || [], ouvert = ajustDetail === g.k && !off;
       return `<div class="aj-ligne${off ? " aj-off" : ""}"><div><b>${g.k}</b><small>${off ? L("Retiré de la séance", "Removed from the workout") : (g.p === 1 ? dur(e.d) + (e.r ? " · " + L("repos ", "rest ") + dur(e.r) : "") : L(`${uniques.length - retires.length} exercices`, `${uniques.length - retires.length} exercises`) + (g.n > 1 ? L(" par tour", " per round") : "")) + (g.n > 1 ? ` · ${L("proposé", "suggested")} : ${g.n}` : "")}</small></div>
@@ -732,7 +735,7 @@ $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepete
 const blocsVolume = () => blocsRepetes(routine.plan).filter(g => g.n >= 2 && !ECHAUF.test(g.k) && !FIXE_NIV.test(g.k));
 function blocProchaine() {
   if (!routine.plan || routine.reprise || mode === "souffle") return "";
-  const vol = blocsVolume().length, niv = mode !== "salle" && !routine.gym;
+  const vol = blocsVolume().length, niv = nivPossible() && (changementsNiv(routine.plan, 1).length + changementsNiv(routine.plan, -1).length > 0);
   if (!vol && !niv) return "";
   return `<div class="carnet ressenti prochaine" id="prBloc"><h3>🎯 ${L("Pour la prochaine fois", "For next time")}</h3><p class="sh-aide">${L("Adapte cette séance à ta forme : elle sera prête la prochaine fois que tu la lances (modifiable avec ✏️ Modifier).", "Fit this workout to your level: it will be ready next time you start it (still editable with ✏️ Edit).")}</p>
     ${vol ? `<div class="pr-ligne"><span>${L("Séries et tours", "Sets and rounds")}</span><div class="pr-btns"><button class="toggle contour" data-prv="-1">➖ ${L("Moins", "Fewer")}</button><button class="toggle contour" data-prv="1">➕ ${L("Plus", "More")}</button></div></div>` : ""}

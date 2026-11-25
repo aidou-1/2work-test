@@ -22,7 +22,7 @@ with sync_playwright() as p:
             page.route('**/*', lambda r: r.fulfill(status=200, content_type='text/javascript', body='') if any(x in r.request.url for x in ['googleapis.com', 'gstatic.com']) else r.continue_())
             url = f'http://127.0.0.1:{srv.server_port}/'
             page.goto(url)
-            page.evaluate('''([lang, theme]) => { localStorage.clear(); localStorage.setItem('langue', lang); localStorage.setItem('theme', theme === 'dark' ? 'sombre' : 'clair'); sessionStorage.setItem('guideInstall', '1'); }''', [lang, theme])
+            page.evaluate('''([lang, theme]) => { localStorage.clear(); localStorage.setItem('langue', lang); localStorage.setItem('theme', theme === 'dark' ? 'sombre' : 'clair'); localStorage.setItem('style', 'socle'); sessionStorage.setItem('guideInstall', '1'); }''', [lang, theme])
             page.reload()
             page.wait_for_timeout(500)
             results = page.evaluate('''() => {

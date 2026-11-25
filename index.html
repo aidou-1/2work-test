@@ -657,7 +657,7 @@ div.zones b { display: block; font-family: var(--titre); font-size: 1.1rem; } di
 .fb-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; } .fb-tete strong { font-family: var(--titre); font-size: 1.1rem; } .fb-tete .toggle { min-height: 44px; padding: 6px 12px; }
 .fb-tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .fb-t { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 6px; border-radius: 16px; border: 1px solid var(--ligne); border-top: 4px solid var(--c, var(--brand)); background: color-mix(in srgb, var(--c, var(--brand)) 10%, var(--surface)); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
-.fb-t b { font-family: var(--titre); font-size: 1.15rem; line-height: 1.1; } .fb-t small { font-size: .74rem; color: var(--muted); line-height: 1.2; overflow-wrap: anywhere; } .fb-i { font-size: 1.5rem; line-height: 1; } .fb-t .batt { height: 30px; width: 18px; }
+.fb-t b { font-family: var(--titre); font-size: 1.15rem; line-height: 1.1; } .fb-t small { font-size: .74rem; color: var(--muted); line-height: 1.2; overflow-wrap: anywhere; } .fb-t .batt { height: 30px; width: 18px; }
 /* carte du corps */
 .corps-boite { display: flex; justify-content: center; margin: 8px 0; } .corps { width: 224px; height: auto; touch-action: manipulation; }
 .corps-sil circle, .corps-sil rect { fill: color-mix(in srgb, var(--ink) 14%, transparent); } .corps-sil path { stroke: color-mix(in srgb, var(--ink) 14%, transparent); stroke-width: 14; stroke-linecap: round; fill: none; }
@@ -820,7 +820,7 @@ html[data-theme="dark"] .media { box-shadow: 0 0 0 1px color-mix(in srgb, var(--
 /* carte du club en tête de l'accueil : la plus visible de l'écran (couleur pleine ; id doublé pour passer devant la règle du verre, qui contient un id) */
 #clubCarte#clubCarte.club-une .sc-corps { position: relative; padding: 16px; border: 0; border-radius: var(--r); color: #fff; background: radial-gradient(120% 140% at 100% 0%, rgba(255,255,255,.28), transparent 55%), linear-gradient(135deg, #2563EB, #7C3AED); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 16px 30px -14px #4F46E5; }
 #clubCarte#clubCarte.club-une .sc-corps::before { display: none; } #clubCarte#clubCarte.club-une strong { font-size: 1.2rem; } #clubCarte#clubCarte.club-une small { color: #fff; }
-#clubCarte#clubCarte.club-une .sc-ico { display: grid; place-items: center; flex: none; } #clubCarte#clubCarte.club-une .ico-c { width: 48px; height: 48px; border-radius: 50%; }
+#clubCarte#clubCarte.club-une .sc-ico { display: grid; place-items: center; flex: none; } #clubCarte#clubCarte.club-une .ico-c { width: 48px; height: 48px; border-radius: 50%; } :root:not([data-style="titane"]) #clubCarte#clubCarte.club-une .ico-c { color: #fff; background: rgba(255,255,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
 #clubCarte#clubCarte.club-une .sc-corps::after { content: "›"; margin-left: auto; font-size: 2rem; line-height: 1; opacity: .8; }
 /* ----- Forme du jour (js/forme.js) : batterie, questionnaire, statistiques expliquées ----- */
 .batt { flex: none; position: relative; width: 22px; height: 38px; border: 2.5px solid var(--ink); border-radius: 6px; padding: 2px; display: flex; align-items: flex-end; }
@@ -1006,13 +1006,11 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 .ondes b:nth-child(2) { animation-delay: .12s; border-color: rgba(255,255,255,.7); } .ondes b:nth-child(3) { animation-delay: .24s; border-width: 1px; }
 @keyframes onde { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(16); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .eau i, .eau b, .eau s, .eau .astre, .eau var, .eau::before, :root[data-style="titane"] :is(.primary, .controls .main)::after, :root[data-style="titane"] :is(.choice, .sc-corps, .quick-corps, .semaine-carte, .tuile, .kpi, .carte, .reglage, .list > li, .prog-carte, .primary, .toggle, .controls button, .ajouter, .nav button) { animation: none !important; } .ondes, .eau ins { display: none !important; } }
-#rgStyle [data-st="titane"] { grid-column: 1 / -1; }
 /* ===== Titane (Réglages → Style) : le Verre liquide sur une scène de nuit, sol qui reflète et lumière argentée à l'horizon ;
    gouttes en métal liquide argenté, un seul accent vert acide (anneau du chrono, textes d'accent). Toujours sombre, comme le Verre liquide. ===== */
 :root[data-style="titane"] { --brand: #C9F26B; --bg: #050506; --surface: #141619; --muted: #AEB3BA; --accent-txt: #C9F26B;
   --goutte: radial-gradient(120% 95% at 30% 12%, #FFFFFF 0%, #E6EBF0 22%, #AFB7C1 55%, #6C7480 100%);
   --goutte-ombre: inset 0 3px 2px rgba(255,255,255,.9), inset 0 -8px 16px rgba(20,24,30,.5), inset 0 0 0 1px rgba(255,255,255,.55), 0 14px 34px -8px rgba(0,0,0,.8), 0 0 40px -14px rgba(220,230,240,.35); }
-:root[data-style="titane"] .eau { background: radial-gradient(70% 8% at 50% 56%, rgba(220,226,235,.16), transparent 70%), radial-gradient(1px 1px at 14% 20%, rgba(230,235,242,.5), transparent), radial-gradient(1px 1px at 76% 11%, rgba(230,235,242,.45), transparent), radial-gradient(1.5px 1.5px at 63% 33%, rgba(230,235,242,.5), transparent), radial-gradient(1px 1px at 31% 43%, rgba(230,235,242,.35), transparent), radial-gradient(1.5px 1.5px at 87% 41%, rgba(230,235,242,.45), transparent), radial-gradient(1px 1px at 48% 15%, rgba(230,235,242,.3), transparent), linear-gradient(180deg, #050506 0%, #0B0C0D 42%, #17191C 54%, #0A0B0C 59%, #030304 100%); }
 /* Scène Titane : nuit chaude et sombre, colonne de lumière venue d'en haut, ligne d'horizon lumineuse, grain de pellicule,
    nappes liquides qui glissent, cubes noirs pailletés d'étoiles qui flottent en profondeur (les plus lointains sont flous),
    et des mots qui défilent sur l'horizon. Tout reste immobile si le téléphone demande moins d'animations. */
@@ -1035,7 +1033,7 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 @keyframes filante { 0% { transform: translateX(0) scaleX(.3); opacity: 0; } 1% { opacity: 1; } 5% { opacity: .9; } 7% { transform: translateX(var(--l)) scaleX(1); opacity: 0; } 100% { transform: translateX(var(--l)) scaleX(1); opacity: 0; } }
 /* astre à anneau (outils/fond-titane.py) : image à part, placée par rapport à l'écran pour rester visible sur téléphone comme sur ordinateur
    (sur téléphone, dans la zone libre de l'accueil entre le titre et le bouton ⓘ) */
-:root[data-style="titane"] .eau .astre { display: block; position: absolute; left: 58.5%; top: 13.5%; width: min(34vw, 280px); aspect-ratio: 291 / 222; translate: -50% -50%; background: url(fonds/astre.webp) center / contain no-repeat; animation: astre 36s ease-in-out infinite alternate; }
+:root[data-style="titane"] .eau .astre { display: block; position: absolute; left: 58.5%; top: 11%; width: min(30vw, 280px); aspect-ratio: 291 / 222; translate: -50% -50%; background: url(fonds/astre.webp) center / contain no-repeat; animation: astre 36s ease-in-out infinite alternate; }
 @media (min-width: 700px) { :root[data-style="titane"] .eau .astre { left: 82%; top: 22%; width: 300px; } }
 @keyframes astre { from { transform: translate(0, 0); } to { transform: translate(-8px, 10px); } }
 /* paillettes : deux couches de débris (ombres d'un point, motif de 420 × 900 px répété) qui montent et dérivent sans arrêt, à deux vitesses */
@@ -1046,8 +1044,9 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 @keyframes scintille { from { opacity: .55; } to { opacity: 1; } }
 /* éclats d'obsidienne chargés d'énergie : images rendues en 3D (outils/eclats.py, lancer de rayons) qui flottent ;
    les lointains sont flous (profondeur de champ), l'énergie bat lentement */
-@property --lueur { syntax: "<number>"; inherits: true; initial-value: .5; }
-:root[data-style="titane"] .eau s { display: block; position: absolute; left: var(--x); top: var(--y); width: calc(var(--t) * 2); height: calc(var(--t) * 2); background: url(fonds/eclat1.webp) center / contain no-repeat; filter: blur(calc(var(--f) * .25px)) brightness(calc(.8 + var(--lueur) * .45)) drop-shadow(0 0 calc(var(--lueur) * 10px) rgba(230,230,255,calc(var(--lueur) * .35))); animation: cube var(--d) ease-in-out infinite alternate, energie 4.6s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -.37), calc(var(--d) * -.11); }
+:root[data-style="titane"] .eau s { display: block; position: absolute; left: var(--x); top: var(--y); width: calc(var(--t) * 2); height: calc(var(--t) * 2); background: url(fonds/eclat1.webp) center / contain no-repeat; filter: blur(calc(var(--f) * .25px)) drop-shadow(0 0 6px rgba(230,230,255,.22)); animation: cube var(--d) ease-in-out infinite alternate; animation-delay: calc(var(--d) * -.37); }
+:root[data-style="titane"] .eau s::after { content: ""; position: absolute; inset: 0; background: inherit; mix-blend-mode: screen; opacity: 0; animation: energie 4.6s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -.11); }
+:root[data-style="titane"]:has(#session:not(.hidden), #pret:not(.hidden)) :is(.eau, .eau *, .eau *::before, .eau *::after) { animation-play-state: paused; }
 :root[data-style="titane"] .eau s:nth-of-type(2) { background-image: url(fonds/eclat2.webp); }
 :root[data-style="titane"] .eau s:nth-of-type(3) { background-image: url(fonds/eclat3.webp); }
 :root[data-style="titane"] .eau s:nth-of-type(4) { background-image: url(fonds/eclat4.webp); }
@@ -1055,13 +1054,14 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 :root[data-style="titane"] .eau s:nth-of-type(6) { background-image: url(fonds/eclat6.webp); }
 :root[data-style="titane"] .eau s:nth-of-type(7) { background-image: url(fonds/eclat1.webp); }
 :root[data-style="titane"] .eau s:nth-of-type(8) { background-image: url(fonds/eclat2.webp); }
-@keyframes energie { from { --lueur: .25; } to { --lueur: 1; } }
+@keyframes energie { from { opacity: 0; } to { opacity: .55; } }
 @keyframes cube { from { transform: translate(0, 0) rotate(var(--r)); } to { transform: translate(14px, -24px) rotate(calc(var(--r) + 14deg)); } }
 @keyframes faisceau { from { opacity: .75; } to { opacity: 1; } }
 @keyframes houle { from { transform: scaleY(1) translateY(0); } to { transform: scaleY(1.12) translateY(3px); } }
 :root[data-style="titane"] :is(h1, .end h2) { text-shadow: 0 2px 24px rgba(220,230,240,.18); }
 :root[data-style="titane"] .time { text-shadow: 0 0 24px rgba(220,230,240,.25), 0 6px 22px rgba(0,0,0,.6); }
 :root[data-style="titane"] #anneau { stroke: #C9F26B; filter: drop-shadow(0 0 8px rgba(201,242,107,.7)); }
+:root[data-style="titane"] .nav button[aria-current="page"] svg { color: #1A1C10; filter: none; } :root[data-style="titane"] .lien { color: var(--accent-txt); }
 :root[data-style="titane"] .niv-badge { background: radial-gradient(closest-side, #141619 78%, transparent 80%), conic-gradient(#C9F26B var(--p), rgba(255,255,255,.22) 0); box-shadow: 0 6px 16px -6px rgba(201,242,107,.5); }
 :root[data-style="titane"] #clubCarte#clubCarte.club-une .sc-corps { color: var(--ink); background: radial-gradient(120% 140% at 100% 0%, rgba(164,147,255,.30), transparent 60%), linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.03)); box-shadow: var(--epais-verre); }
 :root[data-style="titane"] #clubCarte#clubCarte.club-une small { color: var(--muted); }
@@ -1102,10 +1102,10 @@ button:active:not(:disabled) { transform: none; }
 .bx-gestes { padding: 0 !important; } .bx-prof .chips, .bx-regl .chips { flex-wrap: wrap; } .bx-gestes li { cursor: pointer; } .bx-prof > .toggle { width: 100%; margin-top: 8px; white-space: normal; height: auto; min-height: 40px; }
 </style>
 <script>/* thème appliqué avant l'affichage pour éviter un flash clair */
-try { const t = localStorage.getItem("theme") || "clair"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; let s = localStorage.getItem("style") || "titane"; if (s === "liquide" || s === "actuel") s = "titane", m = localStorage.getItem("minuteur") || "chiffres"; if (s !== "actuel") document.documentElement.dataset.style = s; if (s === "titane") document.documentElement.dataset.theme = "dark"; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; if (localStorage.getItem("verre") !== "0") document.documentElement.dataset.verre = ""; } catch (e) {}</script>
+try { const t = localStorage.getItem("theme") || "clair"; document.documentElement.dataset.theme = t === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t === "sombre" ? "dark" : "light"; let s = localStorage.getItem("style") || "titane"; const m = localStorage.getItem("minuteur") || "chiffres"; if (s === "liquide" || s === "actuel") s = "titane"; if (s !== "actuel") document.documentElement.dataset.style = s; if (s === "titane") document.documentElement.dataset.theme = "dark"; if (m !== "chiffres") document.documentElement.dataset.minuteur = m; if (localStorage.getItem("verre") !== "0") document.documentElement.dataset.verre = ""; } catch (e) {}</script>
 </head>
 <body>
-<div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div><div class="eau" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b><u class="astre"></u><ins style="--x:12%;--y:6%;--a:32deg;--l:520px;--d:9s;--t:-1s"></ins><ins style="--x:70%;--y:4%;--a:148deg;--l:460px;--d:13s;--t:-6s"></ins><ins style="--x:35%;--y:18%;--a:38deg;--l:380px;--d:17s;--t:-11s"></ins><ins style="--x:88%;--y:22%;--a:142deg;--l:420px;--d:21s;--t:-3s"></ins><ins style="--x:55%;--y:2%;--a:30deg;--l:560px;--d:26s;--t:-17s"></ins><s style="--x:8%;--y:13%;--t:30px;--d:46s;--f:2;--r:20deg;--w:1.5;--h:0.7"></s><s style="--x:74%;--y:8%;--t:20px;--d:58s;--f:3;--r:-35deg;--w:0.7;--h:1.6"></s><s style="--x:40%;--y:31%;--t:44px;--d:40s;--f:0;--r:40deg;--w:1.1;--h:1.1"></s><s style="--x:18%;--y:44%;--t:24px;--d:52s;--f:1;--r:-15deg;--w:1.8;--h:0.55"></s><s style="--x:86%;--y:47%;--t:52px;--d:44s;--f:0;--r:25deg;--w:0.8;--h:1.4"></s><s style="--x:32%;--y:69%;--t:62px;--d:50s;--f:1;--r:-40deg;--w:1.3;--h:0.9"></s><s style="--x:70%;--y:78%;--t:38px;--d:62s;--f:2;--r:10deg;--w:0.6;--h:1.7"></s><s style="--x:4%;--y:82%;--t:28px;--d:56s;--f:4;--r:-25deg;--w:1.2;--h:1.2"></s><var></var><var></var></div><div class="ondes" id="ondes" aria-hidden="true"><b></b><b></b><b></b></div>
+<div class="fond" aria-hidden="true"><i class="chaud"></i><i class="vert"></i><i class="bleu"></i><b></b></div><div class="eau" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b><u class="astre"></u><ins style="--x:12%;--y:6%;--a:32deg;--l:520px;--d:9s;--t:-1s"></ins><ins style="--x:70%;--y:4%;--a:148deg;--l:460px;--d:13s;--t:-6s"></ins><ins style="--x:35%;--y:18%;--a:38deg;--l:380px;--d:17s;--t:-11s"></ins><ins style="--x:88%;--y:22%;--a:142deg;--l:420px;--d:21s;--t:-3s"></ins><ins style="--x:55%;--y:2%;--a:30deg;--l:560px;--d:26s;--t:-17s"></ins><s style="--x:8%;--y:13%;--t:30px;--d:46s;--f:2;--r:20deg"></s><s style="--x:74%;--y:8%;--t:20px;--d:58s;--f:3;--r:-35deg"></s><s style="--x:40%;--y:31%;--t:44px;--d:40s;--f:0;--r:40deg"></s><s style="--x:18%;--y:44%;--t:24px;--d:52s;--f:1;--r:-15deg"></s><s style="--x:86%;--y:47%;--t:52px;--d:44s;--f:0;--r:25deg"></s><s style="--x:32%;--y:69%;--t:62px;--d:50s;--f:1;--r:-40deg"></s><s style="--x:70%;--y:78%;--t:38px;--d:62s;--f:2;--r:10deg"></s><s style="--x:4%;--y:82%;--t:28px;--d:56s;--f:4;--r:-25deg"></s><var></var><var></var></div><div class="ondes" id="ondes" aria-hidden="true"><b></b><b></b><b></b></div>
 <p id="voixSecours" class="voix-secours hidden" role="status"></p>
 <button id="quitBtn" class="quit hidden" aria-label="Quitter et retourner au menu d’accueil">✕ Menu</button>
 <main>
@@ -1310,7 +1310,7 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 <div class="stepper"><button class="toggle" id="thClair" aria-pressed="true">Clair</button><button class="toggle" id="thSombre" aria-pressed="false">Sombre</button><button class="toggle" id="thAuto" aria-pressed="false">Auto</button></div>
 </div>
 <div class="reglage">
-<label>Style<small>L’allure de toute l’appli, en clair comme en sombre</small></label>
+<label>Style<small>L’allure de toute l’appli (Titane est toujours sombre)</small></label>
 <div class="stepper" id="rgStyle" role="group"><button class="toggle" data-st="fonderie">Fonderie</button><button class="toggle" data-st="papier">Atelier papier</button><button class="toggle" data-st="titane">Titane</button><button class="toggle" data-st="socle">Socle</button></div>
 </div>
 <div class="reglage">
@@ -1438,43 +1438,43 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-25o"></script>
-<script src="js/donnees.js?v=2026-11-25o"></script>
-<script src="js/seance.js?v=2026-11-25o"></script>
-<script src="js/progres.js?v=2026-11-25o"></script>
-<script src="js/catalogue.js?v=2026-11-25o"></script>
-<script src="js/profil.js?v=2026-11-25o"></script>
-<script src="js/anatomie.js?v=2026-11-25o"></script>
-<script src="js/evenements.js?v=2026-11-25o"></script>
-<script src="js/outils.js?v=2026-11-25o"></script>
-<script src="js/cardio.js?v=2026-11-25o"></script>
-<script src="js/chronos.js?v=2026-11-25o"></script>
-<script src="js/sports.js?v=2026-11-25o"></script>
-<script src="js/sport.js?v=2026-11-25o"></script>
-<script src="js/boxe.js?v=2026-11-25o"></script>
-<script src="js/foot.js?v=2026-11-25o"></script>
-<script src="js/course.js?v=2026-11-25o"></script>
-<script src="js/trail.js?v=2026-11-25o"></script>
-<script src="js/athle.js?v=2026-11-25o"></script>
-<script src="js/basket.js?v=2026-11-25o"></script>
-<script src="js/tennis.js?v=2026-11-25o"></script>
-<script src="js/padel.js?v=2026-11-25o"></script>
-<script src="js/handball.js?v=2026-11-25o"></script>
-<script src="js/volley.js?v=2026-11-25o"></script>
-<script src="js/cyclisme.js?v=2026-11-25o"></script>
-<script src="js/natation.js?v=2026-11-25o"></script>
-<script src="js/escalade.js?v=2026-11-25o"></script>
-<script src="js/ski.js?v=2026-11-25o"></script>
-<script src="js/surf.js?v=2026-11-25o"></script>
-<script src="js/pilates.js?v=2026-11-25o"></script>
-<script src="js/jeu.js?v=2026-11-25o"></script>
-<script src="js/moi.js?v=2026-11-25o"></script>
-<script src="js/forme.js?v=2026-11-25o"></script>
-<script src="js/masemaine.js?v=2026-11-25o"></script>
-<script src="js/apercus.js?v=2026-11-25o"></script>
-<script src="js/guide.js?v=2026-11-25o"></script>
-<script src="js/clubs.js?v=2026-11-25o"></script>
-<script src="js/coach.js?v=2026-11-25o"></script>
-<script src="js/semaine1.js?v=2026-11-25o"></script>
+<script src="consignes.js?v=2026-11-25p"></script>
+<script src="js/donnees.js?v=2026-11-25p"></script>
+<script src="js/seance.js?v=2026-11-25p"></script>
+<script src="js/progres.js?v=2026-11-25p"></script>
+<script src="js/catalogue.js?v=2026-11-25p"></script>
+<script src="js/profil.js?v=2026-11-25p"></script>
+<script src="js/anatomie.js?v=2026-11-25p"></script>
+<script src="js/evenements.js?v=2026-11-25p"></script>
+<script src="js/outils.js?v=2026-11-25p"></script>
+<script src="js/cardio.js?v=2026-11-25p"></script>
+<script src="js/chronos.js?v=2026-11-25p"></script>
+<script src="js/sports.js?v=2026-11-25p"></script>
+<script src="js/sport.js?v=2026-11-25p"></script>
+<script src="js/boxe.js?v=2026-11-25p"></script>
+<script src="js/foot.js?v=2026-11-25p"></script>
+<script src="js/course.js?v=2026-11-25p"></script>
+<script src="js/trail.js?v=2026-11-25p"></script>
+<script src="js/athle.js?v=2026-11-25p"></script>
+<script src="js/basket.js?v=2026-11-25p"></script>
+<script src="js/tennis.js?v=2026-11-25p"></script>
+<script src="js/padel.js?v=2026-11-25p"></script>
+<script src="js/handball.js?v=2026-11-25p"></script>
+<script src="js/volley.js?v=2026-11-25p"></script>
+<script src="js/cyclisme.js?v=2026-11-25p"></script>
+<script src="js/natation.js?v=2026-11-25p"></script>
+<script src="js/escalade.js?v=2026-11-25p"></script>
+<script src="js/ski.js?v=2026-11-25p"></script>
+<script src="js/surf.js?v=2026-11-25p"></script>
+<script src="js/pilates.js?v=2026-11-25p"></script>
+<script src="js/jeu.js?v=2026-11-25p"></script>
+<script src="js/moi.js?v=2026-11-25p"></script>
+<script src="js/forme.js?v=2026-11-25p"></script>
+<script src="js/masemaine.js?v=2026-11-25p"></script>
+<script src="js/apercus.js?v=2026-11-25p"></script>
+<script src="js/guide.js?v=2026-11-25p"></script>
+<script src="js/clubs.js?v=2026-11-25p"></script>
+<script src="js/coach.js?v=2026-11-25p"></script>
+<script src="js/semaine1.js?v=2026-11-25p"></script>
 </body>
 </html>

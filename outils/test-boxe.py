@@ -32,7 +32,7 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); }; let n = 0;
   ok(blocsRepetes(spSeance('boxe', 'rsa').plan).some(g => g.k === 'Série' || g.k === 'Set'), 'séries rsa groupées');
   // 3. écran : bouton Modifier, +, choix gardé, Par défaut
   stocker('niveauRenfo', 'inter'); ROUTINES.cardioS = { ...seanceCardio('boxe', 'sprints'), retour: () => 0 }; CONSEILLES.cardioS = []; ouvrirRoutine('cardioS');
-  const avant = liste.length; $('ajustBtn').click(); document.querySelector('[data-aj="0"][data-d="1"]').click();
+  const avant = liste.length; $('ajustBtn').click(); document.querySelector('[data-aj][data-d="1"]').click();
   ok(liste.length === avant + 1, 'une répétition de plus'); ok(Object.keys(lireJSON('ajustSeances', {})).length === 1, 'choix gardé');
   $('ajustDef').click(); ok(liste.length === avant && !Object.keys(lireJSON('ajustSeances', {})).length, 'par défaut');
   return n; }'''

@@ -633,7 +633,8 @@ function appliquerTheme() {
   const d = theme === "sombre" || (theme === "auto" && sombreSys.matches) || document.documentElement.dataset.style === "titane";   // Titane : toujours sombre (OLED)
   document.documentElement.dataset.theme = d ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || (d ? "#0C0A09" : "#FBF6F1");   // barre du téléphone à la couleur du fond du style
-  [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).setAttribute("aria-pressed", theme === t));
+  const ti = document.documentElement.dataset.style === "titane";   // Titane : toujours sombre, le thème ne se choisit pas
+  [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => { $(id).setAttribute("aria-pressed", ti ? t === "sombre" : theme === t); $(id).disabled = ti; });
   if (vol) vol.maj();   // l'objet en volume reprend les teintes du thème
 }
 [["thClair", "clair"], ["thSombre", "sombre"], ["thAuto", "auto"]].forEach(([id, t]) => $(id).onclick = () => { theme = t; stocker("theme", t); appliquerTheme(); });

@@ -98,7 +98,7 @@ function zonesFc(age) {
 const champsCorps = (p, x) => `<label class="champ"><span>${L("Date de naissance", "Date of birth")} <small>(${L("facultatif · fréquence cardiaque et clubs", "optional · heart rate and clubs")})</small></span><input id="${x}Nais" type="date" max="${jourCle()}" value="${p.naissance || ""}"></label>
   <div class="champ-duo"><label class="champ"><span>${L("Poids (kg)", "Weight (kg)")} <small>(${L("facultatif", "optional")})</small></span><input id="${x}Poids" type="number" inputmode="decimal" min="30" max="250" step="0.5" value="${p.poids || ""}" placeholder="—"></label>
     <label class="champ"><span>${L("Taille (cm)", "Height (cm)")} <small>(${L("facultatif", "optional")})</small></span><input id="${x}Taille" type="number" inputmode="numeric" min="100" max="230" value="${p.taille || ""}" placeholder="—"></label></div>`;
-function brancherCorps(x, ok = () => {}) {
+function brancherChampsCorps(x, ok = () => {}) {
   $(x + "Nais").onchange = e => { const v = e.target.value, a = v ? ageNais(v) : 0; ecrireProfil("naissance", a >= 4 && a <= 110 ? v : ""); if (!v) ecrireProfil("age", ""); ok(); };
   $(x + "Poids").oninput = e => { const v = parseFloat(e.target.value); ecrireProfil("poids", v >= 30 && v <= 250 ? v : ""); ok(); };
   $(x + "Taille").oninput = e => { const v = parseInt(e.target.value, 10); ecrireProfil("taille", v >= 100 && v <= 230 ? v : ""); ok(); };
@@ -124,7 +124,7 @@ function renduProfil() {
   $("pfQuest").onclick = () => { bienvenue.depuisProfil = profilRetourVers; ecran("bienvenue", () => bienvenue(1)); };
   const ok = () => { $("pfOk").textContent = "✓ " + L("Enregistré", "Saved"); clearTimeout(ok.t); ok.t = setTimeout(() => $("pfOk") && ($("pfOk").textContent = ""), 1500); resultatsProfil(); };
   $("pfNom").oninput = e => { ecrireProfil("nom", e.target.value.trim()); ok(); };
-  brancherCorps("pf", ok);
+  brancherChampsCorps("pf", ok);
   $("pfSport").onchange = e => { ecrireProfil("sport", e.target.value); ok(); };
   C.querySelectorAll("[data-obj]").forEach(b => b.onclick = () => { ecrireProfil("objectif", b.dataset.obj); C.querySelectorAll("[data-obj]").forEach(x => x.setAttribute("aria-pressed", x === b)); ok(); });
   C.querySelectorAll("[data-mat]").forEach(b => b.onclick = () => { const l = lireProfil().materiel || [], k = b.dataset.mat, n = l.includes(k) ? l.filter(x => x !== k) : [...l, k]; ecrireProfil("materiel", n); b.setAttribute("aria-pressed", n.includes(k)); ok(); });
