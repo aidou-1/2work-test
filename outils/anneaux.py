@@ -10,10 +10,30 @@ X,Y=np.meshgrid(np.arange(w)/SS,np.arange(h)/SS)
 def lisse(n,s):  # bruit lissé normalisé, à la taille de l'image
     a=gaussian_filter(rng.random((h//n,w//n)),s); a=(a-a.min())/(a.max()-a.min())
     return np.asarray(Image.fromarray((a*255).astype(np.uint8)).resize((w,h),Image.BICUBIC))/255
-# ciel
-o=np.zeros((h,w,3))+np.array([4,5,8.]); neb=lisse(32,6)
-o+=(neb**3)[...,None]*np.array([26,34,58.])
-et=rng.random((h,w)); m=et>0.9993; o[m]=np.array([235,238,248.])*rng.uniform(.35,1,(m.sum(),1))
+# ciel : voie lactée en diagonale avec bandes de poussière, nébuleuse filamenteuse, étoiles de couleurs et de tailles variées,
+# deux lunes et une petite planète lointaine
+o=np.zeros((h,w,3))+np.array([3,4,7.])
+gx=(X-W*0.1)*np.cos(0.95)+(Y-H*0.05)*np.sin(0.95); gy=-(X-W*0.1)*np.sin(0.95)+(Y-H*0.05)*np.cos(0.95)
+bande=np.exp(-(gy/(W*0.28))**2)*np.clip(1-gx/(H*1.2),0,1)
+nuage=lisse(8,4); fil=lisse(2,2); poussiere=np.clip((lisse(5,3)-0.45)*3,0,1)
+vl=bande*(0.45*nuage+0.35*fil)*(1-0.75*poussiere*bande)
+o+=vl[...,None]*np.array([86,92,112.])
+neb=lisse(10,5); fl=np.abs(np.sin(lisse(6,3)*12))  # filaments
+nb=np.exp(-(((X-W*0.30)/(W*0.35))**2+((Y-H*0.22)/(H*0.16))**2))*neb**1.6*(0.6+0.4*fl)
+o+=nb[...,None]*np.array([40,70,96.])+(nb**2)[...,None]*np.array([60,96,40.])
+for k,(seuil,tmin,tmax,flou) in enumerate([(0.9975,.15,.55,0),(0.99965,.5,1,0.6),(0.99996,.9,1,1.6)]):
+    et=rng.random((h,w))<(1-seuil)*(1+3*bande)
+    teint=np.array([[255,250,240],[210,222,255],[255,226,190],[232,238,255]])[rng.integers(4,size=et.sum())]
+    c=np.zeros((h,w,3)); c[et]=teint*rng.uniform(tmin,tmax,(et.sum(),1))
+    o+=gaussian_filter(c,(flou,flou,0))*(1+flou*4) if flou else c
+# petite planète lointaine (à gauche) et deux lunes
+for (cx,cy,rr,col,ann) in [(W*0.16,H*0.15,W*0.045,(150,126,110),True),(W*0.83,H*0.09,W*0.018,(190,196,206),False),(W*0.62,H*0.30,W*0.011,(170,175,185),False)]:
+    ddx,ddy=(X-cx)/rr,(Y-cy)/rr; dd=ddx*ddx+ddy*ddy; nzz=np.sqrt(np.clip(1-dd,0,1))
+    ll=np.clip(-0.6*ddx-0.5*ddy+0.6*nzz,0,1)**1.2
+    o=np.where((dd<1)[...,None],np.array(col)*ll[...,None]*(0.85+0.15*lisse(4,2))[...,None]+4,o)
+    if ann:
+        ax=(X-cx)*np.cos(-0.5)+(Y-cy)*np.sin(-0.5); ay=(-(X-cx)*np.sin(-0.5)+(Y-cy)*np.cos(-0.5))/0.25; ar=np.sqrt(ax*ax+ay*ay)/rr
+        ring=(ar>1.4)&(ar<2.1)&~((dd<1)&(ay<0)); o=np.where(ring[...,None],o*0.5+np.array([170,160,150.])*0.45,o)
 # planète : grande sphère en bas à droite
 pcx,pcy,R=W*0.62,H*0.74,W*0.40
 dx,dy=(X-pcx)/R,(Y-pcy)/R; r2=dx*dx+dy*dy; disque=r2<1; nz=np.sqrt(np.clip(1-r2,0,1))
