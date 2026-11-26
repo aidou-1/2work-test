@@ -192,6 +192,19 @@ function brancherCharges() {
     bip(880, 120, .12, "sine"); bip(1175, 160, .12, "sine", .12);
   };
 }
+// courbe détaillée d'un exercice (toutes les séances notées) : force max estimée et charge réelle, avec dates et valeurs
+function courbeCharge(id) {
+  const l = lireCharges().filter(x => x.id === id).slice(-30); if (!l.length) return;
+  const v = l.map(x => rm1(x.kg, x.r)), k = l.map(x => x.kg), mn = Math.min(...k), mx = Math.max(...v), W = 320, H = 170, g = 34, b = 24;
+  const X = i => g + (l.length > 1 ? i / (l.length - 1) * (W - g - 10) : (W - g - 10) / 2), Y = n => H - b - (mx > mn ? (n - mn) / (mx - mn) : .5) * (H - b - 12);
+  const ligne = (t, c) => `<polyline points="${t.map((n, i) => X(i).toFixed(1) + "," + Y(n).toFixed(1)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>` + t.map((n, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(n).toFixed(1)}" r="3" fill="${c}"/>`).join("");
+  const date = j => j.slice(8, 10) + "/" + j.slice(5, 7);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="courbe-ch" role="img" aria-label="${L("Courbe de progression", "Progress chart")}">
+    ${[mn, Math.round((mn + mx) / 2), mx].map(n => `<line x1="${g}" x2="${W - 6}" y1="${Y(n).toFixed(1)}" y2="${Y(n).toFixed(1)}" stroke="var(--ligne)"/><text x="${g - 6}" y="${(Y(n) + 4).toFixed(1)}" text-anchor="end">${kgTxt(n)}</text>`).join("")}
+    <text x="${g}" y="${H - 6}">${date(l[0].j)}</text><text x="${W - 6}" y="${H - 6}" text-anchor="end">${date(l.at(-1).j)}</text>${ligne(v, "var(--accent)")}${ligne(k, "var(--ch2)")}</svg>`;
+  ouvrirFeuilleInfo(EXERCICES[id].nom, `<p class="sh-aide"><span class="leg-ch" style="--c:var(--accent)"></span>${L("Force max estimée (kg)", "Estimated max (kg)")} <span class="leg-ch" style="--c:var(--ch2)"></span>${L("Charge de la dernière série (kg)", "Last-set weight (kg)")}</p>${svg}
+    <ul class="list ch-histo">${l.slice(-8).reverse().map(x => `<li><span>${date(x.j)}</span><b>${kgTxt(x.kg)} kg × ${x.r}</b><small>${L("force max", "max")} ${rm1(x.kg, x.r)} kg</small></li>`).join("")}</ul>`);
+}
 function sectionCharges() {   // analyses pour « Mes progrès »
   const h = lireCharges(); if (!h.length) return "";
   const par = {}; h.forEach(x => (par[x.id] = par[x.id] || []).push(x));
@@ -200,8 +213,8 @@ function sectionCharges() {   // analyses pour « Mes progrès »
     const pts = v.slice(-12), mn = Math.min(...pts), mx = Math.max(...pts), W = 120, H = 34;
     const xy = pts.map((p, i) => [pts.length > 1 ? i / (pts.length - 1) * W : W / 2, H - 4 - (mx > mn ? (p - mn) / (mx - mn) : .5) * (H - 8)]);
     const spark = `<svg viewBox="0 0 ${W} ${H}" class="spark"><polyline points="${xy.map(p => p.map(n => n.toFixed(1)).join(",")).join(" ")}"/>${xy.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === xy.length - 1 ? 3 : 1.8}"/>`).join("")}</svg>`;
-    return `<div class="charge-carte"><div><b>${EXERCICES[id].nom}</b><small>${L("Dernière", "Last")} : ${der.kg} kg × ${der.r} · ${l.length} ${L(l.length > 1 ? "séances" : "séance", l.length > 1 ? "sessions" : "session")}</small>
-      <small>${L("Force max estimée", "Estimated max")} : <b>${best} kg</b>${l.length > 1 ? ` · <span class="${gain >= 0 ? "plus" : "moins"}">${gain >= 0 ? "+" : ""}${gain} kg ${L("depuis le début", "since the start")}</span>` : ""}</small></div>${spark}</div>`; }).join("");
+    return `<button class="charge-carte" data-ch="${id}"><span><b>${EXERCICES[id].nom}</b><small>${L("Dernière", "Last")} : ${der.kg} kg × ${der.r} · ${l.length} ${L(l.length > 1 ? "séances" : "séance", l.length > 1 ? "sessions" : "session")}</small>
+      <small>${L("Force max estimée", "Estimated max")} : <b>${best} kg</b>${l.length > 1 ? ` · <span class="${gain >= 0 ? "plus" : "moins"}">${gain >= 0 ? "+" : ""}${gain} kg ${L("depuis le début", "since the start")}</span>` : ""}</small></span>${spark}</button>`; }).join("");
   const vol = h.filter(x => x.j >= jourCle(new Date(Date.now() - 30 * 864e5))).reduce((s, x) => s + x.kg * x.r * (x.s || 1), 0);
   return `<h2 class="sec">${L("Mes charges", "My weights")}</h2><div class="carte"><p class="aide" style="margin-bottom:8px">${L("Volume soulevé sur 30 jours", "Volume lifted over 30 days")} : <b>${Math.round(vol).toLocaleString(L("fr-FR", "en-GB"))} kg</b> · ${L("force max estimée avec la formule d’Epley (kg × (1 + reps ÷ 30)).", "estimated max uses the Epley formula (kg × (1 + reps ÷ 30)).")}</p>${cartes}</div>`;
 }

@@ -18,7 +18,7 @@ function defisSemaine(l = lundiDe(), h = lireHist()) {
 }
 function xpTotal(h = lireHist()) {
   const sems = [...new Set(h.map(x => lundiDe(x.j)))];
-  return h.reduce((t, x) => t + xpSeance(x), 0) + sems.reduce((t, l) => { const n = defisSemaine(l, h).filter(d => d.ok).length; return t + n * 50 + (n === 3 ? 50 : 0); }, 0);
+  return xpParrain(h) + h.reduce((t, x) => t + xpSeance(x), 0) + sems.reduce((t, l) => { const n = defisSemaine(l, h).filter(d => d.ok).length; return t + n * 50 + (n === 3 ? 50 : 0); }, 0);
 }
 const RANGS = [["Débutant", "Beginner"], ["Régulier", "Regular"], ["Motivé", "Motivated"], ["Sportif", "Sporty"], ["Athlète", "Athlete"], ["Compétiteur", "Competitor"], ["Expert", "Expert"], ["Élite", "Elite"], ["Champion", "Champion"], ["Légende", "Legend"]];
 const seuilXp = n => 75 * n * (n - 1);   // XP nécessaires pour atteindre le niveau n : 0, 150, 450, 900, 1500…
@@ -203,6 +203,34 @@ async function envoyerDuel(b) {
 addEventListener("DOMContentLoaded", () => { const c = new URLSearchParams(location.search).get("duel"); if (!c) return;
   try { const d = decoderLien(c); if (!(d.x >= 0 && d.x < 1e5) || !/^\d{4}-\d\d-\d\d$/.test(d.l)) return;
     stocker("duel", JSON.stringify({ n: propre(d.n || "").slice(0, 20), x: Math.round(d.x), l: d.l })); history.replaceState(null, "", location.pathname); finBienvenue(); afficherEcran("menu"); ouvrirBilan(); } catch (e) {} });
+
+/* --- Parrainage, sans serveur ni donnée envoyée : « parrainage » = { c: mon code (aléatoire), de: code de celui qui m'a invité, m: [filleuls remerciés] }.
+   Le filleul gagne 100 XP après sa première séance et peut renvoyer un lien de remerciement ; ce lien rapporte 100 XP au parrain (10 filleuls au plus).
+   Rien n'est vérifié en ligne : ce ne sont que des points de jeu, gardés sur le téléphone. */
+const lireParrain = () => lireJSON("parrainage", {});
+function codeParrain() { const P = lireParrain(); if (!P.c) { P.c = Math.random().toString(36).slice(2, 10); stocker("parrainage", JSON.stringify(P)); } return P.c; }
+const xpParrain = (h = lireHist(), P = lireParrain()) => (P.de && h.length ? 100 : 0) + Math.min(10, (P.m || []).length) * 100;
+const lienParrain = (k, v) => location.origin + location.pathname + "?" + k + "=" + v;
+function blocParrain() {
+  const P = lireParrain(), n = Math.min(10, (P.m || []).length), filleul = P.de && P.de !== P.c;
+  return `<div class="carte"><h2>${icoT("groupe", "#4FD69C")}${L("Invite un ami", "Invite a friend")}</h2><p>${L("Envoie-lui ton lien : il gagne 100 XP après sa première séance, et toi 100 XP quand il te renvoie son merci.", "Send them your link: they earn 100 XP after their first workout, and you earn 100 XP when they send back their thanks.")}</p>
+    ${n ? `<p class="sh-ok">✓ ${L(`${n} ami${n > 1 ? "s" : ""} parrainé${n > 1 ? "s" : ""} · +${n * 100} XP`, `${n} friend${n > 1 ? "s" : ""} invited · +${n * 100} XP`)}</p>` : ""}
+    <button class="toggle contour" id="parInvit">${L("Envoyer mon lien d’invitation", "Send my invite link")}</button>
+    ${filleul ? lireHist().length ? `<button class="toggle contour" id="parMerci">${L("Remercier mon parrain (+100 XP pour lui)", "Thank whoever invited me (+100 XP for them)")}</button>` : `<p class="sh-aide">${L("Tu as été invité : termine ta première séance pour gagner 100 XP.", "You were invited: finish your first workout to earn 100 XP.")}</p>` : ""}</div>`;
+}
+function brancherParrain() {
+  if ($("parInvit")) $("parInvit").onclick = e => partagerLien(L("Je m’entraîne avec 2 WORK : échauffements, séances guidées à la voix, gratuit et sans pub. Rejoins-moi :", "I train with 2 WORK: warm-ups, voice-guided workouts, free and ad-free. Join me:"), lienParrain("parrain", codeParrain()), e.currentTarget);
+  // le merci porte le code du parrain et un code de filleul : un même filleul ne compte qu'une fois
+  if ($("parMerci")) $("parMerci").onclick = e => partagerLien(L("Merci pour l’invitation sur 2 WORK ! Ouvre ce lien pour recevoir tes 100 XP :", "Thanks for inviting me to 2 WORK! Open this link to get your 100 XP:"), lienParrain("merci", coderLien({ p: lireParrain().de, f: codeParrain() })), e.currentTarget);
+}
+addEventListener("DOMContentLoaded", () => { const q = new URLSearchParams(location.search), c = q.get("parrain"), m = q.get("merci"); if (!c && !m) return;
+  try { const P = lireParrain(); let msg = "";
+    if (c && /^[a-z0-9]{4,12}$/.test(c) && c !== P.c && !P.de && !lireHist().length) { P.de = c; msg = L("Bienvenue ! Termine ta première séance pour gagner 100 XP.", "Welcome! Finish your first workout to earn 100 XP."); }
+    if (m) { const d = decoderLien(m), f = String(d.f || "");
+      if (d.p && d.p === P.c && f !== P.c && /^[a-z0-9]{4,12}$/.test(f) && !(P.m || []).includes(f)) { P.m = [...(P.m || []), f].slice(-50);
+        msg = P.m.length > 10 ? L("Merci reçu ! Tu as déjà gagné le maximum de 1 000 XP de parrainage.", "Thanks received! You already earned the 1,000 XP invite maximum.") : L("Merci reçu : +100 XP pour ton parrainage !", "Thanks received: +100 XP for your invite!"); } }
+    stocker("parrainage", JSON.stringify(P)); history.replaceState(null, "", location.pathname);
+    if (msg) setTimeout(() => ouvrirFeuilleInfo(L("Parrainage", "Invites"), `<p>${msg}</p>`), 900); } catch (e) {} });
 
 /* --- Programme sur mesure : 4 semaines assemblées à partir des journées des programmes existants, selon l'objectif, le rythme et l'intensité.
    Gardé dans « progPerso » (même format que PROGRAMMES) et placé en tête de la liste ; son avancement suit la clé habituelle prog_perso. --- */

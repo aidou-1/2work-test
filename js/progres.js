@@ -232,13 +232,14 @@ function ouvrirProgres() {
     <div class="carte"><h2>${L("4 derniers mois", "Last 4 months")}</h2><div class="chaleur">${cases}</div>
       <div class="legende-ch">${L("Moins", "Less")} <i style="background:var(--soft)"></i><i style="background:#C7D2FE"></i><i style="background:#818CF8"></i><i style="background:#4F46E5"></i><i style="background:#312E81"></i> ${L("Plus", "More")}</div></div>
     ${blocsJeu()}
+    ${blocParrain()}
     ${blocsForme()}
     ${typeof blocApercus === "function" ? blocApercus() : ""}
     ${sectionCharges()}
     <h2 class="sec">${L("Badges", "Badges")} · ${nbT}/${TROPHEES.length}</h2>
     <div class="badges">${TROPHEES.map(t => [t, !!deja[t[0]], AVANCE[t[0]] ? Math.min(1, AVANCE[t[0]](S)) : 0]).sort((x, y) => y[1] - x[1] || y[2] - x[2]).map(([t, ok, p], k) => `<button class="badge${ok ? "" : " verrou"}" data-tr="${t[0]}" style="--k:${k}">${medaille(t, "p", ok, p)}<b>${L(t[1], t[2])}</b><small>${ok ? L("Récupéré", "Earned") : p ? Math.round(p * 100) + " %" : L("À débloquer", "To unlock")}</small></button>`).join("")}</div>
     ${dernieres ? `<h2 class="sec">${L("Dernières séances", "Recent workouts")}</h2><ul class="list historique">${dernieres}</ul>` : `<p class="vide">${L("Termine ta première séance pour allumer la flamme !", "Finish your first workout to light the flame!")}</p>`}`;
-  $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("prCorps").querySelectorAll("[data-tr]").forEach(b => b.onclick = () => ouvrirBadge(b.dataset.tr)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
+  brancherParrain(); $("prCorps").querySelectorAll("[data-m]").forEach(b => b.onclick = () => ouvrirRecap(b.dataset.m)); $("prCorps").querySelectorAll("[data-ch]").forEach(b => b.onclick = () => courbeCharge(b.dataset.ch)); $("prCorps").querySelectorAll("[data-tr]").forEach(b => b.onclick = () => ouvrirBadge(b.dataset.tr)); $("voirBilan").onclick = () => ouvrirBilan(lundiDe(), ouvrirProgres); brancherForme(); if (typeof brancherApercus === "function") brancherApercus();
   document.documentElement.style.setProperty("--accent", "#F97316");
   brancherObjectifs(() => { const y = scrollY; ouvrirProgres(); scrollTo(0, y); });
   ecran("progres");

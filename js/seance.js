@@ -661,9 +661,13 @@ function planRetraits(plan, choix) {
    (ou plus simple) de la même famille, au poids du corps et sans saut ajouté (moins de risque de blessure) ; sans variante, l'effort dure 10 s de plus
    (ou de moins, 15 s minimum). Échauffement, retour au calme, cardio long et séries de salle ne changent pas. */
 const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", "squat", "squatUni"], ["pont", "pontuni"], ["ours", "planche", "planchetouch"],
-  ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"]];
+  ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"], ["rnFenteSol", "fentesalt", "lungetwist"],
+  ["planchelat", "copenhague"], ["calfraise", "mollet1"], ["lateral", "cossack"]];
 const varianteEx = (id, sens) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v]) return v; } return null; };
 const FIXE_NIV = /calme|cool|étire|stretch|respir|breath|souffle|apn|mise en route|températ|temperat|mobilis|douce|facile|easy|gentle/i;
+// bloc qui ne change pas de difficulté : marqué fixe à la construction (tr: 0 dans les séances des sports), ou reconnu à son nom
+// (des sports placent aussi leur propre échauffement ou mobilité dans la partie principale ; apnée et respiration toujours fixes)
+const blocFixe = (q, k = cleBloc(q.bn)) => q.tr === 0 || FIXE_NIV.test(k) || ECHAUF.test(k);
 // pas de difficulté : salle (charges), reprise après blessure (progression encadrée), Tabata (protocole 20 s / 10 s),
 // échauffement, récupération et respiration (leur dosage est fixe)
 const nivPossible = () => !!(routine && routine.plan) && !routine.gym && !routine.reprise && !routine.blessure && !routine.tbt && !["salle", "echauffement", "calme", "souffle"].includes(mode);
@@ -672,7 +676,7 @@ function planNiveau(plan, niv) {
   const s = Math.sign(niv), B = {};
   return plan.map(q => {
     const k = cleBloc(q.bn);
-    if (q.series || q.d >= 90 || ECHAUF.test(k) || FIXE_NIV.test(k)) return q;
+    if (q.series || q.d >= 90 || blocFixe(q, k)) return q;
     // une variante déjà présente dans le bloc ferait deux fois le même exercice : l'effort s'allonge (ou raccourcit) à la place
     const b = B[k] = B[k] || { pris: new Set(plan.filter(x => cleBloc(x.bn) === k).map(x => x.id)), m: {} };
     if (!b.m[q.id]) { let id = q.id, n = 0; for (let j = 0; j < Math.abs(niv); j++) { const v = varianteEx(id, s); v && !b.pris.has(v) ? (b.pris.add(v), id = v) : n++; } b.m[q.id] = { id, n }; }
@@ -745,9 +749,7 @@ $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepete
 /* --- Fin de séance « Pour la prochaine fois » (à côté du ressenti) : moins ou plus de séries et de tours, exercices plus simples ou plus durs.
    Même choix que « Modifier la séance » (« ajustSeances »), donc retrouvé et modifiable avant le prochain lancement ; annulable tout de suite.
    Pas pour la reprise après blessure (progression encadrée) ni la respiration. Échauffement et retour au calme ne bougent pas. */
-const blocsVolume = () => blocsRepetes(routine.plan).filter(g => g.n >= 2 && !ECHAUF.test(g.k) && !FIXE_NIV.test(g.k));
-// icône colorée dans un bouton (sans pastille, pour garder le bouton compact)
-const icoT = (n, c) => `<span class="ico-t" style="--ic:${c}">${ico(n)}</span>`;
+const blocsVolume = () => blocsRepetes(routine.plan).filter(g => g.n >= 2 && !blocFixe(g.l[0]));
 function blocProchaine() {
   if (!routine.plan || routine.reprise || mode === "souffle") return "";
   const vol = blocsVolume().length, niv = nivPossible() && (changementsNiv(routine.plan, 1).length + changementsNiv(routine.plan, -1).length > 0);
