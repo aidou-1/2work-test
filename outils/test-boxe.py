@@ -21,7 +21,7 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); }; let n = 0;
   // 2. séance modifiable : nombre d'unités, repos de fin gardé, numéros recalculés
   const verifier = (plan, nom) => blocsRepetes(plan).filter(g => g.n >= 2).forEach(g => [1, g.n + 3].forEach(N => {
     // la détection se fait toujours sur la séance d'origine : on compte les étapes du bloc obtenu
-    const b = { l: planAjuste(plan, { [g.k]: N }).filter(q => cleBloc(q.bn) + (q.series ? ' · ' + EXERCICES[q.id].nom : '') === g.k) };
+    const b = { l: planAjuste(plan, { [g.c]: N }).filter(q => cleBloc(q.bn) + (q.series ? ' · ' + EXERCICES[q.id].nom : '') === g.k) };
     ok(b.l.length === N * g.p, `${nom} · ${g.k} × ${N}`);
     ok(b.l[b.l.length - 1].r === g.l[g.l.length - 1].r, `${nom} · ${g.k} repos de fin`);
     ok(!b.l.some(q => /(^|\D)(\d+)\s*\/\s*(\d+)(?!\d)/.test(q.lab || '') && (q.lab.match(/(\d+)\s*\/\s*(\d+)/g) || []).some(x => { const [a, c] = x.split('/').map(Number); return a > c; })), `${nom} · numéros`); n++; }));

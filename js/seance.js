@@ -617,7 +617,8 @@ const SEANCE = k => Object.keys(ROUTINES).find(c => ROUTINES[c].grp === k && !RO
    recopie l'avant-dernière (ses repos sont ceux d'entre deux unités) ; la dernière unité garde le repos de fin prévu. Les numéros sont recalculés.
    En salle (entrées « serie »), chaque exercice forme son propre bloc : on règle ses séries.
    Choix gardé par séance dans « ajustSeances » ({ "clé|titre": { bloc: nombre, _sans: [blocs retirés], _ex: { bloc: [ids retirés] } } }) ;
-   la séance d'origine (routine.plan) n'est jamais modifiée. */
+   la séance d'origine (routine.plan) n'est jamais modifiée. « bloc » vaut « n°bloc:1er exercice » (g.c), le même en français et en anglais ;
+   les anciens choix nommés par le titre du bloc (g.k) sont encore lus et convertis. */
 const cleBloc = bn => String(bn || "").replace(/\s*\d+\s*\/\s*\d+\s*/g, " ").replace(/\s+/g, " ").trim();
 const ECHAUF = /chauff|warm|réveil|activation|approche|mobilit|monter en temp|préparation progressive|raise|ramp/i;   // blocs de mise en route, retirables d'un appui si on enchaîne deux séances
 function blocsRepetes(plan) {
@@ -626,10 +627,18 @@ function blocsRepetes(plan) {
   G.forEach(g => { const l = g.l, n = l.length, pareil = (a, b, fin) => a.id === b.id && a.d === b.d && (fin || a.r === b.r) && (a.presc || "") === (b.presc || "");
     g.p = n; for (let p = 1; p < n; p++) if (n % p === 0 && l.every((q, i) => i < p || pareil(q, l[i % p], i === n - 1))) { g.p = p; break; }
     g.n = n / g.p; });
+  // _b : clé posée sur la séance d'origine, gardée après les retraits pour retrouver le même bloc
+  G.forEach((g, i) => g.c = g.l[0]._b || "b" + i + ":" + g.l[0].id);
   return G;
 }
 const ajustCle = () => routineCle + "|" + (routine.titreFr || routine.titre || "");
-const ajustDe = () => lireJSON("ajustSeances", {})[ajustCle()] || {};
+function ajustDe() {
+  const c = lireJSON("ajustSeances", {})[ajustCle()] || {}, nv = {};
+  if (!routine || !routine.plan) return c;
+  blocsRepetes(routine.plan).forEach(g => nv[g.k] = g.c);
+  const cv = k => k[0] !== "_" && nv[k] || k;
+  return Object.fromEntries(Object.entries(c).map(([k, v]) => [cv(k), k === "_sans" ? v.map(cv) : k === "_ex" ? Object.fromEntries(Object.entries(v).map(([a, b]) => [cv(a), b])) : v]));
+}
 const nbModifs = c => Object.keys(c).filter(k => k[0] !== "_").length + (c._niv ? 1 : 0) + (c._sans || []).length + Object.values(c._ex || {}).reduce((t, l) => t + l.length, 0);
 // Retraits : blocs entiers puis exercices d'un bloc (dans chaque tour). Le repos d'un exercice retiré passe au précédent du même bloc ;
 // les numéros « 3/8 » des étiquettes sont recalculés sur ce qui reste.
@@ -637,8 +646,8 @@ function planRetraits(plan, choix) {
   const sans = new Set(choix._sans || []), ex = choix._ex || {};
   if (!sans.size && !Object.keys(ex).length) return plan;
   return blocsRepetes(plan).flatMap(g => {
-    if (sans.has(g.k)) return [];
-    const out = [], tot = g.l.length, p = g.p, ret = ex[g.k] || [];
+    if (sans.has(g.c)) return [];
+    const out = [], tot = g.l.length, p = g.p, ret = ex[g.c] || [];
     g.l.forEach((q, i) => { const u = Math.floor(i / p);   // un exercice retiré qui terminait son tour laisse son repos (fin de tour) au précédent du même tour
       if (!ret.includes(q.id)) out.push({ ...q, _u: u }); else if (i % p === p - 1 && out.length && out[out.length - 1]._u === u) out[out.length - 1] = { ...out[out.length - 1], r: q.r }; });
     // numéros recalculés : dernière fraction de l'étiquette (« tour 2/3 · 4/8 » → 4/8), comptée parmi les étiquettes de même début ;
@@ -660,21 +669,25 @@ const FIXE_NIV = /calme|cool|étire|stretch|respir|breath|souffle|apn|mise en ro
 const nivPossible = () => !!(routine && routine.plan) && !routine.gym && !routine.reprise && !routine.blessure && !routine.tbt && !["salle", "echauffement", "calme", "souffle"].includes(mode);
 function planNiveau(plan, niv) {
   if (!niv) return plan;
-  const s = Math.sign(niv);
+  const s = Math.sign(niv), B = {};
   return plan.map(q => {
-    if (q.series || q.d >= 90 || ECHAUF.test(cleBloc(q.bn)) || FIXE_NIV.test(cleBloc(q.bn))) return q;
-    let id = q.id, d = q.d;
-    for (let k = 0; k < Math.abs(niv); k++) { const v = varianteEx(id, s); v ? id = v : d > 15 && (d = Math.max(15, d + 10 * s)); }
+    const k = cleBloc(q.bn);
+    if (q.series || q.d >= 90 || ECHAUF.test(k) || FIXE_NIV.test(k)) return q;
+    // une variante déjà présente dans le bloc ferait deux fois le même exercice : l'effort s'allonge (ou raccourcit) à la place
+    const b = B[k] = B[k] || { pris: new Set(plan.filter(x => cleBloc(x.bn) === k).map(x => x.id)), m: {} };
+    if (!b.m[q.id]) { let id = q.id, n = 0; for (let j = 0; j < Math.abs(niv); j++) { const v = varianteEx(id, s); v && !b.pris.has(v) ? (b.pris.add(v), id = v) : n++; } b.m[q.id] = { id, n }; }
+    const { id } = b.m[q.id]; let d = q.d;
+    for (let j = 0; j < b.m[q.id].n; j++) d > 15 && (d = Math.max(15, d + 10 * s));
     return id === q.id && d === q.d ? q : { ...q, id, d, presc: id === q.id ? q.presc : "" };
   });
 }
-function planAjuste(plan, choix) { return planNiveau(planVolume(plan, choix), nivPossible() ? choix._niv : 0); }
+function planAjuste(plan, choix) { return planNiveau(planVolume(blocsRepetes(plan).flatMap(g => g.l.map(q => ({ ...q, _b: g.c }))), choix), nivPossible() ? choix._niv : 0); }
 function planVolume(plan, choix) {
   plan = planRetraits(plan, choix);
   if (!Object.keys(choix).some(k => k[0] !== "_")) return plan;
   const rx = (a, b, der) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)` + (der ? `(?!.*\\d\\s*/\\s*\\d)` : ""));
   return blocsRepetes(plan).flatMap(g => {
-    const N = choix[g.k], { l, p, n } = g; if (!N || N === n || n < 2) return l;
+    const N = choix[g.c], { l, p, n } = g; if (!N || N === n || n < 2) return l;
     const tot = l.length, nu = N * p, out = [];
     for (let u = 0; u < N; u++) { const u0 = u < N - 1 ? Math.min(u, n - 2) : n - 1;
       for (let j = 0; j < p; j++) { const q = l[u0 * p + j], g0 = u0 * p + j, gi = u * p + j;
@@ -702,15 +715,15 @@ function majAjust(blocs, choix) {
   const l = blocs.length > 1 || blocs.some(g => g.n >= 2 || g.p > 1) ? blocs : [], modif = nbModifs(choix);
   R.classList.toggle("hidden", !l.length); P.classList.toggle("hidden", !l.length || !ajustOuvert); $("ajustBtn").setAttribute("aria-expanded", ajustOuvert);
   if (!l.length) return;
-  const resume = [...[...sans].map(k => L("sans ", "no ") + k.toLowerCase()), ...l.filter(g => !sans.has(g.k) && choix[g.k] && choix[g.k] !== g.n).map(g => `${g.k} × ${choix[g.k]}`),
-    ...Object.entries(exR).filter(([k, v]) => v.length && !sans.has(k)).map(([k, v]) => `${k} − ${v.length}`), ...(choix._niv ? [L("exercices ", "exercises ") + nivTxt(choix._niv)] : [])];
+  const resume = [...l.filter(g => sans.has(g.c)).map(g => L("sans ", "no ") + g.k.toLowerCase()), ...l.filter(g => !sans.has(g.c) && choix[g.c] && choix[g.c] !== g.n).map(g => `${g.k} × ${choix[g.c]}`),
+    ...l.filter(g => (exR[g.c] || []).length && !sans.has(g.c)).map(g => `${g.k} − ${exR[g.c].length}`), ...(choix._niv ? [L("exercices ", "exercises ") + nivTxt(choix._niv)] : [])];
   $("ajustInfo").textContent = modif ? L("Modifiée : ", "Edited: ") + resume.join(" · ") : L("Retire l’échauffement ou des exercices, ajuste répétitions, séries et tours", "Remove the warm-up or exercises, adjust reps, sets and rounds");
-  const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.k)).length;
-  const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.k)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.k));
+  const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.c)).length;
+  const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.c)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.c));
   P.innerHTML = (ech.length ? `<button class="toggle ${echTous ? "contour" : ""}" id="ajustEch">${echTous ? L("↺ Remettre l’échauffement", "↺ Put the warm-up back") : L("Déjà échauffé : retirer l’échauffement", "Already warm: remove the warm-up")}</button>` : "")
     + (sa0 => sa0 ? "" : `<div class="aj-ligne"><div><b>${L("Difficulté des exercices", "Exercise difficulty")}</b><small>${nivTxt(choix._niv || 0)}${choix._niv ? " · " + changementsNiv(routine.plan, choix._niv).slice(0, 3).join(" · ") : " · " + L("variante plus dure ou effort plus long", "harder variation or longer effort")}</small></div><div class="stepper"><button data-niv="-1" ${(choix._niv || 0) <= -2 ? "disabled" : ""} aria-label="${L("Exercices plus simples", "Easier exercises")}">−</button><output>${(choix._niv > 0 ? "+" : "") + (choix._niv || 0)}</output><button data-niv="1" ${(choix._niv || 0) >= 2 ? "disabled" : ""} aria-label="${L("Exercices plus durs", "Harder exercises")}">+</button></div></div>`)(!nivPossible() || !changementsNiv(routine.plan, 1).length && !changementsNiv(routine.plan, -1).length)
-    + l.map((g, i) => { const v = choix[g.k] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.k);
-      const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.k] || [], ouvert = ajustDetail === g.k && !off;
+    + l.map((g, i) => { const v = choix[g.c] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.c);
+      const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.c] || [], ouvert = ajustDetail === g.c && !off;
       return `<div class="aj-ligne${off ? " aj-off" : ""}"><div><b>${g.k}</b><small>${off ? L("Retiré de la séance", "Removed from the workout") : (g.p === 1 ? dur(e.d) + (e.r ? " · " + L("repos ", "rest ") + dur(e.r) : "") : L(`${uniques.length - retires.length} exercices`, `${uniques.length - retires.length} exercises`) + (g.n > 1 ? L(" par tour", " per round") : "")) + (g.n > 1 ? ` · ${L("proposé", "suggested")} : ${g.n}` : "")}</small></div>
         ${!off && g.n >= 2 ? `<div class="stepper"><button data-aj="${i}" data-d="-1" ${v <= 1 ? "disabled" : ""} aria-label="${L("Un de moins", "One fewer")} · ${g.k}">−</button><output>${v}</output><button data-aj="${i}" data-d="1" ${v >= max ? "disabled" : ""} aria-label="${L("Un de plus", "One more")} · ${g.k}">+</button></div>` : ""}</div>
         <div class="aj-act">${!off && uniques.length > 1 ? `<button class="aj-mini" data-det="${i}" aria-expanded="${ouvert}">${L("Exercices", "Exercises")} ${ouvert ? "▴" : "▾"}</button>` : ""}<button class="aj-mini" data-off="${i}" ${!off && restants <= 1 ? "disabled" : ""}>${off ? L("↺ Remettre", "↺ Put back") : L("Retirer ce bloc", "Remove this block")}</button></div>`
@@ -719,12 +732,12 @@ function majAjust(blocs, choix) {
     + (modif ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Si tu enchaînes deux séances, retire l’échauffement de la seconde. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. If you do two workouts back to back, remove the warm-up from the second. More volume isn’t always better: keep every effort high quality.")}</p>`;
   const garder = c => { stockerAjust(c); ouvrirApercu(routineCle); };
   const copie = () => ({ ...choix, _sans: [...(choix._sans || [])], _ex: Object.fromEntries(Object.entries(exR).map(([k, v]) => [k, [...v]])) });
-  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(), v = (c[g.k] || g.n) + +b.dataset.d; v === g.n ? delete c[g.k] : c[g.k] = v; garder(c); });
+  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(), v = (c[g.c] || g.n) + +b.dataset.d; v === g.n ? delete c[g.c] : c[g.c] = v; garder(c); });
   P.querySelectorAll("[data-niv]").forEach(b => b.onclick = () => garder({ ...copie(), _niv: Math.max(-2, Math.min(2, (choix._niv || 0) + +b.dataset.niv)) }));
-  P.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { const g = l[+b.dataset.off], c = copie(); c._sans = sans.has(g.k) ? c._sans.filter(k => k !== g.k) : [...c._sans, g.k]; garder(c); });
-  P.querySelectorAll("[data-det]").forEach(b => b.onclick = () => { const k = l[+b.dataset.det].k; ajustDetail = ajustDetail === k ? "" : k; majAjust(blocs, choix); });
-  P.querySelectorAll("[data-exb]").forEach(b => b.onclick = () => { const g = l[+b.dataset.exb], c = copie(), r = c._ex[g.k] || [], id = b.dataset.ex; c._ex[g.k] = r.includes(id) ? r.filter(x => x !== id) : [...r, id]; garder(c); });
-  if ($("ajustEch")) $("ajustEch").onclick = () => { const c = copie(), ks = ech.map(g => g.k); c._sans = echTous ? c._sans.filter(k => !ks.includes(k)) : [...new Set([...c._sans, ...ks])]; garder(c); };
+  P.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { const g = l[+b.dataset.off], c = copie(); c._sans = sans.has(g.c) ? c._sans.filter(k => k !== g.c) : [...c._sans, g.c]; garder(c); });
+  P.querySelectorAll("[data-det]").forEach(b => b.onclick = () => { const k = l[+b.dataset.det].c; ajustDetail = ajustDetail === k ? "" : k; majAjust(blocs, choix); });
+  P.querySelectorAll("[data-exb]").forEach(b => b.onclick = () => { const g = l[+b.dataset.exb], c = copie(), r = c._ex[g.c] || [], id = b.dataset.ex; c._ex[g.c] = r.includes(id) ? r.filter(x => x !== id) : [...r, id]; garder(c); });
+  if ($("ajustEch")) $("ajustEch").onclick = () => { const c = copie(), ks = ech.map(g => g.c); c._sans = echTous ? c._sans.filter(k => !ks.includes(k)) : [...new Set([...c._sans, ...ks])]; garder(c); };
   if ($("ajustDef")) $("ajustDef").onclick = () => garder({});
 }
 $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepetes(routine.plan), ajustDe()); };
@@ -733,28 +746,33 @@ $("ajustBtn").onclick = () => { ajustOuvert = !ajustOuvert; majAjust(blocsRepete
    Même choix que « Modifier la séance » (« ajustSeances »), donc retrouvé et modifiable avant le prochain lancement ; annulable tout de suite.
    Pas pour la reprise après blessure (progression encadrée) ni la respiration. Échauffement et retour au calme ne bougent pas. */
 const blocsVolume = () => blocsRepetes(routine.plan).filter(g => g.n >= 2 && !ECHAUF.test(g.k) && !FIXE_NIV.test(g.k));
+// icône colorée dans un bouton (sans pastille, pour garder le bouton compact)
+const icoT = (n, c) => `<span class="ico-t" style="--ic:${c}">${ico(n)}</span>`;
 function blocProchaine() {
   if (!routine.plan || routine.reprise || mode === "souffle") return "";
   const vol = blocsVolume().length, niv = nivPossible() && (changementsNiv(routine.plan, 1).length + changementsNiv(routine.plan, -1).length > 0);
   if (!vol && !niv) return "";
-  return `<div class="carnet ressenti prochaine" id="prBloc"><h3>🎯 ${L("Pour la prochaine fois", "For next time")}</h3><p class="sh-aide">${L("Adapte cette séance à ta forme : elle sera prête la prochaine fois que tu la lances (modifiable avec ✏️ Modifier).", "Fit this workout to your level: it will be ready next time you start it (still editable with ✏️ Edit).")}</p>
-    ${vol ? `<div class="pr-ligne"><span>${L("Séries et tours", "Sets and rounds")}</span><div class="pr-btns"><button class="toggle contour" data-prv="-1">➖ ${L("Moins", "Fewer")}</button><button class="toggle contour" data-prv="1">➕ ${L("Plus", "More")}</button></div></div>` : ""}
-    ${niv ? `<div class="pr-ligne"><span>${L("Exercices", "Exercises")}</span><div class="pr-btns"><button class="toggle contour" data-prn="-1">🪶 ${L("Plus simples", "Easier")}</button><button class="toggle contour" data-prn="1">🔥 ${L("Plus durs", "Harder")}</button></div></div>` : ""}
+  return `<div class="carnet ressenti prochaine" id="prBloc"><h3>${icoC("cible", "#C9F26B")}${L("Pour la prochaine fois", "For next time")}</h3><p class="sh-aide">${L("Adapte cette séance à ta forme : elle sera prête la prochaine fois que tu la lances (modifiable avec ✏️ Modifier).", "Fit this workout to your level: it will be ready next time you start it (still editable with ✏️ Edit).")}</p>
+    ${vol ? `<div class="pr-ligne"><span>${L("Séries et tours", "Sets and rounds")}</span><div class="pr-btns"><button class="toggle contour" data-prv="-1">${icoT("moins", "#38BDF8")}${L("Moins", "Fewer")}</button><button class="toggle contour" data-prv="1">${icoT("plus", "#F97316")}${L("Plus", "More")}</button></div></div>` : ""}
+    ${niv ? `<div class="pr-ligne"><span>${L("Exercices", "Exercises")}</span><div class="pr-btns"><button class="toggle contour" data-prn="-1">${icoT("plume", "#A78BFA")}${L("Plus simples", "Easier")}</button><button class="toggle contour" data-prn="1">${icoT("flamme", "#FB7185")}${L("Plus durs", "Harder")}</button></div></div>` : ""}
     <div id="prRes" aria-live="polite"></div></div>`;
 }
 function brancherProchaine() {
   if (!$("prBloc")) return;
   const avant = ajustDe(), G = blocsVolume();
-  const maj = c => {
+  const maj = (c, note) => {
     stockerAjust(c); const n = nbModifs(c) !== nbModifs(avant) || JSON.stringify(c) !== JSON.stringify(avant);
-    const v = G.filter(g => c[g.k] && c[g.k] !== g.n).map(g => `${g.k} × ${c[g.k]} ${L("au lieu de", "instead of")} ${g.n}`), d = c._niv ? changementsNiv(routine.plan, c._niv) : [];
-    $("prRes").innerHTML = n ? `<p class="sh-ok">✓ ${L("Prochaine fois", "Next time")} : ${[...v, ...(c._niv ? [L("exercices ", "exercises ") + nivTxt(c._niv)] : [])].join(" · ") || L("séance proposée", "suggested workout")}</p>${d.length ? `<p class="sh-aide">${d.slice(0, 4).join(" · ")}${d.length > 4 ? " …" : ""}</p>` : c._niv ? `<p class="sh-aide">${L("Déjà au bout des variantes : la séance reste la même.", "Already at the last variation: the workout stays the same.")}</p>` : ""}<button class="lien" id="prAnnul">${L("Annuler", "Undo")}</button>` : "";
+    const v = G.filter(g => c[g.c] && c[g.c] !== g.n).map(g => `${g.k} × ${c[g.c]} ${L("au lieu de", "instead of")} ${g.n}`), d = c._niv ? changementsNiv(routine.plan, c._niv) : [];
+    $("prRes").innerHTML = n ? `<p class="sh-ok">✓ ${L("Prochaine fois : ", "Next time: ")}${[...v, ...(c._niv ? [L("exercices ", "exercises ") + nivTxt(c._niv)] : [])].join(" · ") || L("séance proposée", "suggested workout")}</p>${d.length ? `<p class="sh-aide">${d.slice(0, 4).join(" · ")}${d.length > 4 ? " …" : ""}</p>` : c._niv ? `<p class="sh-aide">${L("Déjà au bout des variantes : la séance reste la même.", "Already at the last variation: the workout stays the same.")}</p>` : ""}<button class="lien" id="prAnnul">${L("Annuler", "Undo")}</button>` : "";
+    if (note) $("prRes").insertAdjacentHTML("afterbegin", `<p class="sh-aide">${note}</p>`);
     if ($("prAnnul")) $("prAnnul").onclick = () => { stockerAjust(JSON.parse(JSON.stringify(avant))); $("prRes").innerHTML = `<p class="sh-aide">↩︎ ${L("Séance gardée telle quelle.", "Workout kept as it was.")}</p>`; };
   };
-  const cour = () => JSON.parse(JSON.stringify(ajustDe()));
+  const cour = () => JSON.parse(JSON.stringify(ajustDe())), pareil = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // un appui qui ne change rien le dit, au lieu de sembler ne pas marcher
+  const bout = d => d > 0 ? L("Déjà au maximum.", "Already at the maximum.") : L("Déjà au minimum.", "Already at the minimum.");
   document.querySelectorAll("[data-prv]").forEach(b => b.onclick = () => { const c = cour(), d = +b.dataset.prv;
-    G.forEach(g => { if ((c._sans || []).includes(g.k)) return; const v = Math.max(1, Math.min(40, Math.max(g.n * 2, g.n + 4), (c[g.k] || g.n) + d)); v === g.n ? delete c[g.k] : c[g.k] = v; }); maj(c); });
-  document.querySelectorAll("[data-prn]").forEach(b => b.onclick = () => { const c = cour(); c._niv = Math.max(-2, Math.min(2, (c._niv || 0) + +b.dataset.prn)); maj(c); });
+    G.forEach(g => { if ((c._sans || []).includes(g.c)) return; const v = Math.max(1, Math.min(40, Math.max(g.n * 2, g.n + 4), (c[g.c] || g.n) + d)); v === g.n ? delete c[g.c] : c[g.c] = v; }); maj(c, pareil(c, cour()) && bout(d)); });
+  document.querySelectorAll("[data-prn]").forEach(b => b.onclick = () => { const c = cour(); const d = +b.dataset.prn; c._niv = Math.max(-2, Math.min(2, (c._niv || 0) + d)); maj(c, pareil(c, cour()) && bout(d)); });
 }
 
 let sansAuj = new Set();   // exercices retirés pour aujourd'hui (douleur) : hors de la liste jouée, jamais retirés de la séance enregistrée
