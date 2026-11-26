@@ -37,6 +37,12 @@ def rocher(graine,S=320):
     gr=0.85+0.3*bruit(X*14,Y*14,Z*14)
     ao=np.clip(sdf(X+n[...,0]*0.15,Y+n[...,1]*0.15,Z+n[...,2]*0.15)/0.15,0,1)
     col=(np.array([0.07,0.065,0.06])+np.array([0.95,0.74,0.48])*(dif**1.6*0.85)[...,None]+np.array([1.0,0.82,0.55])*(rim*0.7)[...,None]+np.array([1.0,0.88,0.66])*(spec*0.6)[...,None])*gr[...,None]*(0.55+0.45*ao)[...,None]
+    # filons blancs : fines veines lumineuses qui courent dans la roche (énergie prise dans la pierre)
+    v1=np.abs(bruit(X*2.2+o[1],Y*2.2,Z*2.2+o[2])-0.5)<0.011; v2=np.abs(bruit(X*4.5+9,Y*4.5+o[0],Z*4.5)-0.5)<0.006
+    veine=((v1|v2)&hit&(bruit(X*1.1+3,Y*1.1,Z*1.1)>0.42)).astype(float)
+    from scipy.ndimage import gaussian_filter
+    halo=gaussian_filter(veine,2.2)*0.9+gaussian_filter(veine,0.6)*0.9
+    col=col*(1-np.clip(halo,0,1))[...,None]+np.array([1.0,0.99,0.95])*np.clip(halo,0,1)[...,None]
     img=np.dstack([np.clip(col,0,1)**(1/1.1)*255,hit*255]).astype(np.uint8)
     im=Image.fromarray(img,'RGBA'); return im.crop(im.getbbox())
 for i in range(1,7):
