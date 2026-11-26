@@ -93,7 +93,7 @@ function rendu() {
    chaque séance et au plus une fois par jour à l'ouverture. Consentement explicite, car le suivi peut contenir des informations
    de santé (poids, programmes de reprise après blessure). Désactivable à tout moment : la copie en ligne est alors effacée. --- */
 const svActive = () => lire("sauvegardeEnLigne") === "1";
-const fichierSuivi = () => { const d = donneesAppli(); delete d.forme; delete d.clubJournal; return JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: d }); };   // les réponses du questionnaire de forme (santé) restent sur le téléphone
+const fichierSuivi = () => { const d = donneesAppli(); delete d.forme; delete d.clubJournal; delete d.duel; return JSON.stringify({ app: "2WORK", version: 1, date: new Date().toISOString(), donnees: d }); };   // les réponses du questionnaire de forme (santé) restent sur le téléphone
 let svDernier = 0;
 async function sauvegardeAuto(force, encore = 1) {
   if (!svActive() || !SV || !CL.u || (!force && Date.now() - svDernier < 6e5)) return;
@@ -108,7 +108,9 @@ async function sauvegardeAuto(force, encore = 1) {
     if (encore) setTimeout(() => sauvegardeAuto(true, 0), 61e3); }   // une copie toutes les 60 s au plus : on réessaie une fois
 }
 // à la connexion : l'accord du compte fait foi (un retrait sur un autre téléphone arrête aussi celui-ci)
-async function syncAccordSauvegarde() { if (!SV || !CL.u) return; const a = await SV.accordSauvegarde().catch(() => null); if (a === false && svActive()) stocker("sauvegardeEnLigne", "0"); }
+async function syncAccordSauvegarde() { if (!SV || !CL.u) return; const a = await SV.accordSauvegarde().catch(() => null); if (a === false && svActive()) stocker("sauvegardeEnLigne", "0");
+  // anciens comptes sans le champ : l'accord déjà donné par la case sur ce téléphone est inscrit, avant que la règle exige ce champ
+  if (a === undefined && svActive()) await SV.changerAccordSauvegarde(true).catch(() => {}); }
 
 const apresSeance = () => sauvegardeAuto(true);
 async function renduSauvegarde() {
@@ -116,7 +118,7 @@ async function renduSauvegarde() {
   const ko = t => { Z.querySelector(".cl-erreur").textContent = t; };
   if (!svActive()) {
     Z.innerHTML = `${lire("svPause") === "1" ? `<p class="sh-aide">⏸️ ${L("Sauvegarde automatique en pause : la copie en ligne contient beaucoup plus de données que ce téléphone. Récupère-la, ou remplace-la si c’est voulu.", "Automatic backup paused: the online copy holds much more data than this phone. Get it back, or replace it if that’s what you want.")}</p>` : ""}<p>${L("Retrouve ton historique, tes trophées, tes programmes et tes réglages sur un nouveau téléphone. Copie inaccessible aux autres utilisateurs, mise à jour après chaque séance.", "Get your history, trophies, programmes and settings back on a new phone. Copy inaccessible to other users, updated after each workout.")}</p>
-      <label class="cl-case"><input type="checkbox" id="svAccord"><span>${L("J’accepte que tout mon suivi (sauf le questionnaire de forme, qui reste sur ce téléphone) soit sauvegardé en ligne : historique avec mes ressentis, trophées, programmes, profil (date de naissance, poids, taille), mensurations et poids du suivi du corps, tests, charges et programmes de reprise après blessure. Je peux désactiver et effacer cette copie à tout moment, depuis n’importe lequel de mes téléphones.", "I agree that all my progress (except the fitness check-in, which stays on this phone) is backed up online: history with how I felt, trophies, programmes, profile (date of birth, weight, height), body measurements and weight, tests, loads and back-after-injury programmes. I can turn it off and erase the copy at any time, from any of my phones.")}</span></label>
+      <label class="cl-case"><input type="checkbox" id="svAccord"><span>${L("J’accepte que tout mon suivi (sauf le questionnaire de forme et les séances de club notées, qui restent sur ce téléphone) soit sauvegardé en ligne, y compris des données de santé : historique avec mes ressentis, trophées, programmes, profil (date de naissance, poids, taille), mensurations et poids du suivi du corps, tests, charges, programmes de reprise après blessure, ainsi que mes réglages (dont les séances modifiées et « Pour la prochaine fois ») et mes codes de parrainage. Je peux désactiver et effacer cette copie à tout moment, depuis n’importe lequel de mes téléphones.", "I agree that all my progress (except the fitness check-in and logged club sessions, which stay on this phone) is backed up online, including health data: history with how I felt, trophies, programmes, profile (date of birth, weight, height), body measurements and weight, tests, loads, back-after-injury programmes, plus my settings (including edited workouts and “For next time”) and my invite codes. I can turn it off and erase the copy at any time, from any of my phones.")}</span></label>
       <p class="cl-erreur"></p><button class="toggle" id="svOn">${L("Activer la sauvegarde en ligne", "Turn on online backup")}</button>`;
     $("svOn").onclick = async () => { if (!$("svAccord").checked) return ko(L("Coche la case pour activer.", "Tick the box to turn it on."));
       $("svOn").disabled = true;
@@ -493,7 +495,7 @@ function ongReglages(Z, cb) {
   const lien = k => `${location.origin}${location.pathname}?club=${cb.id}&code=${k}`;
   const montrer = async k => { $("rgLien").value = lien(k); $("rgQr").innerHTML = await qrSvg(lien(k)).catch(() => ""); };
   SV.invitation(cb.id).then(k => k ? montrer(k) : SV.nouvelleInvitation(cb.id, cb.nom).then(montrer));
-  $("rgPart").onclick = () => partagerLien(L(`Rejoins le club ${cb.nom} sur 2 WORK : tu y retrouveras les séances et les annonces du club. Ouvre le lien, puis crée ton compte gratuit (accord d’un parent avant 15 ans) :`, `Join the club ${cb.nom} on 2 WORK: you’ll find the club’s workouts and announcements. Open the link, then create your free account (parental consent under 15):`), $("rgLien").value, $("rgPart"));
+  $("rgPart").onclick = () => partagerLien(L(`Rejoins le club ${cb.nom} sur 2 WORK : tu y retrouveras les séances et les annonces du club. Ouvre le lien, puis crée ton compte gratuit (dès 10 ans ; accord d’un parent avant 15 ans) :`, `Join the club ${cb.nom} on 2 WORK: you’ll find the club’s workouts and announcements. Open the link, then create your free account (from age 10; parental consent under 15):`), $("rgLien").value, $("rgPart"));
   $("rgNeuf").onclick = async () => { if (!$("rgNeuf").dataset.conf) { $("rgNeuf").dataset.conf = 1; return $("rgNeuf").textContent = L("L’ancien lien ne marchera plus : confirmer", "The old link will stop working: confirm"); } montrer(await SV.nouvelleInvitation(cb.id, cb.nom)); $("rgNeuf").textContent = "✓"; };
   $("rgSauve").onclick = async () => { const v = { nom: propre($("rgNom").value.trim()).slice(0, 40) || cb.nom, sport: propre($("rgSport").value.trim()), desc: propre($("rgDesc").value.trim()) };
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("rgSauve").textContent = "✓ " + L("Enregistré", "Saved"); $("clTitre").textContent = v.nom; } catch (x) { $("rgSauve").textContent = msgErr(x); } };

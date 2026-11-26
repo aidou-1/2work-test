@@ -101,7 +101,7 @@ service cloud.firestore {
       allow read, delete: if connecte() && moi() == uid;
       allow create, update: if connecte() && moi() == uid && champs(['z', 'n', 't'], ['z', 'n', 't']) && D().z is bytes && D().z.size() <= 1000000
         && D().n is int && maintenant(D().t) && (resource == null || request.time > resource.data.t + duration.value(60, 's'))
-        && get(/databases/$(db)/documents/comptes/$(uid)).data.get('sauvegarde', true) == true;   // pas de copie après un retrait (même depuis un autre téléphone)
+        && get(/databases/$(db)/documents/comptes/$(uid)).data.get('sauvegarde', false) == true;   // copie seulement avec un accord inscrit dans le compte, et plus rien après un retrait (même depuis un autre téléphone)
     }
 
     match /clubs/{c} {

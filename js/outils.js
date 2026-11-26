@@ -290,8 +290,9 @@ function ouvrirCalculs() {
 const coderLien = d => btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""), decoderLien = c => JSON.parse(decodeURIComponent(escape(atob(c.replace(/-/g, "+").replace(/_/g, "/")))));
 async function partagerLien(texte, url, b) { try { if (navigator.share) await navigator.share({ title: "2 WORK", text: texte, url }); else { await navigator.clipboard.writeText(texte + " " + url); b.textContent = L("✓ Lien copié", "✓ Link copied"); } } catch (e) {} }
 function lienDefi() {
-  const d = { t: routine.defi ? routine.titre.split(" · ").pop() : routine.titre, i: ids, d: dureeGlobale, r: mode === "seance" || mode === "salle" ? repos : 0, de: lireProfil().nom || "", dj: routine.defi ? 1 : 0 };
-  return location.origin + location.pathname + "?defi=" + coderLien(d);
+  const d = { t: routine.defi ? routine.titre.split(" · ").pop() : routine.titre, i: ids, d: dureeGlobale, r: mode === "seance" || mode === "salle" ? repos : 0, de: (lireProfil().nom || "").slice(0, 20), dj: routine.defi ? 1 : 0 };
+  // après « # » : cette partie du lien n'est jamais envoyée au serveur qui héberge l'appli
+  return location.origin + location.pathname + "#defi=" + coderLien(d);
 }
 $("amiBtn").onclick = async () => {
   const url = lienDefi(), n = lireProfil().nom, t = routine.titre, texte = routine.defi
@@ -301,13 +302,13 @@ $("amiBtn").onclick = async () => {
 };
 function ouvrirDefiAmi(code) {   // renvoie vrai si le lien est valide
   try {
-    const d = decoderLien(code), de = propre(d.de || "").slice(0, 20);
+    const d = decoderLien(code), de = propreLien(d.de || "").slice(0, 20);
     if (!Array.isArray(d.i) || !d.i.length || d.i.length > 80 || !d.i.every(id => EXERCICES[id]) || !(d.d >= 5 && d.d <= 120) || !(d.r >= 0 && d.r <= 300)) return false;
-    ROUTINES.ami = { type: "seance", fixe: true, amiDj: !!d.dj, retour: () => ecran("menu"), ami: de, titre: (de ? L("Défi de ", "Challenge from ") + de + " · " : L("Défi · ", "Challenge · ")) + propre(d.t || "").slice(0, 60), detail: "", couleur: "#DB2777", duree: d.d, repos: d.r, exercices: d.i };
+    ROUTINES.ami = { type: "seance", fixe: true, amiDj: !!d.dj, retour: () => ecran("menu"), ami: de, titre: (de ? L("Défi de ", "Challenge from ") + de + " · " : L("Défi · ", "Challenge · ")) + propreLien(d.t || "").slice(0, 60), detail: "", couleur: "#DB2777", duree: d.d, repos: d.r, exercices: d.i };
     CONSEILLES.ami = d.i; history.replaceState(null, "", location.pathname); finBienvenue(); afficherEcran("menu"); ouvrirRoutine("ami"); return true;
   } catch (e) { return false; }
 }
-setTimeout(() => { const c = new URLSearchParams(location.search).get("defi"); if (c) ouvrirDefiAmi(c); }, 0);
+setTimeout(() => { const c = new URLSearchParams(location.search).get("defi") || new URLSearchParams(location.hash.slice(1)).get("defi"); if (c) ouvrirDefiAmi(c); }, 0);
 
 /* ============ RAPPELS PAR NOTIFICATION ============
    Les jours planifiés, à l'heure du rappel, si la séance du jour n'est pas faite. Le web ne sait pas programmer une notification à heure
@@ -402,7 +403,7 @@ function ouvrirAvis(sujet) {   // sujet : sport en refonte dont on demande l’a
     <span class="champ-titre">${L("Ce qui t’a gêné ou manqué", "What bothered you or was missing")}</span>${groupe("gene", AVIS_THEMES)}${zone("gene", L("Dis-nous ce qui t’a gêné ou ce qui t’a manqué…", "Tell us what bothered you or what was missing…"))}
     <span class="champ-titre">${L("Penses-tu que cette appli peut t’être pratique ?", "Do you think this app can be useful to you?")}</span><div class="chips avis-choix" data-g="pratique">${[["Oui", "Yes"], ["Non", "No"]].map(([f, e]) => `<button class="toggle" data-v="${f}" aria-pressed="false">${L(f, e)}</button>`).join("")}</div>
     <textarea id="avisTxt" class="choixVoix" rows="4" maxlength="1500" placeholder="${sujet ? L("Ce que tu changerais ou ajouterais pour ce sport : exercices, séances, réalisme…", "What you would change or add for this sport: exercises, sessions, realism…") : L("Autre chose à nous dire ? (facultatif)", "Anything else to tell us? (optional)")}"></textarea>
-    <p class="sh-aide">🔒 ${L("Avis anonyme : partent seulement ta note, tes choix, ton message et quelques infos techniques (nombre de séances, niveau, type de téléphone, langue).", "Anonymous feedback: only your rating, choices, message and a few technical details (number of workouts, level, phone type, language) are sent.")}</p>
+    <p class="sh-aide">🔒 ${L("Avis sans nom : partent ta note, tes choix, ton message et quelques infos techniques (nombre de séances, niveau, type de téléphone, langue). N’y écris ni ton nom ni d’information de santé.", "Feedback without your name: your rating, choices, message and a few technical details (number of workouts, level, phone type, language) are sent. Don’t write your name or any health information.")}</p>
     <button class="primary" id="avisOk">${L("Envoyer mon avis", "Send my feedback")}</button><p class="sh-ok" id="avisEtat"></p>`);
   const E = [...document.querySelectorAll(".avis-etoiles button")], etat = t => { $("avisEtat").textContent = t; };
   E.forEach(b => b.onclick = () => { note = +b.dataset.n; E.forEach(x => x.classList.toggle("on", +x.dataset.n <= note)); });

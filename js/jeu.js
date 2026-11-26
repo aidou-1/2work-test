@@ -190,19 +190,19 @@ function seanceDuJour(x) {
 }
 
 /* --- Duel de la semaine : on envoie son total d'XP de la semaine par lien (?duel=…), l'ami le retrouve dans son bilan (clé « duel ») --- */
-const lienDuel = () => location.origin + location.pathname + "?duel=" + coderLien({ n: lireProfil().nom || "", x: statsSemaine().xp, l: lundiDe() });
+const lienDuel = () => location.origin + location.pathname + "#duel=" + coderLien({ n: (lireProfil().nom || "").slice(0, 20), x: statsSemaine().xp, l: lundiDe() });   // après « # » : jamais envoyé au serveur
 function blocDuel(S) {
   const d = lireJSON("duel", null), ok = d && d.l === S.l, e = ok ? S.xp - d.x : 0;
   return `<div class="carte"><h2>⚔️ ${L("Duel de la semaine", "Weekly duel")}</h2>${ok ? `<ul class="carnet ef-liste records"><li><span>${propre(d.n) || L("Ton ami", "Your friend")}</span><b>${d.x} XP</b></li><li><span>${L("Toi", "You")}</span><b>${S.xp} XP</b></li></ul><p>${e > 0 ? L(`Tu mènes de ${e} XP. Envoie ton score pour le lui montrer !`, `You lead by ${e} XP. Send your score to show them!`) : e < 0 ? L(`Il te manque ${-e} XP pour passer devant : une séance de 20 minutes en rapporte 50.`, `You need ${-e} XP to take the lead: a 20-minute workout earns 50.`) : L("Égalité parfaite : la prochaine séance fera la différence.", "A perfect tie: the next workout will decide.")}</p>`
-    : `<p>${L("Envoie ton total d’XP de la semaine à un ami : il verra s’il fait mieux, et pourra te renvoyer le sien.", "Send your weekly XP total to a friend: they will see whether they beat it, and can send theirs back.")}</p>`}<button class="toggle contour" id="duelGo">${ok ? L("Envoyer mon score", "Send my score") : L("Défier un ami", "Challenge a friend")}</button></div>`;
+    : `<p>${L("Envoie ton total d’XP de la semaine à un ami : il verra s’il fait mieux, et pourra te renvoyer le sien.", "Send your weekly XP total to a friend: they will see whether they beat it, and can send theirs back.")}</p>`}<button class="toggle contour" id="duelGo">${ok ? L("Envoyer mon score", "Send my score") : L("Défier un ami", "Challenge a friend")}</button><p class="sh-aide">${L("Le lien contient ton prénom (s’il est rempli dans Mon profil) et ton score : toute personne qui le reçoit peut les voir.", "The link contains your first name (if set in My profile) and your score: anyone who receives it can see them.")}</p></div>`;
 }
 async function envoyerDuel(b) {
   const n = lireProfil().nom, url = lienDuel(), texte = L(`⚔️ Duel de la semaine : ${n || "ton ami"} a gagné ${statsSemaine().xp} XP cette semaine sur 2 WORK. Tu fais mieux ? Ouvre le lien pour voir son score, entraîne-toi, puis renvoie le tien depuis Mes progrès → « Duel de la semaine » :`, `⚔️ Weekly duel: ${n || "your friend"} earned ${statsSemaine().xp} XP this week on 2 WORK. Can you beat it? Open the link to see the score, train, then send yours back from My progress → “Weekly duel”:`);
   return partagerLien(texte, url, b);
 }
-addEventListener("DOMContentLoaded", () => { const c = new URLSearchParams(location.search).get("duel"); if (!c) return;
+addEventListener("DOMContentLoaded", () => { const c = new URLSearchParams(location.search).get("duel") || new URLSearchParams(location.hash.slice(1)).get("duel"); if (!c) return;
   try { const d = decoderLien(c); if (!(d.x >= 0 && d.x < 1e5) || !/^\d{4}-\d\d-\d\d$/.test(d.l)) return;
-    stocker("duel", JSON.stringify({ n: propre(d.n || "").slice(0, 20), x: Math.round(d.x), l: d.l })); history.replaceState(null, "", location.pathname); finBienvenue(); afficherEcran("menu"); ouvrirBilan(); } catch (e) {} });
+    stocker("duel", JSON.stringify({ n: propreLien(d.n || "").slice(0, 20), x: Math.round(d.x), l: d.l })); history.replaceState(null, "", location.pathname); finBienvenue(); afficherEcran("menu"); ouvrirBilan(); } catch (e) {} });
 
 /* --- Parrainage, sans serveur ni donnée envoyée : « parrainage » = { c: mon code (aléatoire), de: code de celui qui m'a invité, m: [filleuls remerciés] }.
    Le filleul gagne 100 XP après sa première séance et peut renvoyer un lien de remerciement ; ce lien rapporte 100 XP au parrain (10 filleuls au plus).
@@ -225,7 +225,7 @@ function brancherParrain() {
 }
 addEventListener("DOMContentLoaded", () => { const q = new URLSearchParams(location.search), c = q.get("parrain"), m = q.get("merci"); if (!c && !m) return;
   try { const P = lireParrain(); let msg = "";
-    if (c && /^[a-z0-9]{4,12}$/.test(c) && c !== P.c && !P.de && !lireHist().length) { P.de = c; msg = L("Bienvenue ! Termine ta première séance pour gagner 100 XP.", "Welcome! Finish your first workout to earn 100 XP."); }
+    if (c && /^[a-z0-9]{4,12}$/.test(c) && c !== P.c && !P.de && !lireHist().length) { P.de = c; msg = L("Bienvenue ! Termine ta première séance pour gagner 100 XP. (Le code de ton ami reste sur ce téléphone.)", "Welcome! Finish your first workout to earn 100 XP. (Your friend’s code stays on this phone.)"); }
     if (m) { const d = decoderLien(m), f = String(d.f || "");
       if (d.p && d.p === P.c && f !== P.c && /^[a-z0-9]{4,12}$/.test(f) && !(P.m || []).includes(f)) { P.m = [...(P.m || []), f].slice(-50);
         msg = P.m.length > 10 ? L("Merci reçu ! Tu as déjà gagné le maximum de 1 000 XP de parrainage.", "Thanks received! You already earned the 1,000 XP invite maximum.") : L("Merci reçu : +100 XP pour ton parrainage !", "Thanks received: +100 XP for your invite!"); } }
