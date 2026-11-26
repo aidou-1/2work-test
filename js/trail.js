@@ -82,7 +82,8 @@ function trSemaine(P = spPref("trail")) {
   const S = semaineObjectif(OBJECTIF_TR, P, 1), course = P.date ? new Date(P.date + "T12:00") : null;
   const W = course ? Math.floor((lundi(course) - S.L0) / 6048e5) : null;
   const taper = W !== null && W >= 0 && W < OBJECTIF_TR.taper(P), dures = OBJECTIF_TR.dur;
-  if (taper) S.f = W ? .6 : .5;
+  // l'affûtage du trail suit son propre calcul en semaines : sinon pas de mention « affûtage » sans semaine affûtée
+  if (taper) S.f = W ? .6 : .5; else if (S.f < 1) { S.f = 1; S.info = S.info.replace(L(" · affûtage", " · taper"), ""); }
   // Le calendrier commun est filtré pour ne pas forcer une charge près du club ou d’une course.
   S.jours.forEach((j, d) => {
     const ecart = course ? Math.round((new Date(course.getFullYear(), course.getMonth(), course.getDate()) - j.d) / 864e5) : null;

@@ -106,21 +106,25 @@ const horsMurEs = P => { const fort = P.prat !== "debut" && P.cot >= 6 && P.mat.
   return P.jours.length >= 3 ? [...l.filter(c => c !== "doigts"), ...l.filter(c => c === "doigts")] : l; };   // 3 jours de grimpe ou plus : les doigts travaillent déjà au mur
 function semaineEs(P) {
   const L0 = lundi(), jours = Array.from({ length: 7 }, () => []), club = d => P.jours.includes(((d % 7) + 7) % 7), dur = c => DUR_ES.includes(c), R = MUR_ES[P.prat];
+  // cycle de 4 semaines (3 qui montent, la 4e allégée de 40 %) ; compétition datée : 10 jours à −45 %, intensité gardée, rien de dur à J-2 et J-1
+  const w0 = Math.max(0, Math.floor((L0 - lundi(new Date((P.debut || jourCle()) + "T12:00"))) / 6048e5)), jc = P.compet ? Math.floor((new Date(P.compet + "T12:00") - L0) / 864e5) : -1, comp = jc >= 0 && jc <= 10;
+  const f = comp ? .55 : w0 % 4 === 3 ? .6 : 1, so = jc >= 0 && jc <= 6 ? jc : P.sortie;
   [...P.jours].sort().forEach((d, i) => { let c = R[i % R.length]; if (dur(c) && jours[(d + 6) % 7].some(dur)) c = R.find(x => !dur(x)); jours[d].push(c); });
-  let n = P.n; if (P.sortie >= 0) { jours[P.sortie] = ["sortie"]; const v = (P.sortie + 6) % 7, le = P.sortie + 1, doux = R.find(x => !dur(x));
-    // veille et lendemain de sortie ou de compétition : jamais de séance à la limite, grimpe facile à la place
-    if (P.sortie > 0) jours[v] = jours[v].map(c => dur(c) ? doux : c); if (le < 7) jours[le] = jours[le].map(c => dur(c) ? doux : c);
-    if (P.sortie > 0 && !jours[v].length && n > 0) { jours[v].push("activation"); n--; } }
-  placerSp(horsMurEs(P).slice(0, n), jours, club, c => dur(c) || c === "sortie");
+  let n = P.n; if (so >= 0) { jours[so] = ["sortie"]; const v = (so + 6) % 7, le = so + 1, doux = R.find(x => !dur(x));
+    // veille et lendemain de sortie ou de compétition (avant-veille aussi pour une compétition) : jamais de séance à la limite, grimpe facile à la place
+    [...(so > 0 ? [v] : []), ...(le < 7 ? [le] : []), ...(comp && so > 1 ? [so - 2] : [])].forEach(d => jours[d] = jours[d].map(c => dur(c) ? doux : c));
+    if (so > 0 && !jours[v].length && n > 0) { jours[v].push("activation"); n--; } }
+  placerSp(horsMurEs(P).filter(c => !comp || !dur(c)).slice(0, n), jours, club, c => dur(c) || c === "sortie");
   const nm = P.jours.length;
-  return { L0, f: 1, info: nm ? L(`${nm} séance${nm > 1 ? "s" : ""} au mur · ${P.n} hors du mur`, `${nm} wall session${nm > 1 ? "s" : ""} · ${P.n} off the wall`) : L("Indique tes jours de grimpe", "Set your climbing days"),
+  return { L0, f, info: (nm ? L(`${nm} séance${nm > 1 ? "s" : ""} au mur · ${P.n} hors du mur`, `${nm} wall session${nm > 1 ? "s" : ""} · ${P.n} off the wall`) : L("Indique tes jours de grimpe", "Set your climbing days"))
+      + (comp ? L(" · affûtage avant la compétition", " · taper before the competition") : L(` · semaine ${w0 % 4 + 1}/4`, ` · week ${w0 % 4 + 1}/4`) + (f < 1 ? L(" allégée", " (lighter)") : "")),
     jours: jours.map((l, d) => ({ d: plusJ(L0, d), club: club(d), clubNom: ["Grimpe", "Climbing"], l })) };
 }
 const PRAT_ES = [["bloc", "Bloc", "Bouldering"], ["voie", "Voie en salle", "Indoor routes"], ["falaise", "Falaise, grandes voies", "Crag, multi-pitch"], ["debut", "Je débute", "Beginner"]];
 function parcoursEs(h) {
   const P = h.P, S = semaineEs(P), sp = h.sp;
   h.html(`<div class="etude ech-fiche" style="--accent:#7C4A2D"><b>${S.info}</b><p>${L("Chaque jour de grimpe reçoit une séance au mur qui tourne d’un jour à l’autre. Les séances hors du mur se placent autour : les dures (doigts, tirage) évitent la veille d’une grimpe et les jours qui suivent une séance dure.", "Each climbing day gets a wall session that rotates from day to day. Off-the-wall sessions go around them: hard ones (fingers, pulling) avoid the day before climbing and the day after a hard session.")}</p></div>
-    <details class="prog-info" style="--c:#7C4A2D"><summary>${L("Comment ça marche", "How it works")}</summary><p>${L(`Cotations visées d’après ta cotation max (${cotEs(0)}) : volume vers ${cotEs(3)}, soutenu vers ${cotEs(2)}, dur vers ${cotEs(1)}. La poutre n’apparaît qu’à partir de 6b, hors pratique « Je débute » et si tu coches « Poutre » dans ton matériel : avant, la grimpe suffit à renforcer les doigts. 1 à 2 jours de repos complet par semaine, et pas de grimpe dure deux jours de suite.`, `Target grades from your max grade (${cotEs(0)}): volume around ${cotEs(3)}, sustained around ${cotEs(2)}, hard around ${cotEs(1)}. The hangboard only appears from 6b, outside “Beginner” and if you tick “Hangboard” in your equipment: before that, climbing is enough to strengthen your fingers. 1 to 2 full rest days a week, and no hard climbing two days in a row.`)}</p></details>`);
+    <details class="prog-info" style="--c:#7C4A2D"><summary>${L("Comment ça marche", "How it works")}</summary><p>${L(`Cotations visées d’après ta cotation max (${cotEs(0)}) : volume vers ${cotEs(3)}, soutenu vers ${cotEs(2)}, dur vers ${cotEs(1)}. La poutre n’apparaît qu’à partir de 6b, hors pratique « Je débute » et si tu coches « Poutre » dans ton matériel : avant, la grimpe suffit à renforcer les doigts. 1 à 2 jours de repos complet par semaine, et pas de grimpe dure deux jours de suite.`, `Target grades from your max grade (${cotEs(0)}): volume around ${cotEs(3)}, sustained around ${cotEs(2)}, hard around ${cotEs(1)}. The hangboard only appears from 6b, outside “Beginner” and if you tick “Hangboard” in your equipment: before that, climbing is enough to strengthen your fingers. 1 to 2 full rest days a week, and no hard climbing two days in a row.`)}</p><p>${L("Les semaines tournent par cycles de 4 : trois qui montent, la quatrième allégée de 40 % pour assimiler. Avec une date de compétition, les 10 derniers jours sont allégés d’environ 45 % en gardant l’intensité, et rien de dur la veille ni l’avant-veille.", "Weeks run in 4-week cycles: three building weeks, the fourth 40% lighter to absorb the work. With a competition date, the last 10 days are about 45% lighter while keeping intensity, with nothing hard on the two days before.")}</p></details>`);
   semaineSp(h, S, c => c === "sortie" ? "🧗 " + L("Sortie ou compétition · échauffement", "Trip or competition · warm-up") : L(...SP.escalade.S[c].t), c => c === "sortie" ? null : c);
   h.C().querySelectorAll(".bx-s[disabled]").forEach(b => { b.disabled = false; b.onclick = () => vueEch("escalade"); });
   h.html(`<h2 class="sec">${L("Mon profil de grimpeur", "My climber profile")}</h2><div class="carnet bx-prof">
@@ -128,10 +132,12 @@ function parcoursEs(h) {
     <span class="champ-titre">${L("Ma cotation max (bloc ou voie, enchaînée)", "My max grade (boulder or route, sent)")}</span>${chips("esc", COT_ES.map((c, i) => [i, c, c]), P.cot)}
     <span class="champ-titre">${L("Mes jours de grimpe (salle ou falaise)", "My climbing days (gym or crag)")}</span>${choixJours("esj", P.jours)}
     <span class="champ-titre">${L("Sortie ou compétition (facultatif)", "Trip or competition (optional)")}</span><div class="chips">${[[-1, "Aucune", "None"], ...JOURS_SP.map(([f, e], d) => [d, f, e])].map(([d, f, e]) => `<button class="toggle" data-ess="${d}" aria-pressed="${P.sortie === d}">${L(f, e)}</button>`).join("")}</div>
+    <span class="champ-titre">${L("Date de ma prochaine compétition (facultatif)", "Date of my next competition (optional)")}</span><div class="favForm"><input class="choixVoix" type="date" id="esComp" aria-label="${L("Date de ma prochaine compétition", "Date of my next competition")}" value="${P.compet || ""}" min="${jourCle()}"><button class="toggle" id="esCompX">${L("Effacer", "Clear")}</button></div>
     <span class="champ-titre">${L("Séances hors du mur par semaine", "Off-the-wall sessions per week")}</span>${chips("esk", [0, 1, 2, 3, 4].map(n => [n, n, n]), P.n)}</div>`);
   const maj = p => { spGarder(sp, p); h.rendu(); };
   brancherChips("esp", v => maj({ ...spPref(sp), prat: v })); brancherChips("esc", v => maj({ ...spPref(sp), cot: +v })); brancherChips("esk", v => maj({ ...spPref(sp), n: +v }));
   brancherJours(h, "esj", "jours", p => maj({ ...p, sortie: p.jours.includes(p.sortie) ? -1 : p.sortie }));
+  $("esComp").onchange = e => maj({ ...spPref(sp), compet: e.target.value }); $("esCompX").onclick = () => maj({ ...spPref(sp), compet: "" });
   h.C().querySelectorAll("[data-ess]").forEach(b => b.onclick = () => { const p = spPref(sp), d = +b.dataset.ess; maj({ ...p, sortie: d, jours: p.jours.filter(j => j !== d) }); });
 }
 const SAVOIR_ES = [

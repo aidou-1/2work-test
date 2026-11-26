@@ -665,13 +665,13 @@ const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", 
   ["ftAdducteurs", "copenhague", "copenhagueLong"], ["calfraise", "mollet1", "alfredson"], ["fenteLatTenue", "lateral", "cossack"], ["rqCoiffe", "bandRotExt"], ["ftIschios", "nordique"],
   ["stepDown", "skDescenteBox"], ["rnEquilibre", "equilibre", "fenteEtoile"], ["rqPoignet", "poignetExc"], ["bandRow", "bxTrx", "tractions"]];
 // variante seulement si le matériel du jour la permet (séance d'un sport : son matériel ; sinon poids du corps)
-const varianteEx = (id, sens, mat = (routine && routine.mat) || []) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v] && (MAT_EX[v] || "").split(" ").every(m => !m || mat.includes(m))) return v; } return null; };
+const varianteEx = (id, sens, mat = Array.isArray(routine && routine.mat) ? routine.mat : []) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v] && (MAT_EX[v] || "").split(" ").every(m => !m || mat.includes(m))) return v; } return null; };
 // on n'alourdit jamais d'un appui : sauts, sprints, allures chronométrées (natation, vélo, cardio, cotations), suspensions, efforts à 8/10 et plus, semaine allégée
 const INTENSE_AJ = /saut|skater|skihop|hop|burpee|bond|sprint|accel|suspension|projet|plio/i;
 const intenseQ = q => /^(na|cy|es|c|rn)_/.test(q.id) || INTENSE_AJ.test(q.id) || /(^|\D)(8|9|10)\/10/.test(q.presc || "");
 const plusOk = g => !(routine && routine.allege) && !g.l.some(intenseQ);
 // tours retenus : ancien format (nombre absolu) encore lu, plafonné aux tours proposés sur un bloc intense ; nouveau format { d: écart } qui suit la séance du jour (affûtage, reprise)
-const toursAj = (g, choix) => { const v = choix[g.c]; return v == null ? g.n : typeof v === "object" ? Math.max(1, g.n + v.d) : plusOk(g) ? v : Math.min(v, g.n); };
+const toursAj = (g, choix) => { const v = choix[g.c]; return v == null || v === 0 ? g.n : typeof v === "object" ? Math.max(1, plusOk(g) ? g.n + v.d : Math.min(g.n, g.n + v.d)) : plusOk(g) ? v : Math.min(v, g.n); };
 const garderTours = (c, g, v) => { v === g.n ? delete c[g.c] : c[g.c] = { d: v - g.n }; };
 const FIXE_NIV = /calme|cool|étire|stretch|respir|breath|souffle|apn|mise en route|températ|temperat|mobilis|douce|facile|easy|gentle/i;
 // bloc qui ne change pas de difficulté : marqué fixe à la construction (tr: 0 dans les séances des sports), ou reconnu à son nom
@@ -688,7 +688,7 @@ function planNiveau(plan, niv) {
     if (q.series || q.d >= 90 || blocFixe(q, k)) return q;
     // une variante déjà présente dans le bloc ferait deux fois le même exercice : l'effort s'allonge (ou raccourcit) à la place
     const b = B[k] = B[k] || { pris: new Set(plan.filter(x => cleBloc(x.bn) === k).map(x => x.id)), m: {} };
-    if (s > 0 && intenseQ(q)) return q;
+    if (s > 0 && (intenseQ(q) || routine && routine.allege)) return q;
     if (!b.m[q.id]) { let id = q.id, n = 0; for (let j = 0; j < Math.abs(niv); j++) { const v = routine && routine.tempsSeul ? null : varianteEx(id, s); v && !b.pris.has(v) ? (b.pris.add(v), id = v) : n++; } b.m[q.id] = { id, n }; }
     const { id } = b.m[q.id]; let d = q.d;
     for (let j = 0; j < b.m[q.id].n; j++) d > 15 && (d = Math.max(15, d + 10 * s));

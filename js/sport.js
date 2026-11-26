@@ -33,7 +33,7 @@ const rampeSp = sp => ["Montée progressive", "Progressive build-up", "2 minutes
   [[allSp(sp, 0), 120, 15, RPE_SP(3, L("facile", "easy")), "2 min"], ...[6, 7, 8].map((r, i) => [allSp(sp, 1), 10, i < 2 ? 30 : 60, RPE_SP(r, L("de plus en plus vite", "a bit faster each time")), "10 s"])]];
 // Formats longs : gainage-rotation, prévention du sport, puis aérobie facile ; jamais de sauts ou de sprints en plus, ni de marche « pour remplir ».
 const complementSp = (sp, k, prev = []) => [["Gainage et rotation", "Core and rotation", "Anti-rotation, dos neutre : 30 s d’effort, 10 s de repos.", "Anti-rotation, neutral spine: 30 s work, 10 s rest.", Math.min(k, 3), 30,
-    [[["bxPallof", "planchelat"], 30, 10, RPE_SP(5, L("le tronc ne tourne pas", "the trunk doesn’t rotate")), "30 s"], ["bird", 30, 10, RPE_SP(4, L("lent, bassin immobile", "slow, hips still")), "30 s"], ["deadbug", 30, 10, RPE_SP(5, L("bas du dos au sol", "lower back down")), "30 s"]]],
+    [[["bxPallof", "planchelat"], 30, 10, RPE_SP(5, L("le tronc ne tourne pas", "the trunk doesn’t rotate")), "30 s"], ["bird", 30, 10, RPE_SP(4, L("lent, bassin immobile", "slow, hips still")), "30 s"], ["planche", 30, 10, RPE_SP(5, L("corps aligné, fessiers serrés", "body aligned, glutes tight")), "30 s"]]],
   ...(prev.length ? [["Prévention", "Prevention", "Lent, contrôlé et sans douleur.", "Slow, controlled and pain-free.", 1, 0, prev]] : []),
   ...(k > 3 ? [["Aérobie facile", "Easy aerobic work", "Tu peux parler ; ce complément n’ajoute aucun effort explosif.", "You can talk; this extra adds no explosive work.", 1, 0, [[allSp(sp, 0), (k - 3) * 150, 0, RPE_SP(3, ""), duTxt((k - 3) * 150)]]]] : [])];
 const coiffeSp = [["bandRotExt", "rqCoiffe"], 30, 15, RPE_SP(4, L("lent, coude au corps", "slow, elbow tucked")), "30 s"];
@@ -243,9 +243,10 @@ function semaineObjectif(E, P, brut) {
   const cse = P.date ? new Date(P.date + "T12:00") : null, D = E.debut; let bloc = 1, f = 1, info, fixes = {}, liste;
   if (D && P.obj === D.obj) { bloc = 0; liste = E.sem(P, 0, Math.min(D.sem - 1, w0)); info = w0 < D.sem ? L(`${D.txt[0]} · semaine ${w0 + 1}/${D.sem}`, `${D.txt[1]} · week ${w0 + 1}/${D.sem}`) : L("Bases terminées : choisis un objectif", "Basics done: pick a goal"); }
   else {
-    if (cse && cse >= L0) { const W = Math.floor((lundi(cse) - L0) / 6048e5), T = E.taper(P), j = Math.floor((cse - L0) / 864e5), reste = j - (new Date().getDay() + 6) % 7; bloc = W >= 8 ? 1 : W >= 4 ? 2 : 3;
-      // affûtage compté en jours et non en semaines du calendrier : −45 % la dernière semaine, −30 % la précédente ; veille et avant-veille posées même si l'objectif tombe en début de semaine suivante
-      f = reste <= 7 ? .55 : reste < T * 7 ? .7 : 1;
+    if (cse && cse >= L0) { const W = Math.floor((lundi(cse) - L0) / 6048e5), T = E.taper(P), j = Math.floor((cse - L0) / 864e5); bloc = W >= 8 ? 1 : W >= 4 ? 2 : 3;
+      // affûtage compté en jours depuis le lundi (stable toute la semaine) : −45 % si l'objectif tombe au plus tard le mardi suivant, −30 % avant ;
+      // veille et avant-veille posées même si l'objectif tombe en début de semaine suivante
+      f = j <= 8 ? .55 : j < T * 7 + 2 ? .7 : 1;
       info = W ? L(`Objectif dans ${W} semaine${W > 1 ? "s" : ""}`, `Goal in ${W} week${W > 1 ? "s" : ""}`) + (f < 1 ? L(" · affûtage", " · taper") : "") : L("Semaine de l’objectif : affûtage", "Goal week: taper");
       [[j, "jourJ"], [j - 1, "repos"], [j - 2, "affutage"]].forEach(([d, c]) => { if (d >= 0 && d <= 6) fixes[d] = c; }); }
     else { bloc = Math.floor(w0 / 4) % 3 + 1; if (w0 % 4 === 3) f = .7; info = L(`Semaine ${w0 % 4 + 1}/4`, `Week ${w0 % 4 + 1}/4`) + (f < 1 ? L(" · semaine allégée", " · lighter week") : ""); }

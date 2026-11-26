@@ -38,6 +38,15 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); }; let n = 0;
   for (const [id] of TABATAS) { const p = seanceTabata(id).plan, e = p.filter(q => /Échauffement|Warm-up/.test(q.bn)).reduce((a, q) => a + q.d + q.r, 0), r = p.filter(q => /calme|Cool/.test(q.bn)); ok(e >= 420 && r[0].id === 'rn_marche', 'tabata ' + id); }
   // 9. Quick start : jamais de barre
   for (let i = 0; i < 30; i++) { composerExpress({ min: 10, m: 'mien' }); }
+  // 10. chantiers : poste du volley, sprints en compétition et chaîne de tir au handball, cycle et compétition en escalade, athlé sur 50 min
+  spGarder('volley', { ...spPref('volley'), poste: 'libero' }); ok(!ids('volley', 'detente', { dur: 35, mat: [] }).includes('vbAttaque'), 'libéro sans attaque');
+  ok(ids('handball', 'puissance', { dur: 35, mat: [] }).includes('rqRotation'), 'chaîne de tir');
+  for (const c of ['technique', 'vitesse', 'fractions', 'endurance']) ok(spSeance('athle', c, { dur: 50, mat: [] }).total >= 45, 'athlé 50 min ' + c);
+  const dc = plusJ(lundi(), 5), dcs = dc.getFullYear() + '-' + String(dc.getMonth() + 1).padStart(2, '0') + '-' + String(dc.getDate()).padStart(2, '0');
+  spGarder('escalade', { ...spPref('escalade'), prat: 'bloc', jours: [1, 2, 3], sortie: -1, compet: dcs, n: 2, mat: ['poutre', 'traction'] }); const C = semaineEs(spPref('escalade'));
+  ok(C.f < 1 && C.jours[5].l[0] === 'sortie' && ![3, 4].some(d => C.jours[d].l.some(x => DUR_ES.includes(x))), 'escalade compétition ' + JSON.stringify(C.jours.map(j => j.l)));
+  // la semaine allégée ignore un « Plus » au nouveau format, garde un « Moins »
+  const g0 = { n: 3, c: 'x', l: [{ id: 'bird', presc: '' }] }; routine = { allege: 1 }; ok(toursAj(g0, { x: { d: 2 } }) === 3 && toursAj(g0, { x: { d: -1 } }) === 2 && toursAj(g0, { x: 0 }) === 3, 'semaine allégée'); routine = null;
   return n; }'''
 with sync_playwright() as p:
     b = p.chromium.launch(args=['--no-sandbox'])
