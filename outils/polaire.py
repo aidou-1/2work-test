@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fonds des 3 lieux de la planète Titane : V=pic (échauffements), V=crete (entraînement : forêt de pénitents de glace), V=lac (retour au calme : lac gelé à bulles, aurore, planète à anneau).
+"""Fonds des 3 lieux de la planète Titane : V=pic (échauffements), (entraînement : voir outils/caverne.py), V=lac (retour au calme : lac gelé à bulles, aurore, planète à anneau).
 Rendu du relief par lancer de rayons (terrain_V.png), puis finition (fond_V.png). Convertir ensuite en fonds/polaire-V.webp."""
 # Planète polaire : relief de neige en champ de hauteurs, rendu par lancer de rayons (numpy), brume, ciel pâle, monolithe en titane à joints lumineux
 import numpy as np, os

@@ -1,8 +1,8 @@
 /* ============ PLANÈTE TITANE ============
    Style Titane : chaque parcours a son lieu sur la planète polaire (rendus 3D par outils/polaire.py) :
-   Échauffements = plaine du pic, Entraînement = forêt de pénitents de glace, Retour au calme = lac gelé à bulles sous l'aurore.
+   Échauffements = plaine du pic, Entraînement = caverne de glace (outils/caverne.py), Retour au calme = lac gelé à bulles sous l'aurore.
    Le fond change en fondu, sans autre transition ; les écrans principaux (accueil, progrès…) gardent l'espace. */
-const PL_LIEUX = { mEch: "pic", mSeance: "crete", mCalme: "lac" };
+const PL_LIEUX = { mEch: "pic", mSeance: "caverne", mCalme: "lac" };
 const PL_ECRANS = ["menu", "progres", "progs", "prog", "outils", "outil", "moi", "reglages", "accueil", "bienvenue", "clubs", "recap", "profil", "planning", "page", "infos", "muscle"];
 function lieuPolaire(l) {
   const H = document.documentElement;
