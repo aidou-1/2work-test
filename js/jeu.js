@@ -197,7 +197,7 @@ function blocDuel(S) {
     : `<p>${L("Envoie ton total d’XP de la semaine à un ami : il verra s’il fait mieux, et pourra te renvoyer le sien.", "Send your weekly XP total to a friend: they will see whether they beat it, and can send theirs back.")}</p>`}<button class="toggle contour" id="duelGo">${ok ? L("Envoyer mon score", "Send my score") : L("Défier un ami", "Challenge a friend")}</button></div>`;
 }
 async function envoyerDuel(b) {
-  const n = lireProfil().nom, url = lienDuel(), texte = L(`${n || "Ton ami"} a gagné ${statsSemaine().xp} XP cette semaine sur 2 WORK. Tu fais mieux ?`, `${n || "Your friend"} earned ${statsSemaine().xp} XP this week on 2 WORK. Can you beat it?`);
+  const n = lireProfil().nom, url = lienDuel(), texte = L(`⚔️ Duel de la semaine : ${n || "ton ami"} a gagné ${statsSemaine().xp} XP cette semaine sur 2 WORK. Tu fais mieux ? Ouvre le lien pour voir son score, entraîne-toi, puis renvoie le tien depuis Mes progrès → « Duel de la semaine » :`, `⚔️ Weekly duel: ${n || "your friend"} earned ${statsSemaine().xp} XP this week on 2 WORK. Can you beat it? Open the link to see the score, train, then send yours back from My progress → “Weekly duel”:`);
   return partagerLien(texte, url, b);
 }
 addEventListener("DOMContentLoaded", () => { const c = new URLSearchParams(location.search).get("duel"); if (!c) return;
@@ -219,9 +219,9 @@ function blocParrain() {
     ${filleul ? lireHist().length ? `<button class="toggle contour" id="parMerci">${L("Remercier mon parrain (+100 XP pour lui)", "Thank whoever invited me (+100 XP for them)")}</button>` : `<p class="sh-aide">${L("Tu as été invité : termine ta première séance pour gagner 100 XP.", "You were invited: finish your first workout to earn 100 XP.")}</p>` : ""}</div>`;
 }
 function brancherParrain() {
-  if ($("parInvit")) $("parInvit").onclick = e => partagerLien(L("Je m’entraîne avec 2 WORK : échauffements, séances guidées à la voix, gratuit et sans pub. Rejoins-moi :", "I train with 2 WORK: warm-ups, voice-guided workouts, free and ad-free. Join me:"), lienParrain("parrain", codeParrain()), e.currentTarget);
+  if ($("parInvit")) $("parInvit").onclick = e => partagerLien(L("Je m’entraîne avec 2 WORK : échauffements, séances guidées à la voix et récupération, gratuit, sans pub et sans compte. 🎁 Ouvre mon lien d’invitation : après ta première séance, tu gagnes 100 XP. Ensuite, dans Mes progrès → « Invite un ami », touche « Remercier mon parrain » : j’en gagne 100 aussi. L’appli s’ouvre dans le navigateur et s’installe sur l’écran d’accueil, rien à télécharger :", "I train with 2 WORK: warm-ups, voice-guided workouts and recovery, free, ad-free and no account needed. 🎁 Open my invite link: after your first workout you earn 100 XP. Then, in My progress → “Invite a friend”, tap “Thank whoever invited me”: I earn 100 too. It opens in your browser and installs on your home screen, nothing to download:"), lienParrain("parrain", codeParrain()), e.currentTarget);
   // le merci porte le code du parrain et un code de filleul : un même filleul ne compte qu'une fois
-  if ($("parMerci")) $("parMerci").onclick = e => partagerLien(L("Merci pour l’invitation sur 2 WORK ! Ouvre ce lien pour recevoir tes 100 XP :", "Thanks for inviting me to 2 WORK! Open this link to get your 100 XP:"), lienParrain("merci", coderLien({ p: lireParrain().de, f: codeParrain() })), e.currentTarget);
+  if ($("parMerci")) $("parMerci").onclick = e => partagerLien(L("Merci pour l’invitation sur 2 WORK, j’ai fait ma première séance ! 🙏 Ouvre ce lien sur le téléphone où tu as l’appli pour recevoir tes 100 XP :", "Thanks for inviting me to 2 WORK, I did my first workout! 🙏 Open this link on the phone where you have the app to get your 100 XP:"), lienParrain("merci", coderLien({ p: lireParrain().de, f: codeParrain() })), e.currentTarget);
 }
 addEventListener("DOMContentLoaded", () => { const q = new URLSearchParams(location.search), c = q.get("parrain"), m = q.get("merci"); if (!c && !m) return;
   try { const P = lireParrain(); let msg = "";

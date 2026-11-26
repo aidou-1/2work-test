@@ -189,7 +189,7 @@ function partagerPerso() {
   const N = niveauXp(), p = lireProfil(), img = new Image();
   img.onload = () => { const { c, x, T1, T2 } = toileCarte(1350, [[0, "#EA580C"], [1, "#1C1210"]], []);
     x.drawImage(img, 40, 170, 1000, 833); x.font = `800 96px ${T1}`; x.fillText((p.nom ? p.nom + " · " : "") + L("NIVEAU", "LEVEL") + " " + N.n, 540, 1130); x.font = `600 52px ${T2}`; x.fillText(N.nom + " · " + N.xp + " XP", 540, 1205);
-    c.toBlob(b => envoyer(b, "2work-personnage.jpg", "image/jpeg").then(r => { if (r === "telecharge" && $("shAide")) $("shAide").innerHTML = `<p class="sh-ok">${L("Image enregistrée dans tes téléchargements.", "Image saved to your downloads.")}</p>`; }), "image/jpeg", .92); };
+    c.toBlob(b => envoyer(b, "2work-personnage.jpg", "image/jpeg", L(`Mon personnage 2 WORK : niveau ${N.n}, ${N.xp} XP gagnés en m’entraînant 🏆 Gratuit et sans pub, essaie : `, `My 2 WORK character: level ${N.n}, ${N.xp} XP earned by training 🏆 Free and ad-free, try it: `) + location.origin + location.pathname).then(r => { if (r === "telecharge" && $("shAide")) $("shAide").innerHTML = `<p class="sh-ok">${L("Image enregistrée dans tes téléchargements.", "Image saved to your downloads.")}</p>`; }), "image/jpeg", .92); };
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(sceneSvg().replace("<svg ", `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="900" `));
 }
 $("nMoi").onclick = () => { if (ecranCourant !== "moi") { essai = ""; ouvrirMoi(); } };

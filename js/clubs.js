@@ -493,7 +493,7 @@ function ongReglages(Z, cb) {
   const lien = k => `${location.origin}${location.pathname}?club=${cb.id}&code=${k}`;
   const montrer = async k => { $("rgLien").value = lien(k); $("rgQr").innerHTML = await qrSvg(lien(k)).catch(() => ""); };
   SV.invitation(cb.id).then(k => k ? montrer(k) : SV.nouvelleInvitation(cb.id, cb.nom).then(montrer));
-  $("rgPart").onclick = () => partagerLien(L(`Rejoins le club ${cb.nom} sur 2 WORK :`, `Join the club ${cb.nom} on 2 WORK:`), $("rgLien").value, $("rgPart"));
+  $("rgPart").onclick = () => partagerLien(L(`Rejoins le club ${cb.nom} sur 2 WORK : tu y retrouveras les séances et les annonces du club. Ouvre le lien, puis crée ton compte gratuit (accord d’un parent avant 15 ans) :`, `Join the club ${cb.nom} on 2 WORK: you’ll find the club’s workouts and announcements. Open the link, then create your free account (parental consent under 15):`), $("rgLien").value, $("rgPart"));
   $("rgNeuf").onclick = async () => { if (!$("rgNeuf").dataset.conf) { $("rgNeuf").dataset.conf = 1; return $("rgNeuf").textContent = L("L’ancien lien ne marchera plus : confirmer", "The old link will stop working: confirm"); } montrer(await SV.nouvelleInvitation(cb.id, cb.nom)); $("rgNeuf").textContent = "✓"; };
   $("rgSauve").onclick = async () => { const v = { nom: propre($("rgNom").value.trim()).slice(0, 40) || cb.nom, sport: propre($("rgSport").value.trim()), desc: propre($("rgDesc").value.trim()) };
     try { await SV.modifierClub(cb.id, v); Object.assign(cb, v); $("rgSauve").textContent = "✓ " + L("Enregistré", "Saved"); $("clTitre").textContent = v.nom; } catch (x) { $("rgSauve").textContent = msgErr(x); } };

@@ -769,7 +769,7 @@ function partagerRecap() {   // image 1080 × 1920 pour les stories
   x.font = "500 36px Barlow, Arial, sans-serif"; x.fillText("aidou-1.github.io/2work", 540, 1790);
   c.toBlob(async b => {
     const f = new File([b], "2work-recap.png", { type: "image/png" });
-    try { if (navigator.canShare && navigator.canShare({ files: [f] })) return await navigator.share({ files: [f], title: "2 WORK", text: L("Mon mois en sport sur 2 WORK", "My month in sport on 2 WORK") }); } catch (e) { return; }
+    try { if (navigator.canShare && navigator.canShare({ files: [f] })) return await navigator.share({ files: [f], title: "2 WORK", text: L("Mon mois en sport sur 2 WORK 📈 Échauffements, séances guidées à la voix et récupération, gratuit et sans pub : ", "My month in sport on 2 WORK 📈 Warm-ups, voice-guided workouts and recovery, free and ad-free: ") + location.origin + location.pathname }); } catch (e) { return; }
     const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "2work-recap.png"; a.click();
   });
 }

@@ -55,9 +55,13 @@ function spPlan(sp, code, k, x) {
     ...(S.cardio && !S.sansEch ? [F(["Retour au calme", "Cool-down", L("Trois minutes très faciles.", "Three very easy minutes."), "", 1, 0, [[al(0), 180, 0, RPE_SP(2, ""), "3 min"]]])] : []),
     ...(S.cardio || S.fixe && !S.calme ? [] : [F(["Retour au calme", "Cool-down", L("Étirements doux, respiration lente.", "Gentle stretches, slow breathing."), "", 1, 0, G.calme.slice(0, n(2, 3, 4)).map(id => [id, 40, 5, "", "40 s"])])])];
   tout.forEach(B => { const [nF, nE, dF, dE, tours, rT, items, fin] = B;
-    const nb = L(nF, nE), l = items.map(([s, d, r, p, a, lab]) => [spChoix(s, x.mat), d, r, p, a, lab]).filter(i => i[0]);
-    if (!l.length) return;
-    for (let t = 1; t <= tours; t++) l.forEach(([id, d, r, p, , lab], i) => plan.push({ id, d, r: i < l.length - 1 ? r : t < tours ? rT : fin ?? 30, bn: nb, t, tt: tours, ft: i === l.length - 1 && t < tours,
+    const nb = L(nF, nE), l0 = items.map(([s, d, r, p, a, lab]) => [spChoix(s, x.mat), d, r, p, a, lab]).filter(i => i[0]);
+    if (!l0.length) return;
+    // circuit : on enchaîne les exercices d'un tour (15 s de transition au plus) et on récupère une fois le tour fini.
+    // Gardent leurs repos : rounds et efforts longs (90 s et plus), allures chronométrées, ateliers techniques, éducatifs dans l'eau.
+    const ok = !B.fx && l0.length > 1 && !/^tech_/.test(code) && !/^(Ateliers|Drills)/.test(nF), court = ([id, d]) => ok && d < 90 && !/^(na|cy|es|c|rn)_|^na[A-Z]/.test(id);
+    const coupe = l0.some((it, i) => i < l0.length - 1 && court(it) && it[2] > 15), l = l0.map((it, i) => i < l0.length - 1 && court(it) ? [it[0], it[1], Math.min(it[2], 15), ...it.slice(3)] : it), rT2 = coupe ? Math.max(rT, 60) : rT;
+    for (let t = 1; t <= tours; t++) l.forEach(([id, d, r, p, , lab], i) => plan.push({ id, d, r: i < l.length - 1 ? r : t < tours ? rT2 : fin ?? 30, bn: nb, t, tt: tours, ft: i === l.length - 1 && t < tours,
       lab: lab ? nb + " · " + lab : nb + (tours > 1 ? L(" · tour ", " · round ") + t + "/" + tours : "") + (l.length > 1 ? " · " + (i + 1) + "/" + l.length : ""), presc: p || undefined, tr: B.fx ? 0 : 1 }));
     blocs.push([nb, l.map(([id, d, , , a]) => [id, (tours > 1 ? tours + " × " : "") + (a || duTxt(d))]), L(dF, dE || dF)]);
   });

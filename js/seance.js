@@ -363,10 +363,24 @@ let avecMusique = true, musiqueReglage = null;   // musiqueReglage : réglage à
 try { avecMusique = localStorage.getItem("musique") !== "0"; } catch (e) {}
 const majSession = () => { try { if (navigator.audioSession) navigator.audioSession.type = avecMusique ? "ambient" : "playback"; } catch (e) {} };
 majSession();
+// Son au retour dans l'appli : en partant, on coupe net la voix (pas de phrases en file qui sortiraient d'un coup au retour) ;
+// en revenant, on relance l'audio ; s'il reste bloqué (iPhone : « interrupted »), le prochain toucher recrée un audio neuf, et un bandeau le demande.
+let audioBloque = false;
+const debloquer = () => { const b = audio.createBufferSource(); b.buffer = audio.createBuffer(1, 1, 22050); b.connect(audio.destination); b.start(0); };
 document.addEventListener("pointerdown", () => { try {
-  if (!audio) { audio = new (window.AudioContext || window.webkitAudioContext)(); const b = audio.createBufferSource(); b.buffer = audio.createBuffer(1, 1, 22050); b.connect(audio.destination); b.start(0); }
-  if (audio.state !== "running") audio.resume();
+  if (audio && (audioBloque || ["interrupted", "closed"].includes(audio.state))) { couperVoix(); try { audio.close(); } catch (e) {} audio = null; limiteur = null; }
+  if (!audio) { audio = new (window.AudioContext || window.webkitAudioContext)(); debloquer(); }
+  if (audio.state !== "running") audio.resume().catch(() => {});
+  audioBloque = false;
 } catch (e) {} }, true);
+document.addEventListener("visibilitychange", () => { try {
+  if (document.hidden) { couperVoix(); clearTimeout(tVoix); if ("speechSynthesis" in window) speechSynthesis.cancel(); return; }
+  if ("speechSynthesis" in window) speechSynthesis.resume();   // Android garde parfois la synthèse en pause après un changement d'appli
+  if (!audio || audio.state === "running") return;
+  audio.resume().catch(() => {});
+  setTimeout(() => { if (audio && audio.state !== "running") { audioBloque = true; if (["pret", "session"].includes(ecranCourant) && (volSons || voixActive)) bandeauVoix(L("Touche l’écran pour remettre le son", "Tap the screen to bring the sound back")); } }, 600);
+  if (["pret", "session"].includes(ecranCourant)) majGuide();   // piste guide recalée sur l'endroit où en est la séance
+} catch (e) {} });
 /* ============ ÉCRAN VERROUILLÉ ET ÉCOUTEURS ============
    Media Session : pause, suivant et précédent depuis l'écran verrouillé, la montre ou les écouteurs. Les téléphones n'affichent ces
    commandes que si l'appli joue un son en continu : une piste silencieuse tourne donc pendant la séance, ce qui prend la place de la

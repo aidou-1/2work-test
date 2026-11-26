@@ -18,7 +18,7 @@ let carte = null;
 function preparerCarte() { const a = activite; carte = null; carteSeance(a).toBlob(b => { if (activite === a) carte = b; }, "image/jpeg", .92); }
 async function envoyer(b, nom, type, texte) {
   const f = navigator.canShare && [type, "application/xml", "text/plain"].map(t => new File([b], nom, { type: t })).find(x => navigator.canShare({ files: [x] }));
-  if (f) try { await navigator.share(type.startsWith("image/") ? { files: [f] } : { files: [f], title: texte }); return "partage"; } catch (e) { if (e.name === "AbortError") return "annule"; }
+  if (f) try { await navigator.share(type.startsWith("image/") ? { files: [f], ...(texte && { text: texte }) } : { files: [f], title: texte }); return "partage"; } catch (e) { if (e.name === "AbortError") return "annule"; }
   if (type.startsWith("image/") && /iP(hone|ad|od)|Android/.test(navigator.userAgent)) {
     zoneAide().innerHTML = `<img class="sh-img" src="${URL.createObjectURL(b)}" alt="${L("Carte de ta séance", "Your workout card")}"><p class="sh-aide">${L("Appuie longuement sur l’image, puis « Enregistrer » ou « Partager ».", "Long-press the image, then “Save” or “Share”.")}</p>`; return "image";
   }
@@ -54,7 +54,9 @@ function carteSeance(a) {
   return c;
 }
 function partagerCarte() {
-  const go = b => envoyer(b, "2work-seance.jpg", "image/jpeg").then(r => { if (r === "telecharge") zoneAide().innerHTML = `<p class="sh-ok">${L("Image enregistrée : publie-la depuis ta galerie sur tes réseaux.", "Image saved: post it from your gallery on your social networks.")}</p>`; });
+  const a = activite, url = location.origin + location.pathname, min = Math.max(1, Math.round((a.s || 0) / 60));
+  const texte = L(`Séance « ${a.t || a.titreFr} » terminée sur 2 WORK (${min} min) 💪 Échauffements, séances guidées à la voix et récupération, gratuit et sans pub. Viens t’entraîner avec moi : ${url}`, `Just finished “${a.t || a.titreFr}” on 2 WORK (${min} min) 💪 Warm-ups, voice-guided workouts and recovery, free and ad-free. Come train with me: ${url}`);
+  const go = b => envoyer(b, "2work-seance.jpg", "image/jpeg", texte).then(r => { if (r === "telecharge") zoneAide().innerHTML = `<p class="sh-ok">${L("Image enregistrée : publie-la depuis ta galerie sur tes réseaux.", "Image saved: post it from your gallery on your social networks.")}</p>`; });
   carte ? go(carte) : carteSeance(activite).toBlob(go, "image/jpeg", .92);
 }
 function tcx(a) {
@@ -433,7 +435,7 @@ addEventListener("appinstalled", () => { invitInstall = null; protegerDonnees();
    (seulement hors séance), sinon l'appli tournerait avec les anciens scripts jusqu'au lancement suivant. Retour dans l'appli = recherche de mise à jour. */
 if ("serviceWorker" in navigator && /^https?:/.test(location.protocol) && !/claude/.test(location.hostname)) {
   const avant = !!navigator.serviceWorker.controller; let recharge = false;
-  navigator.serviceWorker.register("sw.js").then(reg => document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); })).catch(() => {});
+  navigator.serviceWorker.register("sw.js").then(reg => document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && reg) reg.update().catch(() => {}); })).catch(() => {});
   navigator.serviceWorker.addEventListener("controllerchange", () => { if (!avant || recharge) return; recharge = true;
     const go = () => location.reload(); if (["menu", "accueil", "reglages", "outils", "moi"].includes(ecranCourant) && !$("feuille") && !$("tour")) go(); else addEventListener("pagehide", go, { once: true }); });
 }

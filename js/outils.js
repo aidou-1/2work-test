@@ -295,8 +295,8 @@ function lienDefi() {
 }
 $("amiBtn").onclick = async () => {
   const url = lienDefi(), n = lireProfil().nom, t = routine.titre, texte = routine.defi
-    ? L(`${n || "Ton ami"} te défie de réussir le défi du jour sur 2 WORK : « ${t.split(" · ").pop()} ». À toi de jouer !`, `${n || "Your friend"} challenges you to complete today’s daily challenge on 2 WORK: “${t.split(" · ").pop()}”. Your turn!`)
-    : L(`${n || "Ton ami"} te défie de réussir sa séance sur 2 WORK : « ${t} », ${ids.length} exercices. Relève le défi !`, `${n || "Your friend"} challenges you to complete their workout on 2 WORK: “${t}”, ${ids.length} exercises. Take the challenge!`);
+    ? L(`${n || "Ton ami"} te défie de réussir le défi du jour sur 2 WORK : « ${t.split(" · ").pop()} ». Ouvre le lien : le défi est prêt, guidé à la voix, gratuit et sans pub. À toi de jouer !`, `${n || "Your friend"} challenges you to complete today’s daily challenge on 2 WORK: “${t.split(" · ").pop()}”. Open the link: it’s ready, voice-guided, free and ad-free. Your turn!`)
+    : L(`${n || "Ton ami"} te défie de réussir sa séance sur 2 WORK : « ${t} », ${ids.length} exercices. Ouvre le lien : la même séance se lance chez toi, guidée à la voix, gratuit et sans pub. Relève le défi !`, `${n || "Your friend"} challenges you to complete their workout on 2 WORK: “${t}”, ${ids.length} exercises. Open the link: the same workout starts on your phone, voice-guided, free and ad-free. Take the challenge!`);
   return partagerLien(texte, url, $("amiBtn"));
 };
 function ouvrirDefiAmi(code) {   // renvoie vrai si le lien est valide
