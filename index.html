@@ -980,10 +980,28 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 .polaire::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(8,10,14,.62), rgba(8,10,14,.38) 45%, rgba(8,10,14,.66)); }
 :root[data-lieu="anneaux"] .polaire::after { background: linear-gradient(rgba(8,10,14,.3), rgba(8,10,14,.12) 45%, rgba(8,10,14,.45)); }  /* l’espace est déjà sombre */
 :root[data-lieu="anneaux"] .polaire b, :root[data-lieu="anneaux"] .polaire span { display: none; }  /* ni brouillard ni neige dans l’espace */
+/* cadre aux proportions des images (941 × 1672), centré et couvrant comme elles : les effets restent à leur place */
+.pl-cadre { position: absolute; left: 50%; top: 50%; width: max(100vw, 56.28vh); aspect-ratio: 941 / 1672; transform: translate(-50%, -50%); z-index: 1; }
+.pl-cadre > * { display: none; position: absolute; }
+/* pic : la fente vert acide respire, le blizzard file au ras de la neige */
+:root[data-lieu="pic"] .pl-fente { display: block; left: 46%; top: 50.5%; width: 16%; aspect-ratio: 1 / 2; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(201,242,107,.45), rgba(201,242,107,.12) 40%, rgba(201,242,107,0) 70%); mix-blend-mode: screen; animation: plFente 3.2s ease-in-out infinite; }
+@keyframes plFente { 50% { opacity: .35; transform: translate(-50%, -50%) scale(.85); } }
+:root[data-lieu="pic"] .pl-blizzard { display: block; left: -60%; top: 50%; width: 220%; height: 14%; background: linear-gradient(90deg, transparent, rgba(240,244,250,.35) 30%, rgba(240,244,250,.12) 60%, transparent); filter: blur(6px); animation: plBlizzard 7s linear infinite; }
+:root[data-lieu="pic"] .pl-blizzard.b2 { top: 66%; height: 20%; opacity: .7; animation-duration: 11s; animation-delay: -4s; }
+@keyframes plBlizzard { from { transform: translateX(-40%); } to { transform: translateX(40%); } }
+/* lac : l'aurore ondule et son reflet tremble sur la glace */
+:root[data-lieu="lac"] .pl-aurore { display: block; inset: 0 0 52% 0; background: repeating-linear-gradient(90deg, rgba(120,240,150,0) 0 7%, rgba(150,250,160,.22) 10%, rgba(120,240,150,0) 14%); mix-blend-mode: screen; -webkit-mask: linear-gradient(transparent, #000 15%, #000 55%, transparent); mask: linear-gradient(transparent, #000 15%, #000 55%, transparent); animation: plAurore 9s ease-in-out infinite alternate; }
+@keyframes plAurore { from { transform: translateX(-4%) skewX(-6deg); opacity: .4; } 50% { opacity: 1; } to { transform: translateX(4%) skewX(6deg); opacity: .55; } }
+:root[data-lieu="lac"] .pl-reflet { display: block; inset: 52% 0 18% 0; background: radial-gradient(ellipse 30% 40% at 25% 30%, rgba(150,250,160,.25), transparent), radial-gradient(ellipse 25% 35% at 75% 25%, rgba(150,250,160,.22), transparent); mix-blend-mode: screen; animation: plReflet 5s ease-in-out infinite alternate; }
+@keyframes plReflet { from { opacity: .3; transform: scaleY(.9); } to { opacity: 1; transform: scaleY(1.05); } }
+/* anneaux : quelques étoiles scintillent */
+:root[data-lieu="anneaux"] .pl-cadre em { display: block; width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(220,235,255,.8); animation: plScintille var(--t) ease-in-out var(--d) infinite; }
+@keyframes plScintille { 50% { opacity: .1; transform: scale(.4); } }
 .pl-debris { display: none; margin: 0; } :root[data-lieu="anneaux"] .pl-debris { display: block; position: absolute; inset: 0; z-index: 1; }
 /* chaque débris suit le plan incliné des anneaux en tournant sur lui-même, et repasse sans fin */
 .pl-debris img { position: absolute; left: 0; top: var(--y); width: var(--s); height: auto; filter: blur(var(--f)) drop-shadow(0 0 6px rgba(201,242,107,.15)); animation: plOrbite var(--t) linear var(--d) infinite; }
 @keyframes plOrbite { from { transform: translate(-15vw, 8vh) rotate(0deg); } to { transform: translate(115vw, -26vh) rotate(calc(var(--r) * 540deg)); } }
+:root[data-lieu="pic"] .polaire::after { background: linear-gradient(rgba(8,10,14,.62), rgba(8,10,14,.55) 45%, rgba(8,10,14,.7)); }  /* neige très claire : voile plus marqué pour les cartes */
 :root[data-lieu="lac"] .polaire::after { background: linear-gradient(rgba(8,10,14,.35), rgba(8,10,14,.3) 45%, rgba(8,10,14,.6)); }
 @keyframes plDerive { to { transform: scale(1.07) translate(-6px, -10px); } }
 .polaire b { position: absolute; z-index: 1; left: -40%; top: 34%; width: 180%; height: 30%; background: radial-gradient(ellipse at center, rgba(232,236,242,.4), rgba(232,236,242,0) 65%); animation: plVent 18s linear infinite alternate; }
@@ -993,7 +1011,7 @@ html[data-style="socle"]:is([data-theme]) .media { border-radius: 24px; box-shad
 :root[data-lieu="lac"] .polaire span i { animation-duration: 14s !important; }
 @keyframes plChute { to { transform: translate(-60px, 105vh); } }
 :root[data-style="titane"]:has(#session:not(.hidden), #pret:not(.hidden)) .polaire * { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .polaire img, .polaire b, .polaire span i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .polaire img, .polaire b, .polaire span i, .pl-cadre > * { animation: none; } }
 .eau { display: none; }
 :root[data-style="titane"] .eau { display: block; position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .eau i { position: absolute; border-radius: 50%; will-change: transform; animation: glisse 22s ease-in-out infinite; translate: calc(var(--mx, 0) * -30px) calc(var(--my, 0) * -30px); transition: translate .5s ease-out; }
@@ -1473,44 +1491,44 @@ addEventListener("load", () => setTimeout(() => { const a = document.getElementB
 </main>
 <nav class="nav hidden" id="nav" aria-label="Navigation principale"><button id="nMenu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5'/></svg><span data-en="Home">Accueil</span></button><button id="nProgres"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d='M4 20V10'/><path d='M10 20V4'/><path d='M16 20v-7'/><path d='M22 20H2'/></svg><span data-en="Progress">Progrès</span></button><button id="nProgs"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x='3' y='4' width='18' height='17' rx='3'/><path d='M8 2v4M16 2v4M3 10h18'/><path d='m9 15 2 2 4-4'/></svg><span data-en="Programmes">Programmes</span></button><button id="nOutils"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg><span data-en="Tools">Outils</span></button><button id="nMoi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7"/></svg><span>Moi</span></button><button id="reglagesBtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-en="Settings">Réglages</span></button></nav>
 <canvas id="confettis" aria-hidden="true"></canvas>
-<script src="consignes.js?v=2026-11-26n"></script>
-<script src="js/donnees.js?v=2026-11-26n"></script>
-<script src="js/seance.js?v=2026-11-26n"></script>
-<script src="js/progres.js?v=2026-11-26n"></script>
-<script src="js/catalogue.js?v=2026-11-26n"></script>
-<script src="js/profil.js?v=2026-11-26n"></script>
-<script src="js/anatomie.js?v=2026-11-26n"></script>
-<script src="js/evenements.js?v=2026-11-26n"></script>
-<script src="js/outils.js?v=2026-11-26n"></script>
-<script src="js/cardio.js?v=2026-11-26n"></script>
-<script src="js/chronos.js?v=2026-11-26n"></script>
-<script src="js/sports.js?v=2026-11-26n"></script>
-<script src="js/sport.js?v=2026-11-26n"></script>
-<script src="js/boxe.js?v=2026-11-26n"></script>
-<script src="js/foot.js?v=2026-11-26n"></script>
-<script src="js/course.js?v=2026-11-26n"></script>
-<script src="js/trail.js?v=2026-11-26n"></script>
-<script src="js/athle.js?v=2026-11-26n"></script>
-<script src="js/basket.js?v=2026-11-26n"></script>
-<script src="js/tennis.js?v=2026-11-26n"></script>
-<script src="js/padel.js?v=2026-11-26n"></script>
-<script src="js/handball.js?v=2026-11-26n"></script>
-<script src="js/volley.js?v=2026-11-26n"></script>
-<script src="js/cyclisme.js?v=2026-11-26n"></script>
-<script src="js/natation.js?v=2026-11-26n"></script>
-<script src="js/escalade.js?v=2026-11-26n"></script>
-<script src="js/ski.js?v=2026-11-26n"></script>
-<script src="js/surf.js?v=2026-11-26n"></script>
-<script src="js/pilates.js?v=2026-11-26n"></script>
-<script src="js/jeu.js?v=2026-11-26n"></script>
-<script src="js/moi.js?v=2026-11-26n"></script>
-<script src="js/forme.js?v=2026-11-26n"></script>
-<script src="js/masemaine.js?v=2026-11-26n"></script>
-<script src="js/apercus.js?v=2026-11-26n"></script>
-<script src="js/guide.js?v=2026-11-26n"></script>
-<script src="js/clubs.js?v=2026-11-26n"></script>
-<script src="js/coach.js?v=2026-11-26n"></script>
-<script src="js/semaine1.js?v=2026-11-26n"></script>
-<script src="js/planete.js?v=2026-11-26n"></script>
+<script src="consignes.js?v=2026-11-26r"></script>
+<script src="js/donnees.js?v=2026-11-26r"></script>
+<script src="js/seance.js?v=2026-11-26r"></script>
+<script src="js/progres.js?v=2026-11-26r"></script>
+<script src="js/catalogue.js?v=2026-11-26r"></script>
+<script src="js/profil.js?v=2026-11-26r"></script>
+<script src="js/anatomie.js?v=2026-11-26r"></script>
+<script src="js/evenements.js?v=2026-11-26r"></script>
+<script src="js/outils.js?v=2026-11-26r"></script>
+<script src="js/cardio.js?v=2026-11-26r"></script>
+<script src="js/chronos.js?v=2026-11-26r"></script>
+<script src="js/sports.js?v=2026-11-26r"></script>
+<script src="js/sport.js?v=2026-11-26r"></script>
+<script src="js/boxe.js?v=2026-11-26r"></script>
+<script src="js/foot.js?v=2026-11-26r"></script>
+<script src="js/course.js?v=2026-11-26r"></script>
+<script src="js/trail.js?v=2026-11-26r"></script>
+<script src="js/athle.js?v=2026-11-26r"></script>
+<script src="js/basket.js?v=2026-11-26r"></script>
+<script src="js/tennis.js?v=2026-11-26r"></script>
+<script src="js/padel.js?v=2026-11-26r"></script>
+<script src="js/handball.js?v=2026-11-26r"></script>
+<script src="js/volley.js?v=2026-11-26r"></script>
+<script src="js/cyclisme.js?v=2026-11-26r"></script>
+<script src="js/natation.js?v=2026-11-26r"></script>
+<script src="js/escalade.js?v=2026-11-26r"></script>
+<script src="js/ski.js?v=2026-11-26r"></script>
+<script src="js/surf.js?v=2026-11-26r"></script>
+<script src="js/pilates.js?v=2026-11-26r"></script>
+<script src="js/jeu.js?v=2026-11-26r"></script>
+<script src="js/moi.js?v=2026-11-26r"></script>
+<script src="js/forme.js?v=2026-11-26r"></script>
+<script src="js/masemaine.js?v=2026-11-26r"></script>
+<script src="js/apercus.js?v=2026-11-26r"></script>
+<script src="js/guide.js?v=2026-11-26r"></script>
+<script src="js/clubs.js?v=2026-11-26r"></script>
+<script src="js/coach.js?v=2026-11-26r"></script>
+<script src="js/semaine1.js?v=2026-11-26r"></script>
+<script src="js/planete.js?v=2026-11-26r"></script>
 </body>
 </html>
