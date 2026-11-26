@@ -12,12 +12,14 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); };
   ROUTINES.bxG = { ...spSeance('boxe', 'gainage'), retour: () => 0 }; CONSEILLES.bxG = []; ouvrirRoutine('bxG');
   const ids0 = liste.map(e => e.id), n0 = liste.length, G = blocsVolume(); ok(G.length, 'bloc réglable');
   // toutes les variantes existent et changent bien de famille dans le bon sens
-  FAMILLES_DUR.forEach(f => f.forEach(id => ok(EXERCICES[id] && !EXERCICES[id].mat, 'variante ' + id)));
+  FAMILLES_DUR.forEach(f => f.forEach(id => ok(EXERCICES[id], 'variante ' + id)));
+  // une variante qui demande du matériel n'est proposée que si on l'a ; familles corrigées
+  ok(varianteEx('ftAdducteurs', 1, []) === null && varianteEx('ftAdducteurs', 1, ['box']) === 'copenhague' && varianteEx('planchelat', 1) === null && varianteEx('fentesalt', 1) === 'bxFentePdc', 'matériel et familles');
   ok(varianteEx('deadbug', 1) === 'bxRelevesAlt' && varianteEx('hollow', 1) === null && varianteEx('bxRelevesAlt', -1) === 'deadbug', 'familles');
   // fin de séance
   $('fRessenti').innerHTML = blocRessenti() + blocProchaine(); brancherRessenti(); brancherEffort(); brancherProchaine(); afficherEcran('end');
   document.querySelector('[data-prv="-1"]').click(); document.querySelector('[data-prn="1"]').click();
-  const c = ajustDe(); ok(c._niv === 1 && G.every(g => c[g.c] === g.n - 1), 'choix gardé ' + JSON.stringify(c));
+  const c = ajustDe(); ok(c._niv === 1 && G.every(g => toursAj(g, c) === g.n - 1 && c[g.c].d === -1), 'choix gardé en écart ' + JSON.stringify(c));
   ok(/Prochaine fois|Next time/.test($('prRes').textContent), 'résumé');
   const ecran = $('fRessenti').innerHTML;
   // prochain lancement : moins d'étapes, deadbug remplacé, échauffement et retour au calme intacts

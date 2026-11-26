@@ -660,10 +660,19 @@ function planRetraits(plan, choix) {
 /* Difficulté des exercices (« _niv » de −2 à +2, réglée en fin de séance ou dans Modifier) : chaque cran passe à la variante plus dure
    (ou plus simple) de la même famille, au poids du corps et sans saut ajouté (moins de risque de blessure) ; sans variante, l'effort dure 10 s de plus
    (ou de moins, 15 s minimum). Échauffement, retour au calme, cardio long et séries de salle ne changent pas. */
-const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", "squat", "squatUni"], ["pont", "pontuni"], ["ours", "planche", "planchetouch"],
-  ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"], ["rnFenteSol", "fentesalt", "lungetwist"],
-  ["planchelat", "copenhague"], ["calfraise", "mollet1"], ["lateral", "cossack"]];
-const varianteEx = (id, sens) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v]) return v; } return null; };
+const FAMILLES_DUR = [["pompesMur", "pompes", "pompesserrees"], ["assisDebout", "squat", "squatFreine", "squatUni"], ["pont", "pontuni"], ["ours", "planche", "planchetouch", "tspin"],
+  ["deadbug", "bxRelevesAlt", "hollow"], ["crunchInverse", "battements", "teaser"], ["rollUp", "teaser"], ["rnFenteSol", "fentesalt", "bxFentePdc"],
+  ["ftAdducteurs", "copenhague", "copenhagueLong"], ["calfraise", "mollet1", "alfredson"], ["fenteLatTenue", "lateral", "cossack"], ["rqCoiffe", "bandRotExt"], ["ftIschios", "nordique"],
+  ["stepDown", "skDescenteBox"], ["rnEquilibre", "equilibre", "fenteEtoile"], ["rqPoignet", "poignetExc"], ["bandRow", "bxTrx", "tractions"]];
+// variante seulement si le matériel du jour la permet (séance d'un sport : son matériel ; sinon poids du corps)
+const varianteEx = (id, sens, mat = (routine && routine.mat) || []) => { for (const f of FAMILLES_DUR) { const i = f.indexOf(id), v = f[i + sens]; if (i >= 0 && v && EXERCICES[v] && (MAT_EX[v] || "").split(" ").every(m => !m || mat.includes(m))) return v; } return null; };
+// on n'alourdit jamais d'un appui : sauts, sprints, allures chronométrées (natation, vélo, cardio, cotations), suspensions, efforts à 8/10 et plus, semaine allégée
+const INTENSE_AJ = /saut|skater|skihop|hop|burpee|bond|sprint|accel|suspension|projet|plio/i;
+const intenseQ = q => /^(na|cy|es|c|rn)_/.test(q.id) || INTENSE_AJ.test(q.id) || /(^|\D)(8|9|10)\/10/.test(q.presc || "");
+const plusOk = g => !(routine && routine.allege) && !g.l.some(intenseQ);
+// tours retenus : ancien format (nombre absolu) encore lu, plafonné aux tours proposés sur un bloc intense ; nouveau format { d: écart } qui suit la séance du jour (affûtage, reprise)
+const toursAj = (g, choix) => { const v = choix[g.c]; return v == null ? g.n : typeof v === "object" ? Math.max(1, g.n + v.d) : plusOk(g) ? v : Math.min(v, g.n); };
+const garderTours = (c, g, v) => { v === g.n ? delete c[g.c] : c[g.c] = { d: v - g.n }; };
 const FIXE_NIV = /calme|cool|étire|stretch|respir|breath|souffle|apn|mise en route|températ|temperat|mobilis|douce|facile|easy|gentle/i;
 // bloc qui ne change pas de difficulté : marqué fixe à la construction (tr: 0 dans les séances des sports), ou reconnu à son nom
 // (des sports placent aussi leur propre échauffement ou mobilité dans la partie principale ; apnée et respiration toujours fixes)
@@ -679,7 +688,8 @@ function planNiveau(plan, niv) {
     if (q.series || q.d >= 90 || blocFixe(q, k)) return q;
     // une variante déjà présente dans le bloc ferait deux fois le même exercice : l'effort s'allonge (ou raccourcit) à la place
     const b = B[k] = B[k] || { pris: new Set(plan.filter(x => cleBloc(x.bn) === k).map(x => x.id)), m: {} };
-    if (!b.m[q.id]) { let id = q.id, n = 0; for (let j = 0; j < Math.abs(niv); j++) { const v = varianteEx(id, s); v && !b.pris.has(v) ? (b.pris.add(v), id = v) : n++; } b.m[q.id] = { id, n }; }
+    if (s > 0 && intenseQ(q)) return q;
+    if (!b.m[q.id]) { let id = q.id, n = 0; for (let j = 0; j < Math.abs(niv); j++) { const v = routine && routine.tempsSeul ? null : varianteEx(id, s); v && !b.pris.has(v) ? (b.pris.add(v), id = v) : n++; } b.m[q.id] = { id, n }; }
     const { id } = b.m[q.id]; let d = q.d;
     for (let j = 0; j < b.m[q.id].n; j++) d > 15 && (d = Math.max(15, d + 10 * s));
     return id === q.id && d === q.d ? q : { ...q, id, d, presc: id === q.id ? q.presc : "" };
@@ -691,7 +701,7 @@ function planVolume(plan, choix) {
   if (!Object.keys(choix).some(k => k[0] !== "_")) return plan;
   const rx = (a, b, der) => new RegExp(`(^|\\D)${a}\\s*/\\s*${b}(?!\\d)` + (der ? `(?!.*\\d\\s*/\\s*\\d)` : ""));
   return blocsRepetes(plan).flatMap(g => {
-    const N = choix[g.c], { l, p, n } = g; if (!N || N === n || n < 2) return l;
+    const { l, p, n } = g, N = toursAj(g, choix); if (N === n || n < 2) return l;
     const tot = l.length, nu = N * p, out = [];
     for (let u = 0; u < N; u++) { const u0 = u < N - 1 ? Math.min(u, n - 2) : n - 1;
       for (let j = 0; j < p; j++) { const q = l[u0 * p + j], g0 = u0 * p + j, gi = u * p + j;
@@ -719,14 +729,14 @@ function majAjust(blocs, choix) {
   const l = blocs.length > 1 || blocs.some(g => g.n >= 2 || g.p > 1) ? blocs : [], modif = nbModifs(choix);
   R.classList.toggle("hidden", !l.length); P.classList.toggle("hidden", !l.length || !ajustOuvert); $("ajustBtn").setAttribute("aria-expanded", ajustOuvert);
   if (!l.length) return;
-  const resume = [...l.filter(g => sans.has(g.c)).map(g => L("sans ", "no ") + g.k.toLowerCase()), ...l.filter(g => !sans.has(g.c) && choix[g.c] && choix[g.c] !== g.n).map(g => `${g.k} × ${choix[g.c]}`),
+  const resume = [...l.filter(g => sans.has(g.c)).map(g => L("sans ", "no ") + g.k.toLowerCase()), ...l.filter(g => !sans.has(g.c) && toursAj(g, choix) !== g.n).map(g => `${g.k} × ${toursAj(g, choix)}`),
     ...l.filter(g => (exR[g.c] || []).length && !sans.has(g.c)).map(g => `${g.k} − ${exR[g.c].length}`), ...(choix._niv ? [L("exercices ", "exercises ") + nivTxt(choix._niv)] : [])];
   $("ajustInfo").textContent = modif ? L("Modifiée : ", "Edited: ") + resume.join(" · ") : L("Retire l’échauffement ou des exercices, ajuste répétitions, séries et tours", "Remove the warm-up or exercises, adjust reps, sets and rounds");
   const dur = d => typeof duTxt === "function" ? duTxt(d) : d + " s", restants = l.filter(g => !sans.has(g.c)).length;
   const ech = l.some(g => !ECHAUF.test(g.k) && !sans.has(g.c)) ? l.filter(g => ECHAUF.test(g.k)) : [], echTous = ech.length && ech.every(g => sans.has(g.c));
   P.innerHTML = (ech.length ? `<button class="toggle ${echTous ? "contour" : ""}" id="ajustEch">${echTous ? L("↺ Remettre l’échauffement", "↺ Put the warm-up back") : L("Déjà échauffé : retirer l’échauffement", "Already warm: remove the warm-up")}</button>` : "")
     + (sa0 => sa0 ? "" : `<div class="aj-ligne"><div><b>${L("Difficulté des exercices", "Exercise difficulty")}</b><small>${nivTxt(choix._niv || 0)}${choix._niv ? " · " + changementsNiv(routine.plan, choix._niv).slice(0, 3).join(" · ") : " · " + L("variante plus dure ou effort plus long", "harder variation or longer effort")}</small></div><div class="stepper"><button data-niv="-1" ${(choix._niv || 0) <= -2 ? "disabled" : ""} aria-label="${L("Exercices plus simples", "Easier exercises")}">−</button><output>${(choix._niv > 0 ? "+" : "") + (choix._niv || 0)}</output><button data-niv="1" ${(choix._niv || 0) >= 2 ? "disabled" : ""} aria-label="${L("Exercices plus durs", "Harder exercises")}">+</button></div></div>`)(!nivPossible() || !changementsNiv(routine.plan, 1).length && !changementsNiv(routine.plan, -1).length)
-    + l.map((g, i) => { const v = choix[g.c] || g.n, e = g.l[0], max = Math.min(40, Math.max(g.n * 2, g.n + 4)), off = sans.has(g.c);
+    + l.map((g, i) => { const v = toursAj(g, choix), e = g.l[0], max = plusOk(g) ? Math.min(40, Math.max(g.n * 2, g.n + 4)) : g.n, off = sans.has(g.c);
       const uniques = [...new Set(g.l.map(q => q.id))], retires = exR[g.c] || [], ouvert = ajustDetail === g.c && !off;
       return `<div class="aj-ligne${off ? " aj-off" : ""}"><div><b>${g.k}</b><small>${off ? L("Retiré de la séance", "Removed from the workout") : (g.p === 1 ? dur(e.d) + (e.r ? " · " + L("repos ", "rest ") + dur(e.r) : "") : L(`${uniques.length - retires.length} exercices`, `${uniques.length - retires.length} exercises`) + (g.n > 1 ? L(" par tour", " per round") : "")) + (g.n > 1 ? ` · ${L("proposé", "suggested")} : ${g.n}` : "")}</small></div>
         ${!off && g.n >= 2 ? `<div class="stepper"><button data-aj="${i}" data-d="-1" ${v <= 1 ? "disabled" : ""} aria-label="${L("Un de moins", "One fewer")} · ${g.k}">−</button><output>${v}</output><button data-aj="${i}" data-d="1" ${v >= max ? "disabled" : ""} aria-label="${L("Un de plus", "One more")} · ${g.k}">+</button></div>` : ""}</div>
@@ -736,7 +746,7 @@ function majAjust(blocs, choix) {
     + (modif ? `<button class="toggle contour" id="ajustDef">${L("Par défaut", "Default")}</button>` : "") + `<p class="sh-aide">${L("Ton choix est gardé pour la prochaine fois. Si tu enchaînes deux séances, retire l’échauffement de la seconde. Plus de volume ne veut pas dire mieux : garde la qualité de chaque effort.", "Your choice is kept for next time. If you do two workouts back to back, remove the warm-up from the second. More volume isn’t always better: keep every effort high quality.")}</p>`;
   const garder = c => { stockerAjust(c); ouvrirApercu(routineCle); };
   const copie = () => ({ ...choix, _sans: [...(choix._sans || [])], _ex: Object.fromEntries(Object.entries(exR).map(([k, v]) => [k, [...v]])) });
-  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(), v = (c[g.c] || g.n) + +b.dataset.d; v === g.n ? delete c[g.c] : c[g.c] = v; garder(c); });
+  P.querySelectorAll("[data-aj]").forEach(b => b.onclick = () => { const g = l[+b.dataset.aj], c = copie(); garderTours(c, g, toursAj(g, c) + +b.dataset.d); garder(c); });
   P.querySelectorAll("[data-niv]").forEach(b => b.onclick = () => garder({ ...copie(), _niv: Math.max(-2, Math.min(2, (choix._niv || 0) + +b.dataset.niv)) }));
   P.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { const g = l[+b.dataset.off], c = copie(); c._sans = sans.has(g.c) ? c._sans.filter(k => k !== g.c) : [...c._sans, g.c]; garder(c); });
   P.querySelectorAll("[data-det]").forEach(b => b.onclick = () => { const k = l[+b.dataset.det].c; ajustDetail = ajustDetail === k ? "" : k; majAjust(blocs, choix); });
@@ -764,7 +774,7 @@ function brancherProchaine() {
   const avant = ajustDe(), G = blocsVolume();
   const maj = (c, note) => {
     stockerAjust(c); const n = nbModifs(c) !== nbModifs(avant) || JSON.stringify(c) !== JSON.stringify(avant);
-    const v = G.filter(g => c[g.c] && c[g.c] !== g.n).map(g => `${g.k} × ${c[g.c]} ${L("au lieu de", "instead of")} ${g.n}`), d = c._niv ? changementsNiv(routine.plan, c._niv) : [];
+    const v = G.filter(g => toursAj(g, c) !== g.n).map(g => `${g.k} × ${toursAj(g, c)} ${L("au lieu de", "instead of")} ${g.n}`), d = c._niv ? changementsNiv(routine.plan, c._niv) : [];
     $("prRes").innerHTML = n ? `<p class="sh-ok">✓ ${L("Prochaine fois : ", "Next time: ")}${[...v, ...(c._niv ? [L("exercices ", "exercises ") + nivTxt(c._niv)] : [])].join(" · ") || L("séance proposée", "suggested workout")}</p>${d.length ? `<p class="sh-aide">${d.slice(0, 4).join(" · ")}${d.length > 4 ? " …" : ""}</p>` : c._niv ? `<p class="sh-aide">${L("Déjà au bout des variantes : la séance reste la même.", "Already at the last variation: the workout stays the same.")}</p>` : ""}<button class="lien" id="prAnnul">${L("Annuler", "Undo")}</button>` : "";
     if (note) $("prRes").insertAdjacentHTML("afterbegin", `<p class="sh-aide">${note}</p>`);
     if ($("prAnnul")) $("prAnnul").onclick = () => { stockerAjust(JSON.parse(JSON.stringify(avant))); $("prRes").innerHTML = `<p class="sh-aide">↩︎ ${L("Séance gardée telle quelle.", "Workout kept as it was.")}</p>`; };
@@ -773,7 +783,7 @@ function brancherProchaine() {
   // un appui qui ne change rien le dit, au lieu de sembler ne pas marcher
   const bout = d => d > 0 ? L("Déjà au maximum.", "Already at the maximum.") : L("Déjà au minimum.", "Already at the minimum.");
   document.querySelectorAll("[data-prv]").forEach(b => b.onclick = () => { const c = cour(), d = +b.dataset.prv;
-    G.forEach(g => { if ((c._sans || []).includes(g.c)) return; const v = Math.max(1, Math.min(40, Math.max(g.n * 2, g.n + 4), (c[g.c] || g.n) + d)); v === g.n ? delete c[g.c] : c[g.c] = v; }); maj(c, pareil(c, cour()) && bout(d)); });
+    G.forEach(g => { if ((c._sans || []).includes(g.c)) return; garderTours(c, g, Math.max(1, Math.min(plusOk(g) ? Math.min(40, Math.max(g.n * 2, g.n + 4)) : g.n, toursAj(g, c) + d))); }); maj(c, pareil(c, cour()) && bout(d)); });
   document.querySelectorAll("[data-prn]").forEach(b => b.onclick = () => { const c = cour(); const d = +b.dataset.prn; c._niv = Math.max(-2, Math.min(2, (c._niv || 0) + d)); maj(c, pareil(c, cour()) && bout(d)); });
 }
 

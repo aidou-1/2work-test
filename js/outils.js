@@ -74,7 +74,9 @@ const zoneQuick = id => { const m = EXERCICES[id].muscles.split(" · ")[0], z1 =
 const quickPrefs = () => ({ z: "tout", m: monMatos().length ? "mien" : "sans", int: "normal", ...lireJSON("quickPrefs", {}) });
 function composerExpress({ min = 10, z = "tout", m = "sans", int = "normal", sans = [] }) {   // renvoie faux s'il n'y a pas assez d'exercices ; sans : zones douloureuses à éviter
   const dyn = id => /saut|burpee|climber|jump|skater|sprint|explos/i.test(EXERCICES[id].nom + " " + EXERCICES[id].description);
-  const pool = renfoQuick().filter(id => !EXERCICES[id].etir && (z === "tout" ? zoneQuick(id) : zoneQuick(id) === z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (int !== "calme" || !dyn(id)) && !(sans.length && zonesEx(id).some(x => sans.includes(x))));
+  // jamais de barre chargée dans un circuit chronométré tiré au hasard (45 s / 15 s) : risque de blessure
+  const barre = id => /Barre|^ez[A-Z]|souleveTerre|militaire|traineau/.test(id);
+  const pool = renfoQuick().filter(id => !EXERCICES[id].etir && !barre(id) && (z === "tout" ? zoneQuick(id) : zoneQuick(id) === z) && (m === "sans" ? !EXERCICES[id].mat : faisable(id, monMatos())) && (int !== "calme" || !dyn(id)) && !(sans.length && zonesEx(id).some(x => sans.includes(x))));
   if (pool.length < 3) return false;
   stocker("quickPrefs", JSON.stringify({ z, m, int }));
   const hasard = l => l.map(x => [Math.random() - (int === "intense" && dyn(x) ? 1 : 0) - (m === "mien" && EXERCICES[x].mat ? .6 : 0), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);   // très intense : les exercices dynamiques d'abord ; avec ton matériel : surtout des exercices qui s'en servent

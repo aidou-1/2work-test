@@ -9,7 +9,8 @@ const MAT_X = { gants: ["Gants et sac", "Gloves and bag"], corde: ["Corde à sau
   ballon: ["Ballon", "Ball"], mur: ["Un mur", "A wall"], plots: ["Plots ou bouteilles", "Cones or bottles"], partenaire: ["Un partenaire", "A partner"] };
 // matériel demandé par un exercice (plusieurs clés séparées par une espace = tout est nécessaire)
 const MAT_EX = { kbSwing: "kb", goblet: "kb", dbRow: "kb", bulgare: "kb", stepUp: "box", souleveTerre: "barre", squatBarre: "barre", rafaleSac: "gants", lancerMedecine: "medecine",
-  rotElastique: "elastique", bandRow: "elastique", bandPullApart: "elastique", tractions: "traction", tractionBloquee: "traction", traineau: "barre", bandWalk: "elastique", hipThrust: "box" };
+  rotElastique: "elastique", bandRow: "elastique", bandPullApart: "elastique", tractions: "traction", tractionBloquee: "traction", traineau: "barre", bandWalk: "elastique", hipThrust: "box",
+  bandRotExt: "elastique", bandChest: "elastique", doigtsElastique: "elastique", nageElastique: "elastique", chinups: "traction", relevesJambes: "traction", kbPress: "kb", dbShoulder: "kb", dbLunge: "kb", dbRDL: "kb", militaire: "barre", rdlBarre: "barre" };
 const SP = {};
 /* Nouveaux exercices : [id, durée, matériel, mat FR, EN, nom FR, EN, muscles FR, EN, description FR, EN, pose (objet POSES ou id emprunté), consigne FR, EN] */
 function exosSp(liste) {
@@ -27,6 +28,15 @@ const spGarder = (sp, p) => stocker(SP[sp].cle, JSON.stringify(p));
 const spChoix = (slot, mat) => [].concat(slot).find(id => EXERCICES[id] && (MAT_EX[id] || "").split(" ").every(m => !m || mat.includes(m))) || null;
 const RPE_SP = (a, b) => L(`Effort ${a}/10 · `, `Effort ${a}/10 · `) + b;
 const allSp = (sp, a) => "c_" + supportDe(sp)[0] + a;   // effort cardio sur le support choisi : 0 facile, 1 soutenu, 2 à fond
+// Avant les sprints et les sauts : on monte en vitesse par paliers (facile, puis 6, 7 et 8/10), jamais d'effort maximal à froid.
+const rampeSp = sp => ["Montée progressive", "Progressive build-up", "2 minutes faciles, puis 3 accélérations de 10 s, chacune un peu plus vive.", "2 easy minutes, then 3 accelerations of 10 s, each a little sharper.", 1, 0,
+  [[allSp(sp, 0), 120, 15, RPE_SP(3, L("facile", "easy")), "2 min"], ...[6, 7, 8].map((r, i) => [allSp(sp, 1), 10, i < 2 ? 30 : 60, RPE_SP(r, L("de plus en plus vite", "a bit faster each time")), "10 s"])]];
+// Formats longs : gainage-rotation, prévention du sport, puis aérobie facile ; jamais de sauts ou de sprints en plus, ni de marche « pour remplir ».
+const complementSp = (sp, k, prev = []) => [["Gainage et rotation", "Core and rotation", "Anti-rotation, dos neutre : 30 s d’effort, 10 s de repos.", "Anti-rotation, neutral spine: 30 s work, 10 s rest.", Math.min(k, 3), 30,
+    [[["bxPallof", "planchelat"], 30, 10, RPE_SP(5, L("le tronc ne tourne pas", "the trunk doesn’t rotate")), "30 s"], ["bird", 30, 10, RPE_SP(4, L("lent, bassin immobile", "slow, hips still")), "30 s"], ["deadbug", 30, 10, RPE_SP(5, L("bas du dos au sol", "lower back down")), "30 s"]]],
+  ...(prev.length ? [["Prévention", "Prevention", "Lent, contrôlé et sans douleur.", "Slow, controlled and pain-free.", 1, 0, prev]] : []),
+  ...(k > 3 ? [["Aérobie facile", "Easy aerobic work", "Tu peux parler ; ce complément n’ajoute aucun effort explosif.", "You can talk; this extra adds no explosive work.", 1, 0, [[allSp(sp, 0), (k - 3) * 150, 0, RPE_SP(3, ""), duTxt((k - 3) * 150)]]]] : [])];
+const coiffeSp = [["bandRotExt", "rqCoiffe"], 30, 15, RPE_SP(4, L("lent, coude au corps", "slow, elbow tucked")), "30 s"];
 const lundi = (d = new Date()) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; };
 const plusJ = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const JOURS_SP = [["Lun", "Mon"], ["Mar", "Tue"], ["Mer", "Wed"], ["Jeu", "Thu"], ["Ven", "Fri"], ["Sam", "Sat"], ["Dim", "Sun"]];
@@ -39,7 +49,7 @@ function spPlan(sp, code, k, x) {
   const G = SP[sp], S = G.S[code], plan = [], blocs = [], D = S.fixe ? 35 : x.dur, n = (a, b, c) => ({ 20: a, 35: b, 50: c })[D], al = a => allSp(sp, a);
   // F marque les blocs fixes (mobilité, échauffement, retour au calme) : « plus dur / plus simple » ne touche que les autres (tr: 1)
   const F = t => Object.assign(t, { fx: 1 });
-  const tout = [...(S.cardio || S.sansMob ? [] : [F(["Mobilité", "Mobility", L(...G.mobTxt), "", 1, 0, G.mob.slice(0, n(3, 5, 6)).map(id => [id, 40, 5, "", "40 s"])])]),
+  const tout = [...(S.cardio || S.sansMob ? [] : [F(["Mobilité", "Mobility", L(...G.mobTxt), "", 1, 0, G.mob.slice(0, n(3, 5, 6)).map(id => [id, 40, 5, "", "40 s"])])]), ...(S.rampe && !S.cardio ? [F(rampeSp(sp))] : []),
     ...(S.cardio && !S.sansEch ? [F(["Échauffement", "Warm-up", L("4 minutes progressives, deux accélérations.", "4 progressive minutes, two accelerations."), "", 1, 0, [[al(0), 120, 0, RPE_SP(3, ""), "2 min"], [al(1), 60, 0, RPE_SP(6, ""), "1 min"], [al(0), 20, 0, "", "20 s"], [al(2), 10, 0, RPE_SP(9, ""), "10 s"], [al(0), 20, 0, "", "20 s"], [al(2), 10, 60, RPE_SP(9, ""), "10 s"]]])] : []),
     ...S.f(k, x), ...(S.core && D >= 35 && !x.court ? [[G.coreNom[0], G.coreNom[1], L("Court et contrôlé.", "Short and controlled."), "", n(1, 1, 2), 20, G.core]] : []),
     ...(S.cardio && !S.sansEch ? [F(["Retour au calme", "Cool-down", L("Trois minutes très faciles.", "Three very easy minutes."), "", 1, 0, [[al(0), 180, 0, RPE_SP(2, ""), "3 min"]]])] : []),
@@ -59,11 +69,11 @@ function spSeance(sp, code, o = {}) {
   const G = SP[sp], P = spPref(sp), S = G.S[code], mat = o.mat || P.mat, apresClub = !!G.equipe?.apresClub?.(P, code), x = { mat, dur: apresClub || (sp === "foot" && code === "tech_sansBallon" && P.match >= 0 && !P.treve && !mat.includes("ballon")) ? 20 : o.dur || P.dur, niv: o.niv || P.niv, P, sac: mat.includes("gants"), court: o.f < 1, f: o.f || 1 }, cible = Math.round(x.dur * (o.f || 1));
   let s = spPlan(sp, code, 1, x);
   for (let k = 2; k <= S.max && !S.fixe && S.max > 1; k++) { const t = spPlan(sp, code, k, x); if (t.total > cible + 2) break; s = t; }
-  const zr = zoneRouge(), sup = supportDe(sp), dur = S.fixe ? "" : " · " + L("format ", "format ") + x.dur + " min" + (s.total > x.dur + 4 ? L(` · environ ${s.total} min, la version la plus courte de cette séance`, ` · about ${s.total} min, the shortest version of this session`) : "");   // format indicatif : certaines séances ne tiennent pas en 20 min avec l'échauffement
+  const zr = zoneRouge(), sup = supportDe(sp), dur = S.fixe ? "" : " · " + L("format ", "format ") + x.dur + " min" + (s.total > x.dur + 4 ? L(` · environ ${s.total} min, la version la plus courte de cette séance`, ` · about ${s.total} min, the shortest version of this session`) : s.total < x.dur - 5 ? L(` · environ ${s.total} min : cette séance ne s’allonge pas plus sans perdre en qualité`, ` · about ${s.total} min: this session can’t get longer without losing quality`) : "");   // format indicatif : certaines séances ne tiennent pas en 20 min avec l'échauffement
   const html = `<li class="etude prog-carte-jour" style="--accent:${S.c}"><div><small><b>${L(...S.t)}${dur}${o.f < 1 ? " · " + L("volume allégé", "reduced volume") : ""}</b></small><small>${icoT("cible", "#C9F26B")}${L(...S.d)}</small>
     <small>${icoT("message", "#38BDF8")}${L("Effort visé", "Target effort")} ${S.rpe}/10 ${L("(0 repos · 5 modéré · 8 très dur · 10 maximum)", "(0 rest · 5 moderate · 8 very hard · 10 max)")}${zr && /8|9|10/.test(S.rpe) && S.cardio ? L(` · zone rouge : ${zr} bpm et plus sur les efforts durs`, ` · red zone: ${zr} bpm and above on hard efforts`) : ""}</small>
     ${apresClub ? `<small>${L("Complément de 20 min après le club : ajuste la charge avec ton entraîneur.", "20 min extra after club: adjust load with your coach.")}</small>` : ""}${S.cardio ? `<small>${icoT("repere", "#FB7185")}${L("Support", "Support")} : ${L(sup[1], sup[2])} · ${L(sup[5], sup[6])}</small>${/course|tapis|cote/.test(sup[0]) && alluresVma() ? `<small>${icoT("eclair", "#F59E0B")}${alluresVma()}</small>` : ""}` : `<small>${icoT("outil", "#A78BFA")}${mat.length ? L("Matériel du jour : ", "Today’s equipment: ") + mat.filter(k => G.mat.includes(k)).map(k => L(...MAT_X[k])).join(", ") : L(`Version sans matériel (coche ton matériel dans ${G.nom[0]} pour l’utiliser)`, `No-equipment version (tick your equipment in ${G.nom[1]} to use it)`)}</small>`}</div></li>` + s.blocs.map(blocHtml).join("");
-  return { type: "seance", cat: sp, sp: code, fixe: true, couleur: S.c, plan: s.plan, dist: s.dist, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
+  return { type: "seance", cat: sp, sp: code, fixe: true, couleur: S.c, mat: x.mat, allege: x.f < 1, tempsSeul: !!S.tempsSeul, plan: s.plan, dist: s.dist, exercices: s.plan.map(q => q.id), listeHtml: html, rpe: S.rpe, total: s.total, titre: L(...S.t), titreFr: S.t[0], detail: "" };
 }
 const spOnglet = {}, spRetour = {};
 function lancerSp(sp, code, f) {
@@ -233,9 +243,11 @@ function semaineObjectif(E, P, brut) {
   const cse = P.date ? new Date(P.date + "T12:00") : null, D = E.debut; let bloc = 1, f = 1, info, fixes = {}, liste;
   if (D && P.obj === D.obj) { bloc = 0; liste = E.sem(P, 0, Math.min(D.sem - 1, w0)); info = w0 < D.sem ? L(`${D.txt[0]} · semaine ${w0 + 1}/${D.sem}`, `${D.txt[1]} · week ${w0 + 1}/${D.sem}`) : L("Bases terminées : choisis un objectif", "Basics done: pick a goal"); }
   else {
-    if (cse && cse >= L0) { const W = Math.floor((lundi(cse) - L0) / 6048e5), T = E.taper(P); bloc = W >= 8 ? 1 : W >= 4 ? 2 : 3; f = W < T ? (W ? .75 : .55) : 1;
+    if (cse && cse >= L0) { const W = Math.floor((lundi(cse) - L0) / 6048e5), T = E.taper(P), j = Math.floor((cse - L0) / 864e5), reste = j - (new Date().getDay() + 6) % 7; bloc = W >= 8 ? 1 : W >= 4 ? 2 : 3;
+      // affûtage compté en jours et non en semaines du calendrier : −45 % la dernière semaine, −30 % la précédente ; veille et avant-veille posées même si l'objectif tombe en début de semaine suivante
+      f = reste <= 7 ? .55 : reste < T * 7 ? .7 : 1;
       info = W ? L(`Objectif dans ${W} semaine${W > 1 ? "s" : ""}`, `Goal in ${W} week${W > 1 ? "s" : ""}`) + (f < 1 ? L(" · affûtage", " · taper") : "") : L("Semaine de l’objectif : affûtage", "Goal week: taper");
-      if (!W) { const j = (cse.getDay() + 6) % 7; fixes[j] = "jourJ"; if (j >= 1) fixes[j - 1] = "repos"; if (j >= 2) fixes[j - 2] = "affutage"; } }
+      [[j, "jourJ"], [j - 1, "repos"], [j - 2, "affutage"]].forEach(([d, c]) => { if (d >= 0 && d <= 6) fixes[d] = c; }); }
     else { bloc = Math.floor(w0 / 4) % 3 + 1; if (w0 % 4 === 3) f = .7; info = L(`Semaine ${w0 % 4 + 1}/4`, `Week ${w0 % 4 + 1}/4`) + (f < 1 ? L(" · semaine allégée", " · lighter week") : ""); }
     liste = E.sem(P, bloc, w0 % 4);
   }

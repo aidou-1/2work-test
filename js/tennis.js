@@ -36,7 +36,7 @@ const MOB_TN = ["armcircles", "rotEpaule", "openbook", "thread", "hip9090", "leg
 // Le volume dépend du niveau ; la vitesse s'arrête dès que le placement se dégrade.
 const niveauRaq = x => x.niv === "debutant" ? 0 : x.niv === "compet" ? 2 : 1;
 const gainageRaq = () => ["Gainage / rotation", "Core / rotation", "Respire, bassin stable, sans douleur lombaire.", "Breathe, keep hips stable, no lower-back pain.", 1, 20,
-  [["bird", 30, 10, RPE_SP(4, ""), "30 s"], ["deadbug", 30, 10, RPE_SP(4, ""), "30 s"]]];
+  [[["bxPallof", "planchelat"], 30, 10, RPE_SP(5, L("le tronc ne tourne pas", "the trunk doesn’t rotate")), "30 s"], ["rqRotation", 30, 10, RPE_SP(4, L("pieds puis hanches puis tronc, alterne les côtés", "feet then hips then trunk, alternate sides")), "30 s"], ["deadbug", 30, 10, RPE_SP(4, ""), "30 s"]]];
 const seancesRaquette = (sp, c = "#0EA5E9") => ({
   force: { c: "#16A34A", t: ["Force et prévention", "Strength and prevention"], rpe: "5–7", max: 5, d: ["Jambes, tronc, épaule, coude, poignet et mollets. Garde 2 à 3 répétitions en réserve ; aucune douleur.", "Legs, trunk, shoulder, elbow, wrist and calves. Leave 2 to 3 reps in reserve; no pain."],
     f: (k, x) => [["Force", "Strength", "6 à 8 répétitions contrôlées, puis repos. Débutant : amplitude confortable.", "6 to 8 controlled reps, then rest. Beginner: comfortable range.", k, 75,
@@ -70,10 +70,10 @@ function preparerRaquette(S, sp) {
           b[2] = L("Reste à l’effort conseillé, ralentis si nécessaire.", "Stay at the advised effort, slow down as needed."); b[3] = "";
           if (code === "intermittent") b[4] = n ? 8 : 6;
           if (code === "rsa") b[4] = n ? 6 : 4;
-          b[6].forEach(i => { if (code === "base") i[0] = allSp(sp, 0); i[3] = RPE_SP(code === "recup" ? 2 : code === "base" ? 4 : n ? 8 : 6, ""); });
+          b[6].forEach((i, j) => { if (code === "base") i[0] = allSp(sp, 0); i[3] = code === "intermittent" && j ? RPE_SP(3, L("lent, sans s’arrêter", "slow, keep moving")) : RPE_SP(code === "recup" ? 2 : code === "base" ? 4 : n ? 8 : 6, ""); });
         });
       }
-      const suite = [...(["rsa", "intermittent", "base"].includes(code) ? [["Mise en route", "Easy start", "Deux minutes très faciles avant les efforts.", "Two very easy minutes before work.", 1, 15, [[allSp(sp, 0), 120, 15, RPE_SP(3, ""), "2 min"]]]] : []), ...blocs];
+      const suite = [...(["rsa", "intermittent"].includes(code) ? [Object.assign(rampeSp(sp), { fx: 1 })] : code === "base" ? [["Mise en route", "Easy start", "Deux minutes très faciles avant les efforts.", "Two very easy minutes before work.", 1, 15, [[allSp(sp, 0), 120, 15, RPE_SP(3, ""), "2 min"]]]] : []), ...blocs];
       // Allonger un format avec de l'aérobie facile, jamais en multipliant les sauts ou les sprints.
       if (!seance.fixe && k === seance.max) {
         const total = suite.reduce((t, b) => t + Array.from({ length: b[4] }, (_, tour) => b[6].filter(i => spChoix(i[0], x.mat)).reduce((a, i, j, l) => a + i[1] + (j < l.length - 1 ? i[2] : tour < b[4] - 1 ? b[5] : b[7] ?? 30), 0)).reduce((a, v) => a + v, 0), 0);

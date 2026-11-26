@@ -22,7 +22,8 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); }; let n = 0;
   const verifier = (plan, nom) => blocsRepetes(plan).filter(g => g.n >= 2).forEach(g => [1, g.n + 3].forEach(N => {
     // la détection se fait toujours sur la séance d'origine : on compte les étapes du bloc obtenu
     const b = { l: planAjuste(plan, { [g.c]: N }).filter(q => cleBloc(q.bn) + (q.series ? ' · ' + EXERCICES[q.id].nom : '') === g.k) };
-    ok(b.l.length === N * g.p, `${nom} · ${g.k} × ${N}`);
+    // bloc intense (sprints, sauts, 8/10 et plus) : jamais au-delà des tours proposés
+    ok(b.l.length === (plusOk(g) ? N : Math.min(N, g.n)) * g.p, `${nom} · ${g.k} × ${N}`);
     ok(b.l[b.l.length - 1].r === g.l[g.l.length - 1].r, `${nom} · ${g.k} repos de fin`);
     ok(!b.l.some(q => /(^|\D)(\d+)\s*\/\s*(\d+)(?!\d)/.test(q.lab || '') && (q.lab.match(/(\d+)\s*\/\s*(\d+)/g) || []).some(x => { const [a, c] = x.split('/').map(Number); return a > c; })), `${nom} · numéros`); n++; }));
   for (const c of CARDIOS) verifier(seanceCardio('boxe', c[0]).plan, 'cardio ' + c[0]);
@@ -31,10 +32,12 @@ VERIF = r'''() => { const ok = (x, m) => { if (!x) throw Error(m); }; let n = 0;
   ok(blocsRepetes(seanceCardio('boxe', 'sprints').plan).some(g => g.n >= 2), 'sprints réglables');
   ok(blocsRepetes(spSeance('boxe', 'rsa').plan).some(g => g.k === 'Série' || g.k === 'Set'), 'séries rsa groupées');
   // 3. écran : bouton Modifier, +, choix gardé, Par défaut
-  stocker('niveauRenfo', 'inter'); ROUTINES.cardioS = { ...seanceCardio('boxe', 'sprints'), retour: () => 0 }; CONSEILLES.cardioS = []; ouvrirRoutine('cardioS');
-  const avant = liste.length; $('ajustBtn').click(); document.querySelector('[data-aj][data-d="1"]').click();
-  ok(liste.length === avant + 1, 'une répétition de plus'); ok(Object.keys(lireJSON('ajustSeances', {})).length === 1, 'choix gardé');
+  stocker('niveauRenfo', 'inter'); ROUTINES.cardioS = { ...spSeance('boxe', 'gainage'), retour: () => 0 }; CONSEILLES.cardioS = []; ouvrirRoutine('cardioS');
+  const avant = liste.length; $('ajustBtn').click(); document.querySelector('[data-aj][data-d="1"]:not([disabled])').click();
+  ok(liste.length > avant, 'un tour de plus'); ok(Object.keys(lireJSON('ajustSeances', {})).length === 1, 'choix gardé');
   $('ajustDef').click(); ok(liste.length === avant && !Object.keys(lireJSON('ajustSeances', {})).length, 'par défaut');
+  // sprints : « + » bloqué, un ancien choix absolu plus grand est ramené aux tours proposés
+  const sp = blocsRepetes(seanceCardio('boxe', 'sprints').plan).find(g => g.n >= 2); ok(!plusOk(sp) && toursAj(sp, { [sp.c]: sp.n + 3 }) === sp.n && toursAj(sp, { [sp.c]: { d: -1 } }) === sp.n - 1, 'plafond sprints');
   return n; }'''
 with sync_playwright() as p:
     browser = p.chromium.launch(args=['--no-sandbox'])

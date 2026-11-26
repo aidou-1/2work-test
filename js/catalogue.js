@@ -151,7 +151,7 @@ function vueLibres() {
 
 /* ============ RETOUR AU CALME : séances de récupération complètes ============
    3 phases : retour progressif au calme (mobilité douce) → étirements statiques ciblés → respiration lente allongée.
-   Étirements : 30 s par muscle et par côté (ACSM). Ils améliorent la souplesse et la détente ;
+   Étirements : 30 s par muscle et par côté (recommandation courante). Ils améliorent la souplesse et la détente ;
    ils ne préviennent pas les courbatures (revues publiées) : on le dit honnêtement. */
 // [id, titre FR, titre EN, quand FR, quand EN, couleur, mobilité douce, étirements, respiration (s), conseil FR, conseil EN]
 const RECUPS = [
@@ -236,8 +236,8 @@ function vueCalme() {
   });
 }
 
-/* ============ ÉCHAUFFEMENTS : MÉTHODE RAMP ============
-   RAMP (Jeffreys, 2007) : Raise (élever la température), Activate & Mobilise, Potentiate (préparer au geste, intensité croissante).
+/* ============ ÉCHAUFFEMENTS EN 4 PHASES ============
+   Élever la température, mobiliser, activer, puis préparer au geste à intensité croissante.
    Revue de 32 études : l'échauffement améliore la performance dans 79 % des critères étudiés.
    Étirements statiques < 60 s par muscle intégrés à un échauffement dynamique = effet négligeable sur la performance.
    ECHS[clé de routine] = [élever, mobiliser, activer, préparer au geste, conseil FR, conseil EN, pourquoi FR, pourquoi EN] */
@@ -254,40 +254,40 @@ const ECHS = {
   basket: [["footwork", "jumpingJack", "kneeup"], ["ankles", "legside", "legfwd", "wgs", "hip9090"], ["calfraise", "lateral", "equilibre"], ["pasChasse", "skater", "sautContre", "sautTir"],
     ["Travaille les réceptions : genoux dans l’axe des pieds, atterrissage silencieux.", "Focus on landings: knees in line with your feet, land quietly."],
     ["L’entorse de cheville est la blessure la plus fréquente au basket. L’équilibre et des réceptions de sauts bien contrôlées préparent la cheville et le genou aux changements d’appui.", "Ankle sprains are the most common basketball injury. Balance work and well-controlled jump landings prepare your ankle and knee for changes of direction."]],
-  handball: [["footwork", "footwork", "kneeup"], ["armcircles", "rotEpaule", "legfwd", "legside", "thread"], ["scap", "lateral", "pont"], ["pasChasse", "pasDefensifs", "lancer", "lancer"],
+  handball: [["footwork", "footwork", "kneeup"], ["armcircles", "rotEpaule", "legfwd", "legside", "thread"], ["scap", "lateral", "pont"], ["lancer", "pasDefensifs", "pasChasse", "askip"],
     ["Finis par des tirs avec ballon à 50 %, puis 75 %, avant de tirer à fond.", "Finish with shots at 50%, then 75%, before shooting at full power."],
     ["L’épaule du tireur et le genou (réceptions, pivots) sont les zones les plus exposées. Prépare progressivement les rotations de l’épaule et les omoplates, puis les passes et tirs, sans douleur ni promesse de protection.", "The thrower’s shoulder and the knee (landings, pivots) are the most exposed areas. Prepare shoulder rotation and shoulder blades progressively, then passes and shots, pain-free and without a protection guarantee."]],
-  volley: [["footwork", "pasChasse", "kneeup"], ["armcircles", "rotEpaule", "thread", "legside", "ankles"], ["scap", "calfraise", "lateral"], ["pasChasse", "calfraise", "scap", "lancer"],
+  volley: [["footwork", "pasChasse", "kneeup"], ["armcircles", "rotEpaule", "thread", "legside", "ankles"], ["scap", "calfraise", "lateral"], ["vbDefense", "pasChasse", "lancer", "sautContre"],
     ["Avant le match, enchaîne quelques attaques et services à intensité croissante.", "Before the match, do a few spikes and serves at increasing intensity."],
     ["Les sauts répétés sollicitent le tendon rotulien et les chevilles, les smashs et les services sollicitent l’épaule : on prépare les deux.", "Repeated jumps load the patellar tendon and ankles, while spikes and serves load the shoulder: we prepare both."]],
-  tennis: [["footwork", "jumpingJack", "kneeup"], ["armcircles", "rotEpaule", "twist", "openbook", "legside"], ["scap", "lateral", "planchelat"], ["pasChasse", "lungetwist", "coupDroit", "squatsaute"],
+  tennis: [["footwork", "jumpingJack", "kneeup"], ["armcircles", "rotEpaule", "twist", "openbook", "legside"], ["scap", "lateral", "planchelat"], ["pasChasse", "lungetwist", "coupDroit", "splitStep"],
     ["Commence l’échange près du filet, recule progressivement et garde les services pour la fin.", "Start rallying close to the net, move back gradually and save serves for the end."],
     ["Le service et le coup droit font tourner l’épaule et le tronc très vite, et les déplacements latéraux sollicitent adducteurs et mollets. Épaule, coude et tronc doivent être chauds avant de frapper fort.", "Serves and forehands rotate the shoulder and trunk very fast, and lateral movement loads the adductors and calves. Shoulder, elbow and trunk must be warm before hitting hard."]],
-  padel: [["footwork", "jumpingJack", "kneeup"], ["armcircles", "rotEpaule", "twist", "cossack", "legside"], ["scap", "lateral", "planchelat"], ["pasChasse", "lungetwist", "coupDroit", "skater"],
+  padel: [["footwork", "jumpingJack", "kneeup"], ["armcircles", "rotEpaule", "twist", "cossack", "legside"], ["scap", "lateral", "planchelat"], ["pasChasse", "lungetwist", "coupDroit", "splitStep"],
     ["Échange d’abord en douceur au fond du court, puis monte au filet pour les volées.", "Rally gently from the back of the court first, then move up to the net for volleys."],
     ["Les blessures les plus fréquentes au padel touchent le coude, l’épaule, le mollet et la cheville : on les prépare aux frappes et aux démarrages rapides.", "The most common padel injuries affect the elbow, shoulder, calf and ankle: we prepare them for shots and quick starts."]],
   boxe: [["footwork", "jumpingJack", "kneeup"], ["armcircles", "thread", "openbook", "wipers", "cossack"], ["scap", "planchetouch", "tspin"], ["slips", "shadow", "squatsaute"],
     ["Termine par un round de shadow : technique au début, vitesse à la fin.", "Finish with a round of shadow boxing: technique first, speed at the end."],
     ["La puissance des coups vient des jambes et de la rotation du tronc ; les épaules doivent tenir la garde longtemps. On prépare la chaîne complète, des chevilles aux poings.", "Punching power comes from the legs and trunk rotation, and the shoulders must hold the guard for a long time. We prepare the whole chain, from ankles to fists."]],
-  escalade: [["jumpingJack", "climbers"], ["armcircles", "rotEpaule", "catcow", "thread", "hip9090", "wgs"], ["scap", "bird", "planche"], ["suspension", "tspin", "pompes"],
+  escalade: [["jumpingJack", "climbers"], ["armcircles", "rotEpaule", "catcow", "thread", "hip9090", "wgs"], ["scap", "bird", "planche"], ["pompes", "tspin", "suspension"],
     ["Fais ensuite 2 ou 3 voies faciles, sur grosses prises, avant d’attaquer ton niveau.", "Then climb 2 or 3 easy routes on big holds before tackling your level."],
     ["Doigts (poulies), épaules et coudes encaissent les plus fortes charges. Ils se préparent progressivement : jamais de petites prises à froid.", "Fingers (pulleys), shoulders and elbows take the biggest loads. Prepare them progressively: never small holds while cold."]],
-  cyclisme: [["pedalage", "kneeup", "jumpingJack"], ["catcow", "openbook", "hip9090", "legfwd", "scorpion"], ["pont", "bird", "calfraise"], ["fente", "squatsaute", "skater"],
+  cyclisme: [["pedalage", "kneeup", "jumpingJack"], ["catcow", "openbook", "hip9090", "legfwd", "scorpion"], ["pont", "bird", "calfraise"], ["fente", "bird", "pedalage"],
     ["Sur le vélo, roule ensuite 10 minutes en souplesse avant d’appuyer.", "On the bike, then ride easy for 10 minutes before pushing."],
     ["La position assise et penchée raidit le dos et l’avant des hanches, et les fessiers travaillent peu à vélo : on mobilise le dos, on ouvre les hanches et on réveille les fessiers.", "The seated, bent-over position stiffens the back and the front of the hips, and the glutes do little on a bike: we mobilise the back, open the hips and wake up the glutes."]],
-  natation: [["jumpingJack", "kneeup"], ["armcircles", "armcross", "rotEpaule", "thread", "openbook", "ankles"], ["scap", "superman", "deadbug"], ["crawlSec", "battements", "squatsaute"],
+  natation: [["jumpingJack", "kneeup"], ["armcircles", "armcross", "rotEpaule", "thread", "openbook", "ankles"], ["scap", "superman", "deadbug"], ["crawlSec", "streamline", "scap", "battements"],
     ["Dans l’eau, nage ensuite 200 à 400 m tranquille en variant les nages.", "In the water, then swim 200 to 400 m easy, mixing strokes."],
     ["L’« épaule du nageur » est la plainte la plus fréquente : chaque séance compte des centaines de rotations du bras. La coiffe des rotateurs et les omoplates doivent être activées avant d’entrer dans l’eau.", "“Swimmer’s shoulder” is the most common complaint: each session involves hundreds of arm rotations. The rotator cuff and shoulder blades must be switched on before getting in the water."]],
-  ski: [["jumpingJack", "kneeup", "heelkick"], ["ankles", "legfwd", "legside", "twist", "cossack"], ["skisquat", "lateral", "equilibre"], ["skihop", "squatsaute", "skater"],
+  ski: [["jumpingJack", "kneeup", "heelkick"], ["ankles", "legfwd", "legside", "twist", "cossack"], ["skisquat", "lateral", "equilibre"], ["lateral", "skisquat", "skater", "skihop"],
     ["Fais la première descente sur une piste facile, à vitesse modérée.", "Make your first run on an easy slope at moderate speed."],
     ["Le genou est la zone la plus touchée au ski, et il fait souvent froid au pied des pistes. On prépare quadriceps, fessiers et équilibre avant la première descente.", "The knee is the most commonly injured area in skiing, and it is often cold at the bottom of the slopes. We prepare quads, glutes and balance before the first run."]],
-  surf: [["jumpingJack", "paddle", "kneeup"], ["armcircles", "thread", "cobra", "hip9090", "cossack"], ["superman", "surfsquat", "scap"], ["popup", "squatsaute", "skater"],
+  surf: [["jumpingJack", "paddle", "kneeup"], ["armcircles", "thread", "cobra", "hip9090", "cossack"], ["superman", "surfsquat", "scap"], ["paddle", "rotationSurf", "surfsquat", "popup"],
     ["Échauffe-toi sur la plage : l’eau froide refroidit vite les muscles.", "Warm up on the beach: cold water quickly cools your muscles."],
     ["Rame, pop-up et position basse sollicitent les épaules, le bas du dos et les hanches. Un pop-up rapide et précis se prépare à sec.", "Paddling, pop-ups and the low stance load the shoulders, lower back and hips. A quick, precise pop-up is prepared on dry land."]],
   yoga: [["grandissement", "catcow"], ["thread", "cobra", "dogpedal", "hip9090", "enfant"], ["bird", "pont", "planche"], ["wgs", "cascade", "inchworm"],
     ["Synchronise chaque mouvement avec ta respiration, sans jamais forcer.", "Sync every movement with your breath, never forcing."],
     ["Préparer la colonne, les hanches et la respiration permet d’aborder les postures plus profondes en sécurité.", "Preparing your spine, hips and breathing lets you approach deeper poses safely."]],
-  pilates: [["grandissement", "catcow"], ["rollUp", "cercleJambe", "thread", "hip9090", "twist"], ["bird", "pont", "deadbug"], ["hundred", "planchelat", "ours"],
+  pilates: [["grandissement", "catcow"], ["rollUp", "cercleJambe", "thread", "hip9090", "twist"], ["bird", "pont", "deadbug"], ["hundred", "bird", "deadbug"],
     ["Garde le bassin stable et le nombril rentré pendant tout l’échauffement.", "Keep your pelvis stable and your belly button drawn in throughout the warm-up."],
     ["Le Pilates demande un centre actif (transverse, plancher pelvien) et une colonne mobile vertèbre par vertèbre : on prépare les deux.", "Pilates needs an active core (transverse abdominis, pelvic floor) and a spine that moves one vertebra at a time: we prepare both."]],
   haut: [["jumpingJack", "kneeup"], ["armcircles", "armcross", "thread", "openbook", "catcow"], ["scap", "superman", "planchetouch"], ["pompesMur", "inchworm", "pompes"],
@@ -309,13 +309,15 @@ const PHASES_ECH = [["Élever la température", "Raise your temperature", "Cardi
   ["Activer les muscles clés", "Activate key muscles", "On réveille les muscles qui stabilisent et protègent les articulations les plus sollicitées par ton sport.", "Wake up the muscles that stabilise and protect the joints your sport loads the most."],
   ["Préparer au geste", "Prepare for action", "Gestes de ton sport et exercices dynamiques à intensité croissante, jusqu’à presque 100 % sur le dernier.", "Sport-specific and dynamic moves at increasing intensity, up to almost 100% on the last one."]];
 const INTENS = { 2: [70, 90], 3: [60, 80, 95], 4: [60, 75, 85, 95] };
+// sports sans sauts en fin d'échauffement (bassin mouillé, cales, Pilates, poulies des doigts) et sans pourcentage d'intensité pour les gestes lents
+const ECH_SANS_SAUT = ["natation", "cyclisme", "escalade", "pilates", "yoga"], ECH_SANS_PC = ["course", "pilates", "yoga", "escalade", "cyclisme", "natation"];
 // exercices génériques par phase, ajoutés après ceux du sport quand le format en demande plus (jamais en double)
 const ECH_PLUS = [["footwork", "kneeup", "heelkick", "climbers"], ["armcircles", "hip9090", "wgs", "legfwd", "legside", "openbook", "thread", "catcow", "inchworm", "cossack"], ["pont", "calfraise", "squat", "planche", "deadbug", "lateral", "bird"], ["askip", "skater", "squatsaute", "lungetwist"]];
 function seanceEch(cle, fmt) {
   const R = ROUTINES[cle], E = ECHS[cle], [, fFr, fEn, nb, dur] = FMT_ECH.find(f => f[0] === fmt), ok = l => l.filter(e => EXERCICES[e]);
   const plan = [], blocs = [];
   PHASES_ECH.forEach(([nFr, nEn, dFr, dEn], p) => {
-    const l = [...new Set(ok([...E[p], ...ECH_PLUS[p]]))].filter(x => !plan.some(q => q.id === x)).slice(0, nb[p]), n = L(nFr, nEn), pc = p === 3 && cle !== "course" ? INTENS[l.length] || [] : [];
+    const l = [...new Set(ok([...E[p], ...(p === 3 && ECH_SANS_SAUT.includes(cle) ? [] : ECH_PLUS[p])]))].filter(x => !plan.some(q => q.id === x)).slice(0, nb[p]), n = L(nFr, nEn), pc = p === 3 && !ECH_SANS_PC.includes(cle) ? INTENS[l.length] || [] : [];
     const items = l.map((x, k) => { const u = !!(changements(x) || {}).double, cote = Math.min(30, Math.round(dur[p] * .75 / 5) * 5), d = u ? cote * 2 : dur[p];
       plan.push({ id: x, d, r: p === 3 ? 10 : 0, bn: n, lab: `${n} · ${k + 1}/${l.length}${pc[k] ? " · " + pc[k] + " %" : ""}` });
       return [x, (u ? "2 × " + cote : DEUX_PASSAGES.includes(x) ? "2 × " + d : d) + " s" + (pc[k] ? " · " + pc[k] + " %" : "")]; });
@@ -380,7 +382,7 @@ function listeSports() {   // guide en tête, sports regroupés par famille (rec
 }
 
 /* ============ RENFO PAR SPORT ============
-   Synthèse de 25 essais (26 610 sportifs) : le renforcement musculaire réduit les blessures sportives à moins d'un tiers.
+   Les synthèses d'essais montrent que le renforcement musculaire réduit nettement les blessures sportives.
    Séance en 4 blocs : échauffement (tiré de ECHS) → circuit principal (tours/effort/repos selon le niveau) → prévention ciblée → retour au calme (tiré de RECUPS).
    RENFOS[groupe] = [qualités FR, EN, pourquoi FR, EN, exercices de prévention, séance de retour au calme] */
 const RENFOS = {
@@ -491,28 +493,30 @@ function renduRenfo(grp) {
 }
 
 /* ============ TABATA ============
-   Étude d’origine (1996) : 8 × (20 s à très haute intensité / 10 s de repos) = 4 min. En 6 semaines, +14 % de VO2max et +28 % de capacité anaérobie.
+   Format : 8 × (20 s à très haute intensité / 10 s de repos) = 4 min.
    TABATAS = [id, nom FR, EN, couleur, niveau FR, EN, blocs (2 exercices alternés par bloc), récup entre blocs (s), texte FR, EN] */
 const TABATAS = [
   ["decouverte", "Tabata découverte", "Tabata starter", "#F59E0B", "Débutant", "Beginner", [["jumpingJack", "squat"], ["kneeup", "pompesMur"]], 90, "Des exercices simples pour apprendre le format : chacun va à son rythme.", "Simple exercises to learn the format: go at your own pace."],
-  ["original", "Tabata original", "Original Tabata", "#DC2626", "Avancé", "Advanced", [["burpees", "burpees"]], 60, "Le protocole de l’étude de 1996 : un seul exercice, 4 minutes à fond.", "The protocol from the 1996 study: one exercise, 4 minutes all out."],
+  ["original", "Tabata original", "Original Tabata", "#DC2626", "Avancé", "Advanced", [["burpees", "burpees"]], 60, "Le format d’origine : un seul exercice, 4 minutes à fond.", "The original format: one exercise, 4 minutes all out."],
   ["cardio", "Tabata cardio", "Cardio Tabata", "#EA580C", "Intermédiaire", "Intermediate", [["jumpingJack", "kneeup"], ["climbers", "skater"], ["squatsaute", "heelkick"], ["burpees", "footwork"]], 60, "4 blocs pour faire grimper le cœur et brûler un maximum.", "4 blocks to send your heart rate up and burn as much as possible."],
   ["jambes", "Tabata jambes", "Leg Tabata", "#0D9488", "Intermédiaire", "Intermediate", [["squat", "fentesalt"], ["squatsaute", "skater"], ["pontuni", "chaise"]], 60, "Cuisses et fessiers en feu, avec un bloc plus doux pour finir.", "Thighs and glutes on fire, with a gentler block to finish."],
   ["haut", "Tabata haut du corps", "Upper-body Tabata", "#7C3AED", "Intermédiaire", "Intermediate", [["pompes", "planchetouch"], ["pike", "climbers"], ["pompesserrees", "ours"]], 60, "Pectoraux, épaules, triceps et gainage.", "Chest, shoulders, triceps and core."],
-  ["abdos", "Tabata abdos", "Abs Tabata", "#2563EB", "Intermédiaire", "Intermediate", [["climbers", "russian"], ["crunchInverse", "hollow"], ["planchelat", "deadbug"]], 60, "Toute la sangle abdominale, en dynamique et en gainage.", "Your whole core, both dynamic and static."],
+  ["abdos", "Tabata abdos", "Abs Tabata", "#2563EB", "Intermédiaire", "Intermediate", [["climbers", "russian"], ["crunchInverse", "hollow"], ["planchetouch", "climbers"]], 60, "Toute la sangle abdominale, en dynamique et en gainage.", "Your whole core, both dynamic and static."],
   ["complet", "Tabata full body", "Full-body Tabata", "#BE123C", "Avancé", "Advanced", [["burpees", "squatsaute"], ["pompes", "climbers"], ["fentesalt", "planchetouch"], ["skater", "russian"]], 60, "Le plus complet et le plus exigeant : tout le corps en 4 blocs.", "The most complete and demanding: the whole body in 4 blocks."]
 ];
 function seanceTabata(id) {
   const [, tFr, tEn, c, nvFr, nvEn, B, rec] = TABATAS.find(t => t[0] === id), plan = [], blocs = [], n = B.length;
-  const ech = ["jumpingJack", "armcircles", "hip9090", "squat", "kneeup"].filter(e => EXERCICES[e]), nE = L("Échauffement", "Warm-up");
-  ech.forEach((x, k) => plan.push({ id: x, d: 30, r: 5, bn: nE, lab: `${nE} · ${k + 1}/${ech.length}` })); plan[plan.length - 1].r = 20;
-  blocs.push([nE, ech.map(x => [x, "30 s"]), L("Indispensable avant un effort aussi intense : monte progressivement.", "Essential before such an intense effort: build up gradually.")]);
+  // 8 minutes environ avant un effort à fond : cardio léger, mobilité, puis deux accélérations de 10 s sur le premier exercice
+  const ech = [["footwork", 90], ["jumpingJack", 45], ["armcircles", 30], ["hip9090", 40], ["wgs", 40], ["squat", 40], ["pompesMur", 30], ["kneeup", 30], [B[0][0], 10], [B[0][0], 10]].filter(e => EXERCICES[e[0]]), nE = L("Échauffement", "Warm-up");
+  ech.forEach(([x, d], k) => plan.push({ id: x, d, r: k >= ech.length - 2 ? 30 : 5, bn: nE, lab: `${nE} · ${k >= ech.length - 2 ? L("accélération", "acceleration") + " " + (k - ech.length + 3) + "/2" : k + 1 + "/" + (ech.length - 2)}` }));
+  blocs.push([nE, ech.map(([x, d]) => [x, d + " s"]), L("Indispensable avant un effort aussi intense : monte progressivement, puis deux accélérations de 10 s.", "Essential before such an intense effort: build up gradually, then two 10-second accelerations.")]);
   B.forEach((p, b) => { const nB = L("Bloc", "Block") + " " + (b + 1) + "/" + n;
     for (let i = 0; i < 8; i++) plan.push({ id: p[i % 2], d: 20, r: i < 7 ? 10 : b < n - 1 ? rec : 20, bn: nB, lab: `${nB} · ${L("intervalle", "interval")} ${i + 1}/8` });
     blocs.push([nB, [...new Set(p)].map(x => [x, p[0] === p[1] ? "8 × 20 s" : "4 × 20 s"]), L(`8 intervalles de 20 s à fond / 10 s de repos, exercices en alternance${b < n - 1 ? ` · ${rec} s de récupération après le bloc` : ""}`, `8 intervals of 20 s all out / 10 s rest, alternating exercises${b < n - 1 ? ` · ${rec} s recovery after the block` : ""}`)]); });
-  const rac = ["relaxation", "quadDebout", "murPecs"].filter(e => EXERCICES[e]), nR = L("Retour au calme", "Cool-down");
-  rac.forEach((x, k) => plan.push({ id: x, d: x === "relaxation" ? 60 : unilat(x) ? 60 : 40, r: 5, bn: nR, lab: `${nR} · ${k + 1}/${rac.length}` })); plan[plan.length - 1].r = 0;
-  blocs.push([nR, rac.map(x => [x, x === "relaxation" ? "1 min" : unilat(x) ? "2 × 30 s" : "40 s"]), L("Laisse le cœur redescendre, puis étire doucement.", "Let your heart rate drop, then stretch gently.")]);
+  // marcher d'abord : s'allonger juste après un effort à fond peut donner un malaise
+  const rac = ["rn_marche", "quadDebout", "murPecs", "relaxation"].filter(e => EXERCICES[e]), nR = L("Retour au calme", "Cool-down"), dR = x => x === "rn_marche" ? 150 : x === "relaxation" ? 60 : unilat(x) ? 60 : 40;
+  rac.forEach((x, k) => plan.push({ id: x, d: dR(x), r: 5, bn: nR, lab: `${nR} · ${k + 1}/${rac.length}` })); plan[plan.length - 1].r = 0;
+  blocs.push([nR, rac.map(x => [x, x === "rn_marche" ? "2 min 30" : x === "relaxation" ? "1 min" : unilat(x) ? "2 × 30 s" : "40 s"]), L("Marche d’abord pour laisser le cœur redescendre, puis étire doucement.", "Walk first to let your heart rate drop, then stretch gently.")]);
   const total = Math.round(plan.reduce((s, q) => s + q.d + q.r, 0) / 60);
   const html = `<li class="etude prog-carte-jour" style="--accent:${c}"><div><small><b>${L(nvFr, nvEn)} · ${n} ${L(n > 1 ? "blocs" : "bloc", n > 1 ? "blocks" : "block")} Tabata · ${n * 4} min ${L("d’effort intense", "of intense work")}</b></small><small>💡 ${L("« À fond » veut dire 9/10 : à la fin de chaque intervalle, tu ne pourrais pas tenir 5 secondes de plus.", "“All out” means 9/10: at the end of each interval you could not keep going for 5 more seconds.")}</small></div></li>` + blocs.map(blocHtml).join("");
   return { type: "seance", tbt: 1, fixe: true, couleur: c, plan, exercices: plan.map(q => q.id), listeHtml: html, rpe: "9", total, titre: L(tFr, tEn), titreFr: tFr, detail: "" };
@@ -520,7 +524,7 @@ function seanceTabata(id) {
 function ficheTabata() {
   return `<details class="prog-info" style="--c:#D9480F"><summary>${L("Le Tabata : le guide", "Tabata: the guide")}</summary>
     <h3>${L("C’est quoi ?", "What is it?")}</h3><p>${L("Un bloc Tabata, c’est 8 fois 20 secondes d’effort à fond et 10 secondes de repos : 4 minutes qui font monter le cœur au maximum. On enchaîne un ou plusieurs blocs avec une minute de récupération entre deux blocs.", "One Tabata block is 8 rounds of 20 seconds all out and 10 seconds rest: 4 minutes that push your heart rate to the max. You do one or more blocks with a minute of recovery between them.")}</p>
-    <h3>${L("D’où ça vient ?", "Where does it come from?")}</h3><p>${L("Dans l’étude d’origine (1996), en 6 semaines, ce format a amélioré à la fois l’endurance (+14 % de VO2max) et la capacité à produire des efforts intenses (+28 %), en seulement quelques minutes par séance.", "In the original 1996 study, in 6 weeks this format improved both endurance (+14% VO2max) and the capacity for intense efforts (+28%), in just a few minutes per session.")}</p>
+    <h3>${L("D’où ça vient ?", "Where does it come from?")}</h3><p>${L("Le format vient d’une étude sur vélo en laboratoire, à une intensité bien au-delà de l’effort maximal habituel et 5 jours par semaine : l’endurance et la capacité à répéter des efforts intenses ont progressé. Avec des exercices au poids du corps, les progrès sont réels mais plus modestes : ne compte pas sur les chiffres de cette étude.", "The format comes from a laboratory cycling study, at an intensity far above the usual maximal effort and 5 days a week: endurance and the ability to repeat intense efforts improved. With bodyweight exercises the gains are real but smaller: don’t expect the study’s numbers.")}</p>
     <h3>${L("Les règles d’or", "Golden rules")}</h3><ul class="prog-obj">
       <li>${L("Toujours un échauffement avant : il est inclus dans chaque séance.", "Always warm up first: it is included in every session.")}</li>
       <li>${L("Intensité 9/10 sur chaque intervalle, mais jamais au détriment de la technique.", "9/10 intensity on every interval, but never at the expense of technique.")}</li>
